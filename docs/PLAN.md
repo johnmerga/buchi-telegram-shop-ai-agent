@@ -167,12 +167,16 @@ test timer, migrations run on Supabase, and CI is green.
 ### 0.4 Database schema, migrations, and row-level security
 
 - **Doc:** Tech stack and data model, Multi-shop data isolation.
-- **Deliverables:** Drizzle schema for every table in the design doc, split by domain;
-  SQL migrations that enable `pgvector`, create the `app_user` role without `BYPASSRLS`, and add a
-  row-level security policy to every shop-owned table; `withShop(shopId, fn)`; a seed script for
-  the demo shop "Selam Shoes".
-- **Acceptance:** an integration test signs in as shop A and reads zero rows of shop B from every
-  shop-owned table. `CHECK (reserved <= stock)` and `UNIQUE (provider, tx_ref)` reject bad rows.
+- **Deliverables:** Drizzle client for the Supabase transaction pooler; a setup migration that
+  enables `pgvector` and creates the `app_user` role without `BYPASSRLS`; the `shopIsolation`
+  policy helper; `withShop(shopId, fn)`, which sets `app.shop_id` and switches to `app_user` for
+  the transaction; the `shops` and `shop_members` tables; a migration runner for development and
+  production; and an integration test setup that recreates a test database on every run.
+- **Scope rule:** each later task adds the tables it needs, with its own migration. Columns are
+  not created before a task uses them. The demo seed belongs to Task 1.2.
+- **Acceptance:** a generic test fails for any table with a `shop_id` column that lacks row-level
+  security and a policy. Inside `withShop`, a shop reads only its own rows and cannot write rows for
+  another shop. With no shop set, `app_user` reads nothing.
 
 ### 0.5 Telegram ingress
 
@@ -197,7 +201,10 @@ test timer, migrations run on Supabase, and CI is green.
 - **Deliverables:** GitHub Actions workflow (lint, typecheck, unit tests, integration tests with a
   `pgvector` service container), `render.yaml`, and a README section for the Supabase, BotFather,
   Render, and cron-job.org setup.
-- **Acceptance:** a pull request with a failing test cannot merge. A push to `main` deploys to Render.
+- **Acceptance:** CI runs format, lint, typecheck, unit and integration tests, and the build. Render
+  deploys `main` only after checks pass (`autoDeployTrigger: checksPass`) and runs migrations before
+  the server starts. A branch protection rule that requires the `check` status is a manual GitHub
+  setting, described in the README.
 
 ---
 
@@ -219,7 +226,7 @@ unpaid order expires and releases its stock.
 - **Doc:** Order intake and price negotiation (step 1 and 2).
 - **Deliverables:** products and variants with pricing modes (fixed, or negotiable with asking and
   lowest price); **Post to channel** with a **Buy** or **Ask price** deep-link button; tap counting
-  on `channel_posts`.
+  on `channel_posts`; the demo seed for "Selam Shoes".
 - **Acceptance:** a negotiable product's post contains no price. The lowest price never appears in
   any API response except the owner's product editor.
 

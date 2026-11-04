@@ -38,6 +38,12 @@ deliveries, and an owner assistant turns the owner's instructions into rules. Fo
    docker compose up -d
    ```
 
+1. Apply the database migrations:
+
+   ```sh
+   pnpm --filter @buchi/server db:migrate
+   ```
+
 1. Start the server in watch mode:
 
    ```sh
@@ -82,9 +88,13 @@ pass before a pull request merges.
 
 ### Supabase
 
-Production uses a Supabase Postgres database with the `pgvector` extension. The server doesn't
-connect to a database yet. Task 0.4 in [PLAN.md](docs/PLAN.md) adds the schema, migrations, and the
-connection settings.
+Production uses a Supabase Postgres database. In Render, set `DATABASE_URL` to the Supabase
+transaction pooler connection string (port 6543). The start command runs pending migrations before
+the server starts. The first migration enables `pgvector` and creates the `app_user` role that
+row-level security applies to.
+
+Integration tests use their own database, which they drop and recreate on every run. Set
+`TEST_DATABASE_URL` to change it from the default `postgres://buchi:buchi@localhost:5432/buchi_test`.
 
 ### Telegram bot
 

@@ -35,6 +35,4 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-        env:
-          DATABASE_URL: postgres://buchi:buchi@localhost:5432/buchi
       - run: pnpm --filter @buchi/server build

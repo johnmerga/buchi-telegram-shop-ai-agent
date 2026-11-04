@@ -36,6 +36,13 @@
       "when": 1793832094428,
       "tag": "0004_owner_shop_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793833962665,
+      "tag": "0005_revoke_data_api",
+      "breakpoints": true
     }
   ]
 }

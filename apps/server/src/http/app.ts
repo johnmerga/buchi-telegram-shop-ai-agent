@@ -2,13 +2,17 @@ import { randomUUID } from 'node:crypto';
 import express, { type Express } from 'express';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
+import { createJobsRouter } from '../modules/jobs/jobs.routes';
+import type { JobService } from '../modules/jobs/jobs.service';
 import { errorHandler, notFound } from './middleware/errors';
 
 export interface AppDeps {
   logger: Logger;
+  jobs: JobService;
+  jobSecret: string;
 }
 
-export function createApp({ logger }: AppDeps): Express {
+export function createApp({ logger, jobs, jobSecret }: AppDeps): Express {
   const app = express();
 
   app.disable('x-powered-by');
@@ -28,6 +32,8 @@ export function createApp({ logger }: AppDeps): Express {
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+
+  app.use('/jobs', createJobsRouter(jobs, jobSecret));
 
   app.use(notFound);
   app.use(errorHandler);

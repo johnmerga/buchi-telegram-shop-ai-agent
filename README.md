@@ -105,5 +105,16 @@ needs.
 ### cron-job.org
 
 [cron-job.org](https://cron-job.org) calls the scheduled job endpoints, which also keeps the free
-Render instance awake. No job endpoints exist yet. Task 0.6 adds the tick endpoint and its secret
-header.
+Render instance awake. Each job endpoint is `POST /jobs/<name>` and requires the `x-job-secret`
+header. The only job so far is `tick`, which runs the timers that are due.
+
+1. Generate a secret of at least 32 characters, for example with `openssl rand -hex 32`.
+1. In Render, set `JOB_SECRET` to that secret.
+1. In cron-job.org, click **Create cronjob** and set the URL to
+   `https://<your-render-service>.onrender.com/jobs/tick`.
+1. Set the schedule to every minute.
+1. In the **Advanced** tab, set the request method to `POST` and add the header `x-job-secret` with
+   the same secret.
+1. Save the job. Each run returns a summary such as `{"done":3,"failed":0}`.
+
+A missing or wrong secret returns `401`, and an unknown job name returns `404`.

@@ -4,6 +4,8 @@ import { loadEnv } from './env';
 describe('loadEnv', () => {
   const required = {
     DATABASE_URL: 'postgres://user:pass@localhost:5432/db',
+    TELEGRAM_BOT_TOKEN: '123:abc',
+    TELEGRAM_WEBHOOK_SECRET: 'a'.repeat(32),
     JOB_SECRET: 'x'.repeat(32),
   };
 

@@ -98,9 +98,23 @@ Integration tests use their own database, which they drop and recreate on every 
 
 ### Telegram bot
 
-You create the bot with [BotFather](https://t.me/BotFather) by sending `/newbot`. The server doesn't
-read a bot token yet. Task 0.5 adds the webhook route and the environment variables it
-needs.
+Create the bot with [BotFather](https://t.me/BotFather) by sending `/newbot`, and set
+`TELEGRAM_BOT_TOKEN` to the token it returns. Generate `TELEGRAM_WEBHOOK_SECRET` with
+`openssl rand -hex 32`.
+
+Telegram delivers updates to `POST /telegram/webhook`. The server stores each update before it
+processes it, so Telegram's retries and server restarts never lose or repeat one. After each
+deployment URL change, register the webhook:
+
+```sh
+curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -d "url=https://YOUR_HOST/telegram/webhook" \
+  -d "secret_token=$TELEGRAM_WEBHOOK_SECRET"
+```
+
+Replace `YOUR_HOST` with the Render host name. For local development, expose port 3000 over HTTPS
+with a tunnel such as `cloudflared tunnel --url http://localhost:3000`, and register the tunnel's
+host name instead.
 
 ### cron-job.org
 

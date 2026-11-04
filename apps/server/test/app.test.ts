@@ -4,6 +4,7 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/http/app';
 import { errorHandler } from '../src/http/middleware/errors';
+import { createJobsRouter } from '../src/modules/jobs/jobs.routes';
 import { JobService } from '../src/modules/jobs/jobs.service';
 import { AppError } from '../src/shared/errors';
 
@@ -12,7 +13,7 @@ const jobSecret = 'test-job-secret-that-is-long-enough';
 
 function testApp() {
   const jobs = new JobService(new Map([['tick', () => Promise.resolve({ done: 2, failed: 1 })]]));
-  return createApp({ logger, jobs, jobSecret });
+  return createApp({ logger, routers: [createJobsRouter(jobs, jobSecret)] });
 }
 
 describe('createApp', () => {

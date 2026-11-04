@@ -4,21 +4,27 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
-    "build": "tsup src/index.ts --format esm --target node22 --clean",
+    "build": "tsup",
     "start": "node dist/index.js",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate-cli.ts",
+    "db:migrate:prod": "node dist/migrate.js"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/supertest": "^7.2.1",
+    "drizzle-kit": "^0.31.11",
     "supertest": "^7.3.1",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.4",
     "express": "^5.3.0",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
+    "postgres": "^3.4.9",
     "zod": "^4.6.7"
   }
 }

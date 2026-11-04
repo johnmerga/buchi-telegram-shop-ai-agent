@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: buchi
+    runtime: node
+    region: frankfurt
+    plan: free
+    branch: main
+    autoDeployTrigger: checksPass
+    # --prod=false installs devDependencies, which the build needs, even though NODE_ENV is production.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @buchi/server build
+    startCommand: pnpm --filter @buchi/server start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: buchi
+          POSTGRES_PASSWORD: buchi
+          POSTGRES_DB: buchi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U buchi -d buchi"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v7
+      # Reads the pnpm version from packageManager in package.json.
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+        env:
+          DATABASE_URL: postgres://buchi:buchi@localhost:5432/buchi
+      - run: pnpm --filter @buchi/server build

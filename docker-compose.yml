@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: buchi
+      POSTGRES_PASSWORD: buchi
+      POSTGRES_DB: buchi
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U buchi -d buchi']
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+volumes:
+  postgres-data:

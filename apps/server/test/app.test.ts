@@ -10,13 +10,13 @@ const logger = pino({ level: 'silent' });
 
 describe('createApp', () => {
   it('reports health', async () => {
-    const res = await request(createApp({ logger })).get('/health');
+    const res = await request(createApp({ logger, routers: [] })).get('/health');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'ok' });
   });
 
   it('returns NOT_FOUND for unknown routes, with a request ID', async () => {
-    const res = await request(createApp({ logger })).get('/nope');
+    const res = await request(createApp({ logger, routers: [] })).get('/nope');
     expect(res.status).toBe(404);
     expect(res.body).toMatchObject({ error: { code: 'NOT_FOUND' } });
     expect(res.headers['x-request-id']).toBeTruthy();

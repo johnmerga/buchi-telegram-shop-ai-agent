@@ -15,6 +15,20 @@
       "when": 1793831691778,
       "tag": "0001_shops",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793831942017,
+      "tag": "0002_telegram_updates",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793831943156,
+      "tag": "0003_owner_shop_ids",
+      "breakpoints": true
     }
   ]
 }

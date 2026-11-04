@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadEnv } from './env';
+import { loadDatabaseUrl, loadEnv } from './env';
 
 describe('loadEnv', () => {
   const required = {
@@ -28,5 +28,13 @@ describe('loadEnv', () => {
 
   it('rejects a job secret shorter than 32 characters', () => {
     expect(() => loadEnv({ ...required, JOB_SECRET: 'x'.repeat(31) })).toThrow(/JOB_SECRET/);
+  });
+});
+
+describe('loadDatabaseUrl', () => {
+  it('needs only DATABASE_URL', () => {
+    expect(loadDatabaseUrl({ DATABASE_URL: 'postgres://u:p@localhost:5432/db' })).toBe(
+      'postgres://u:p@localhost:5432/db',
+    );
   });
 });

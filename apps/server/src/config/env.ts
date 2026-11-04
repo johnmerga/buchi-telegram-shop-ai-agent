@@ -16,7 +16,16 @@ export type Env = z.infer<typeof envSchema>;
 
 /** Parses the environment once at startup and names every invalid or missing variable. */
 export function loadEnv(source: NodeJS.ProcessEnv): Env {
-  const result = envSchema.safeParse(source);
+  return parse(envSchema, source);
+}
+
+/** The migration runner needs only the database, so it starts before the other secrets exist. */
+export function loadDatabaseUrl(source: NodeJS.ProcessEnv): string {
+  return parse(envSchema.pick({ DATABASE_URL: true }), source).DATABASE_URL;
+}
+
+function parse<T extends z.ZodType>(schema: T, source: NodeJS.ProcessEnv): z.infer<T> {
+  const result = schema.safeParse(source);
   if (!result.success) {
     const problems = result.error.issues.map(
       (issue) => `${issue.path.join('.')}: ${issue.message}`,

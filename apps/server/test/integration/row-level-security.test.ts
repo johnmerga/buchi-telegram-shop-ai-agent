@@ -8,6 +8,11 @@ import { testDatabaseUrl } from './test-database';
 const { db, close } = connectDatabase(testDatabaseUrl);
 const shopA = '00000000-0000-4000-8000-00000000000a';
 const shopB = '00000000-0000-4000-8000-00000000000b';
+/**
+ * Tables that have `shop_id` but are platform-wide on purpose. The tick claims due timers across
+ * every shop, and `shop_id` only tells a timer handler which shop to run in.
+ */
+const platformWideTables = ['timers'];
 /** Postgres reports a row-level security violation with this SQLSTATE. */
 const insufficientPrivilege = '42501';
 
@@ -34,6 +39,7 @@ describe('row-level security', () => {
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'public' and c.relkind = 'r'
+        and c.relname not in ${platformWideTables}
         and (c.relname = 'shops' or exists (
           select 1 from information_schema.columns col
           where col.table_schema = 'public' and col.table_name = c.relname

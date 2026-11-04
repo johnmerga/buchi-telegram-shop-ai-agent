@@ -31,6 +31,7 @@ export function createApp({ logger, routers }: AppDeps): Express {
   });
 
   for (const router of routers) app.use(router);
+
   app.use(notFound);
   app.use(errorHandler);
   return app;

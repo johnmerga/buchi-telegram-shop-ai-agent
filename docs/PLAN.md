@@ -29,7 +29,7 @@ The following decisions apply to every task. Changing one needs an update to thi
 | Frontend | React 19, Vite, Tailwind CSS, shadcn/ui, TanStack Query, React Router, Leaflet | One app, one bundle entry per role. |
 | Database | Supabase Postgres with `pgvector` in production. Local development uses Postgres from `docker-compose.yml` with the `pgvector/pgvector` image, and CI uses the same image. | Same SQL everywhere. |
 | Code organization | One monorepo at `/data/projects/buchi`: `apps/server`, `apps/web`, `packages/shared`, `evals`, and `docs`. It deploys as one Render service, where the server also serves the built web app. | One install, one CI pipeline, and types shared between the server and the web app. |
-| Shop data isolation | One database. Every shop-owned row has `shop_id`, and Postgres row-level security returns only the current shop's rows. Only fraud and traffic tables are platform-wide, with no personal data. | Separation is enforced by the database, even if a query forgets its filter. |
+| Shop data isolation | One database. Every shop-owned row has `shop_id`, and Postgres row-level security returns only the current shop's rows. Only fraud, traffic, timer, and Telegram update tables are platform-wide. The generic row-level security test lists them explicitly. | Separation is enforced by the database, even if a query forgets its filter. |
 | Money | Birr with exactly two decimals, such as `100.00` and `12.23`. Postgres stores `numeric(12,2)`, the API sends strings such as `"12.23"`, and a small `Money` type does all arithmetic without JavaScript floating-point numbers. | Exact amounts. JavaScript numbers cannot hold `0.1 + 0.2` exactly, which breaks checks such as "the payment equals the order total". |
 | Time | `timestamptz` in UTC. Display and schedules in `Africa/Addis_Ababa`. | One rule for every table. |
 | API auth | Short-lived bearer token (signed JWT) for Mini Apps and the browser | Mini Apps run in an iframe on Telegram Web, where cookies are third-party and can be blocked. |
@@ -195,6 +195,8 @@ test timer, migrations run on Supabase, and CI is green.
   registry, `POST /jobs/tick`, and `POST /jobs/:name` protected by the job secret header.
 - **Acceptance:** two concurrent ticks never run the same timer. A failing handler marks its timer
   failed and does not block the others.
+- **Rule for every later handler:** error messages contain no personal data, because they are logged
+  and stored in `last_error`.
 
 ### 0.7 CI and deployment
 
@@ -534,7 +536,8 @@ loading, empty, and error states.
 
 ### 10.2 Hardening
 
-- **Deliverables:** a pass over every fallback in the design doc's third-party table and risk table,
+- **Deliverables:** reclaiming timers stuck in `running` after a crash, with retries based on
+  `attempts`; a pass over every fallback in the design doc's third-party table and risk table,
   each with a test; rate limits on public endpoints; a load check of the tick with 1,000 due timers.
 
 ### 10.3 Demo

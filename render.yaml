@@ -20,3 +20,5 @@ services:
         value: info
       - key: DATABASE_URL
         sync: false
+      - key: JOB_SECRET
+        sync: false

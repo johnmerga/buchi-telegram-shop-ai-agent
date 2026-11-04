@@ -4,22 +4,54 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/http/app';
 import { errorHandler } from '../src/http/middleware/errors';
+import { JobService } from '../src/modules/jobs/jobs.service';
 import { AppError } from '../src/shared/errors';
 
 const logger = pino({ level: 'silent' });
+const jobSecret = 'test-job-secret-that-is-long-enough';
+
+function testApp() {
+  const jobs = new JobService(new Map([['tick', () => Promise.resolve({ done: 2, failed: 1 })]]));
+  return createApp({ logger, jobs, jobSecret });
+}
 
 describe('createApp', () => {
   it('reports health', async () => {
-    const res = await request(createApp({ logger })).get('/health');
+    const res = await request(testApp()).get('/health');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'ok' });
   });
 
   it('returns NOT_FOUND for unknown routes, with a request ID', async () => {
-    const res = await request(createApp({ logger })).get('/nope');
+    const res = await request(testApp()).get('/nope');
     expect(res.status).toBe(404);
     expect(res.body).toMatchObject({ error: { code: 'NOT_FOUND' } });
     expect(res.headers['x-request-id']).toBeTruthy();
+  });
+});
+
+describe('job endpoints', () => {
+  it('rejects a request without the job secret', async () => {
+    const res = await request(testApp()).post('/jobs/tick');
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ error: { code: 'UNAUTHORIZED' } });
+  });
+
+  it('rejects a request with a wrong job secret', async () => {
+    const res = await request(testApp()).post('/jobs/tick').set('x-job-secret', 'wrong');
+    expect(res.status).toBe(401);
+  });
+
+  it('runs the tick and returns its summary', async () => {
+    const res = await request(testApp()).post('/jobs/tick').set('x-job-secret', jobSecret);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ done: 2, failed: 1 });
+  });
+
+  it('returns NOT_FOUND for an unknown job name', async () => {
+    const res = await request(testApp()).post('/jobs/nope').set('x-job-secret', jobSecret);
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ error: { code: 'NOT_FOUND' } });
   });
 });
 

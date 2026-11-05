@@ -280,6 +280,11 @@ unpaid order expires and releases its stock.
 - **Deliverables:** owner notification service; conversation mode (agent or human); **Take over**
   and **Hand back**; automatic hand-back after two hours of owner silence.
 - **Acceptance:** while a chat is in human mode, Buchi sends nothing to that customer.
+- **Built as:** `modules/owner/` with `conversations` (mode and hand-back deadline) and
+  `relayed_messages` (owner message to customer). Owners reply by replying to a relayed message in
+  Telegram; a reply counts as taking over and restarts the two hours. A new Buy link still works in
+  human mode, so a customer is never stuck in one shop's chat. Until Task 4.2, opening a negotiable
+  product switches the chat to human mode so an owner gives the price.
 
 ---
 
@@ -382,6 +387,7 @@ and completes an order, while the guard holds every limit.
   price stored on the cart.
 - **Acceptance:** evaluation sets show zero prices outside the range and zero discounts on fixed-price
   products, including adversarial messages.
+- **Also:** remove the Task 1.6 `requestPrice` call that hands negotiable products to the owner.
 
 ### 4.3 Product search from a photo
 

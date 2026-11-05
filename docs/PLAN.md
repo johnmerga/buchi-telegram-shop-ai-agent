@@ -29,7 +29,7 @@ The following decisions apply to every task. Changing one needs an update to thi
 | Frontend | React 19, Vite, Tailwind CSS, shadcn/ui, TanStack Query, React Router, Leaflet | One app, one bundle entry per role. |
 | Database | Supabase Postgres with `pgvector` in production. Local development uses Postgres from `docker-compose.yml` with the `pgvector/pgvector` image, and CI uses the same image. | Same SQL everywhere. |
 | Code organization | One monorepo at `/data/projects/buchi`: `apps/server`, `apps/web`, `packages/shared`, `evals`, and `docs`. It deploys as one Render service, where the server also serves the built web app. | One install, one CI pipeline, and types shared between the server and the web app. |
-| Shop data isolation | One database. Every shop-owned row has `shop_id`, and Postgres row-level security returns only the current shop's rows. Only fraud, traffic, timer, and Telegram update tables are platform-wide. The generic row-level security test lists them explicitly. | Separation is enforced by the database, even if a query forgets its filter. |
+| Shop data isolation | One database. Every shop-owned row has `shop_id`, and Postgres row-level security returns only the current shop's rows. Only fraud (`payment_refs`, `risk_signals`), traffic, timer, session, and Telegram update tables are platform-wide. The generic row-level security test lists them explicitly. | Separation is enforced by the database, even if a query forgets its filter. |
 | Money | Birr with exactly two decimals, such as `100.00` and `12.23`. Postgres stores `numeric(12,2)`, the API sends strings such as `"12.23"`, and a small `Money` type does all arithmetic without JavaScript floating-point numbers. | Exact amounts. JavaScript numbers cannot hold `0.1 + 0.2` exactly, which breaks checks such as "the payment equals the order total". |
 | Time | `timestamptz` in UTC. Display and schedules in `Africa/Addis_Ababa`. | One rule for every table. |
 | API auth | Short-lived bearer token (signed JWT) for Mini Apps and the browser | Mini Apps run in an iframe on Telegram Web, where cookies are third-party and can be blocked. |
@@ -380,6 +380,11 @@ including across two shops.
 - **Deliverables:** pure decision function over rule results, bank result, amount, and payer risk;
   `risk_signals` with HMAC-hashed payer keys; owner review messages with **Approve** and **Reject**.
 - **Acceptance:** every row of the design doc's decision table is a test case.
+- **Built as:** `modules/payments/`. R1 checks readability: classification and every key field need
+  confidence of at least 0.7. An R6 claim is released when the payment is rejected, so a fraudulent
+  first submission cannot block the rightful order. A bank-confirmed underpayment keeps its claim
+  and counts toward the next receipt. CBE Birr receipts and the newer CBE `mbreciept` receipts are
+  not bank-checked, because their pages need the payer's phone or an app token.
 
 ---
 

@@ -298,7 +298,9 @@ When a customer sends a screenshot, Buchi checks it in four layers:
 2. **Rules.** Deterministic code runs checks R1 to R6 from the following table.
 3. **Bank check.** The backend fetches the public Telebirr or CBE receipt page for the transaction
    reference and compares it with the screenshot. These pages are not official APIs, so Buchi treats
-   the result as extra evidence and never depends on it.
+   the result as extra evidence and never depends on it. The Telebirr page may block servers
+   outside Ethiopia, the legacy CBE host is often down, and CBE Birr's page needs the payer's
+   phone number, so `UNAVAILABLE` is a normal result.
 4. **Decision.** A decision matrix combines the rule results, the bank result, and the payer's risk.
 
 | Rule | Check | On failure |

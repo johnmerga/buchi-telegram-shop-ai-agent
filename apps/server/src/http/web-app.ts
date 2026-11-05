@@ -14,7 +14,10 @@ export function createWebAppRouter(distDir: string): Router {
   const router = Router();
 
   // Vite puts a content hash in every asset name, so a cached asset never goes stale.
-  router.use('/app/assets', express.static(join(distDir, 'assets'), { immutable: true, maxAge: '1y' }));
+  router.use(
+    '/app/assets',
+    express.static(join(distDir, 'assets'), { immutable: true, maxAge: '1y' }),
+  );
 
   for (const role of roles) {
     router.get([`/app/${role}`, `/app/${role}/{*path}`], (_req, res, next) => {

@@ -42,7 +42,13 @@ const offline = () => Promise.reject(new Error('Evaluations do not call Telegram
  * The sales agent as the server wires it, on the evaluation database. Telegram, the geocoder,
  * and delivery pricing are stubs, because the suites measure the agent and its guard.
  */
-export function createSalesShop(db: Database, model: LanguageModel, now: () => Date) {
+export function createSalesShop(
+  db: Database,
+  model: LanguageModel,
+  now: () => Date,
+  /** Telegram message IDs, shared by every case of a suite, because the owner's chat is the same. */
+  nextMessageId: () => number,
+) {
   const logger = pino({ level: 'silent' });
   const channels = { verifyPostingRights: offline, publish: offline };
   const shops = new ShopsService(db, new ShopsRepo(db), channels);
@@ -75,10 +81,9 @@ export function createSalesShop(db: Database, model: LanguageModel, now: () => D
   };
   const checkout = new CheckoutService(customers, orders, shops, pickupOnly, now);
   // Owner alerts are recorded by message ID, so each fake message needs its own.
-  let messageId = 0;
   const messenger = {
-    send: () => Promise.resolve((messageId += 1)),
-    copy: () => Promise.resolve((messageId += 1)),
+    send: () => Promise.resolve(nextMessageId()),
+    copy: () => Promise.resolve(nextMessageId()),
     edit: () => Promise.resolve(),
   };
   const conversationsRepo = new ConversationsRepo();

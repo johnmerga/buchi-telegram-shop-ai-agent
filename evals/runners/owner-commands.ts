@@ -84,8 +84,19 @@ function matches(rule: ResolvedRule, wanted: Expected): boolean {
       (wanted.keywords ?? []).every((word) => words.includes(word))
     );
   }
-  if (rule.type === 'delivery_settings') {
-    return JSON.stringify(rule.parameters) === JSON.stringify(wanted.settings);
-  }
+  if (rule.type === 'delivery_settings')
+    return sameSettings(rule.parameters, wanted.settings ?? {});
   return true;
+}
+
+/** The same changed fields with the same values, so "22" and "22.00" birr are one amount. */
+function sameSettings(
+  actual: Record<string, string | number | undefined>,
+  wanted: Record<string, string | number>,
+): boolean {
+  const keys = Object.keys(wanted);
+  return (
+    Object.keys(actual).length === keys.length &&
+    keys.every((key) => actual[key] !== undefined && Number(actual[key]) === Number(wanted[key]))
+  );
 }

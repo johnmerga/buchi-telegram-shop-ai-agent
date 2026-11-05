@@ -53,12 +53,17 @@ const offline = () => Promise.reject(new Error('Evaluations do not call Telegram
  * Telegram sends succeed without leaving the process, because the suite measures the agent's
  * actions and their autonomy levels, not delivery.
  */
-export function createOperationsShop(db: Database, model: LanguageModel, now: () => Date) {
+export function createOperationsShop(
+  db: Database,
+  model: LanguageModel,
+  now: () => Date,
+  /** Telegram message IDs, shared by every case of a suite, because the owner's chat is the same. */
+  nextMessageId: () => number,
+) {
   const logger = pino({ level: 'silent' });
-  let messageId = 0;
   const messenger = {
-    send: () => Promise.resolve((messageId += 1)),
-    copy: () => Promise.resolve((messageId += 1)),
+    send: () => Promise.resolve(nextMessageId()),
+    copy: () => Promise.resolve(nextMessageId()),
     edit: () => Promise.resolve(),
   };
   const channels = { verifyPostingRights: offline, publish: offline };

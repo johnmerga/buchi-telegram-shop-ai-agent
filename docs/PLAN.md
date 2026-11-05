@@ -644,6 +644,14 @@ loading, empty, and error states.
 - **Deliverables:** the eight datasets from the design doc's evaluation table, with recordings for
   replay mode, and target thresholds in CI. The live nightly run samples cases, because about 400
   cases at 10 requests a minute exceed the free tier's daily quota.
+- **Built as:** recorded against Gemini 3.5 Flash-Lite: 40 sales conversations (English, Amharic,
+  code-switched, and adversarial), 31 operations situations, 21 owner commands, 21 owner
+  questions (5 refusals), 12 far-price agent trips, and 3 × 200 synthetic trips. Goals stay at
+  0.85 (sales outcome, owner rows), 0.8/0.9 (operations action/autonomy), and 0.9 (owner rules);
+  prices outside the range, fixed-price discounts, rules saved without Confirm, and far prices
+  outside the limits are all 0. The one model miss left is Amharic promotion keywords with the
+  የ prefix ("የሀበሻ ቀሚስ" instead of "ቀሚስ"). Seeds use fixed IDs, because tool results reach the
+  recorded requests. Receipt, product photo, and landmark sets are still pending.
 
 ### 10.2 Hardening
 

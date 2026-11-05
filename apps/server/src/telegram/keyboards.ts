@@ -16,8 +16,14 @@ export function oneButtonPerRow(buttons: Button[]): InlineKeyboard {
 /** The text of the pickup button under the location request, which the purchase flow matches. */
 export const PICKUP_TEXT = '🏪 ከሱቁ እወስዳለሁ / I will pick up at the shop';
 
-export function locationKeyboard(): Keyboard {
-  return new Keyboard()
+/**
+ * The map picker opens from this reply keyboard, not an inline button, because only a Mini App
+ * opened from a reply keyboard can send the chosen pin back to the chat with `sendData`.
+ */
+export function locationKeyboard(pinPickerUrl: string | undefined): Keyboard {
+  const keyboard = new Keyboard();
+  if (pinPickerUrl) keyboard.webApp('🗺 ካርታ ላይ ምረጥ / Pick on the map', pinPickerUrl).row();
+  return keyboard
     .requestLocation('📍 ቦታ አጋራ / Share location')
     .row()
     .text(PICKUP_TEXT)

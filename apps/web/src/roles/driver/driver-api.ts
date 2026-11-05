@@ -1,4 +1,9 @@
-import { acceptResultSchema, driverBoardSchema, type Coordinates } from '@buchi/shared';
+import {
+  acceptResultSchema,
+  driverBoardSchema,
+  holdResultSchema,
+  type Coordinates,
+} from '@buchi/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '../../components/api-context';
 
@@ -31,6 +36,14 @@ export function useAccept() {
   const api = useApi();
   return useBoardMutation((offerId: string) =>
     api.send('POST', `/driver/offers/${offerId}/accept`, {}, acceptResultSchema),
+  );
+}
+
+/** A far-area offer is held until the customer pays, so it has its own route. */
+export function useHold() {
+  const api = useApi();
+  return useBoardMutation((offerId: string) =>
+    api.send('POST', `/driver/offers/${offerId}/hold`, {}, holdResultSchema),
   );
 }
 

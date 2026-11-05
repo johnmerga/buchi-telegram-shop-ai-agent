@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, or } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { paymentProofs } from '../../db/schema';
 
@@ -22,6 +22,31 @@ export class PaymentProofsRepo {
   /** The earlier proofs of an order, which decide R1's second chance and what is still due. */
   forOrder(tx: Transaction, orderId: string): Promise<PaymentProofRow[]> {
     return tx.select().from(paymentProofs).where(eq(paymentProofs.orderId, orderId));
+  }
+
+  /** Screenshots that wait for the owner, oldest first. */
+  awaitingOwner(tx: Transaction): Promise<PaymentProofRow[]> {
+    return tx
+      .select()
+      .from(paymentProofs)
+      .where(and(eq(paymentProofs.decision, 'review'), isNull(paymentProofs.ownerDecision)))
+      .orderBy(asc(paymentProofs.createdAt));
+  }
+
+  /** The proof that paid an order, whether Buchi or the owner approved it. */
+  async approvedForOrder(tx: Transaction, orderId: string): Promise<PaymentProofRow | undefined> {
+    const [row] = await tx
+      .select()
+      .from(paymentProofs)
+      .where(
+        and(
+          eq(paymentProofs.orderId, orderId),
+          or(eq(paymentProofs.decision, 'approve'), eq(paymentProofs.ownerDecision, 'approved')),
+        ),
+      )
+      .orderBy(desc(paymentProofs.createdAt))
+      .limit(1);
+    return row;
   }
 
   /** Records the owner's decision once, in one statement, so two taps cannot both count. */

@@ -32,12 +32,16 @@ export const driverListItemSchema = z.object({
 });
 export type DriverListItem = z.infer<typeof driverListItemSchema>;
 
-/** A job offered to the shop's drivers. `special` marks an offer the owner raised with a bonus. */
+/**
+ * A job offered to the shop's drivers. `far` marks a far-area job under **Special offers**, which a
+ * driver holds until the customer pays. `raised` marks an offer whose price went up since it opened.
+ */
 export const openOfferSchema = z.object({
   offerId: z.uuid(),
   shopName: z.string(),
   price: moneySchema,
-  special: z.boolean(),
+  far: z.boolean(),
+  raised: z.boolean(),
   stops: z.number().int().positive(),
   routeMeters: z.number().int(),
   estimatedMinutes: z.number().int(),
@@ -74,9 +78,38 @@ export const driverEarningsSchema = z.object({
 
 export const driverBoardSchema = z.object({
   offers: z.array(openOfferSchema),
+  /** Far-area jobs this driver holds while their customers decide and pay. */
+  held: z.array(openOfferSchema),
   trips: z.array(tripSchema),
   earnings: z.array(driverEarningsSchema),
 });
 export type DriverBoard = z.infer<typeof driverBoardSchema>;
 
 export const acceptResultSchema = z.object({ result: z.enum(['accepted', 'closed']) });
+
+export const holdResultSchema = z.object({ result: z.enum(['held', 'closed']) });
+
+/** A stop on the owner's deliveries map. The pin is null once the nightly job forgot it. */
+export const deliveryMapStopSchema = z.object({
+  orderId: z.uuid(),
+  position: z.number().int().positive(),
+  pin: coordinatesSchema.nullable(),
+  delivered: z.boolean(),
+});
+
+/** An open delivery job: offered to drivers, or assigned and on its way. */
+export const deliveryMapJobSchema = z.object({
+  jobId: z.uuid(),
+  status: z.enum(['offered', 'assigned', 'picked_up']),
+  far: z.boolean(),
+  payout: moneySchema,
+  driverName: z.string().nullable(),
+  stops: z.array(deliveryMapStopSchema),
+});
+export type DeliveryMapJob = z.infer<typeof deliveryMapJobSchema>;
+
+export const deliveryMapSchema = z.object({
+  shopPin: coordinatesSchema.nullable(),
+  jobs: z.array(deliveryMapJobSchema),
+});
+export type DeliveryMap = z.infer<typeof deliveryMapSchema>;

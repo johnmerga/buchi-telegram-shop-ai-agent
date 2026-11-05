@@ -1,4 +1,11 @@
-import { cellToLatLng, cellToParent, latLngToCell } from 'h3-js';
+import {
+  cellToBoundary,
+  cellToLatLng,
+  cellToParent,
+  getResolution,
+  isValidCell,
+  latLngToCell,
+} from 'h3-js';
 import type { Coordinates } from './location.domain';
 
 /** H3 resolution 7 cells cover about 5 km², small enough for one neighbourhood's traffic. */
@@ -26,4 +33,14 @@ export function zoneCenter(zone: string): Coordinates {
 /** Where a time factor is learned and looked up: the zone, its parent, then the whole city. */
 export function timeFactorZones(zone: string): string[] {
   return [zone, parentZone(zone), CITY_ZONE];
+}
+
+/** Whether a learned factor belongs to a resolution-7 zone, not a parent or the whole city. */
+export function isZone(zone: string): boolean {
+  return isValidCell(zone) && getResolution(zone) === ZONE_RESOLUTION;
+}
+
+/** The corners of a zone's hexagon, for drawing it on a map. */
+export function zoneBoundary(zone: string): Coordinates[] {
+  return cellToBoundary(zone).map(([latitude, longitude]) => ({ latitude, longitude }));
 }

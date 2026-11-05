@@ -22,13 +22,14 @@ export class DriverBoardService {
   ) {}
 
   async board(telegramUserId: number): Promise<DriverBoard> {
-    const board: DriverBoard = { offers: [], trips: [], earnings: [] };
+    const board: DriverBoard = { offers: [], held: [], trips: [], earnings: [] };
     for (const shopId of await this.drivers.shopIdsOf(this.db, telegramUserId)) {
       const found = await withShop(this.db, shopId, async (tx) => {
         const driver = await this.drivers.byTelegramUser(tx, telegramUserId);
         if (!driver) return undefined;
         return {
           offers: await this.repo.openOffers(tx),
+          held: await this.repo.heldOffers(tx, driver.id),
           jobs: await Promise.all(
             (await this.repo.activeJobs(tx, driver.id)).map(async (job) => ({
               job,
@@ -41,6 +42,7 @@ export class DriverBoardService {
       if (!found) continue;
       const shop = await this.shops.get(shopId);
       board.offers.push(...found.offers.map((offer) => openOffer(shop.name, offer)));
+      board.held.push(...found.held.map((offer) => openOffer(shop.name, offer)));
       for (const { job, stops } of found.jobs) {
         board.trips.push(await this.trip(shopId, shop, job, stops));
       }
@@ -93,7 +95,8 @@ function openOffer(shopName: string, offer: OpenOfferRow): OpenOffer {
     offerId: offer.offerId,
     shopName,
     price: offer.price,
-    special: offer.raiseStep > 0,
+    far: offer.far,
+    raised: offer.raiseStep > 0,
     stops: offer.stops,
     routeMeters: offer.routeMeters,
     estimatedMinutes: offer.estimatedMinutes,

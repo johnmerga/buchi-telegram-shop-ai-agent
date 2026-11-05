@@ -5,6 +5,7 @@ export * from './customers';
 export * from './delivery';
 export * from './demand';
 export * from './drivers';
+export * from './far-quotes';
 export * from './orders';
 export * from './payments';
 export * from './sales';

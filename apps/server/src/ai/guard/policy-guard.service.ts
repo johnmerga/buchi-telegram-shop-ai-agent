@@ -34,6 +34,8 @@ export interface Proposal<Value> {
 export interface GuardOutcome<D> {
   decision: D;
   toolResult: ToolResult;
+  /** The recorded decision, which the owner answers when it needs the owner. */
+  decisionId: string;
 }
 
 type LimitsRecord = Record<string, string | number | null>;
@@ -87,6 +89,14 @@ export class PolicyGuard {
     return this.record(context, proposal, decision, asIs, { extensionsMade });
   }
 
+  /**
+   * Records the owner's answer to a decision that needed the owner. Returns false when the decision
+   * was already answered, so a second tap changes nothing.
+   */
+  answerOwner(shopId: string, decisionId: string, approved: boolean): Promise<boolean> {
+    return withShop(this.db, shopId, (tx) => this.repo.answer(tx, decisionId, approved));
+  }
+
   /** Holds an `owner_confirms` action as a pending request until the owner approves it. */
   async requestOwnerConfirmation(
     context: ToolCallContext,
@@ -111,7 +121,7 @@ export class PolicyGuard {
     serialize: (value: Value) => string | number,
     limits: LimitsRecord,
   ): Promise<GuardOutcome<D>> {
-    await withShop(this.db, context.shopId, (tx) =>
+    const decisionId = await withShop(this.db, context.shopId, (tx) =>
       this.repo.insert(tx, {
         ...scopeOf(context),
         proposed: { value: serialize(proposal.value) },
@@ -125,7 +135,7 @@ export class PolicyGuard {
         ownerStatus: decision.result === 'needs_owner' ? 'pending' : null,
       }),
     );
-    return { decision, toolResult: toToolResult(decision, serialize) };
+    return { decision, toolResult: toToolResult(decision, serialize), decisionId };
   }
 }
 

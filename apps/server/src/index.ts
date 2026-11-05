@@ -2,6 +2,7 @@ import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { GoogleGenAI } from '@google/genai';
 import { Api } from 'grammy';
+import { FarPriceEstimator } from './ai/agents/far-price/far-price-estimator';
 import { SalesAgent } from './ai/agents/sales/sales-agent';
 import { SalesContext } from './ai/agents/sales/sales-context';
 import { salesTools } from './ai/agents/sales/sales-tools';
@@ -33,6 +34,8 @@ import { AuthService } from './modules/auth/auth.service';
 import { Nominatim } from './integrations/nominatim';
 import { HttpRedirects } from './integrations/redirects';
 import { OpenRouteService } from './integrations/ors';
+import { AreaNotesRepo } from './modules/delivery/area-notes.repo';
+import { AreaNotesService } from './modules/delivery/area-notes.service';
 import { DeliverySettingsRepo } from './modules/delivery/delivery-settings.repo';
 import { createDeliveryRouter } from './modules/delivery/delivery.routes';
 import { DeliveryService } from './modules/delivery/delivery.service';
@@ -41,6 +44,8 @@ import { LandmarkService } from './modules/delivery/landmarks.service';
 import { LocationService } from './modules/delivery/location.service';
 import { RouteService } from './modules/delivery/route.service';
 import { SaverScheduleService, SAVER_RUN_TIMER } from './modules/delivery/saver-schedule.service';
+import { ZoneFactorsRepo } from './modules/delivery/zone-factors.repo';
+import { ZoneFactorService } from './modules/delivery/zone-factors.service';
 import { DeliveryJobsRepo } from './modules/drivers/delivery-jobs.repo';
 import { createDispatchHandlers } from './modules/drivers/dispatch.handlers';
 import { DispatchService } from './modules/drivers/dispatch.service';
@@ -52,7 +57,15 @@ import { JobOffers, OFFER_UNANSWERED_TIMER } from './modules/drivers/job-offers.
 import { OfferBonusService } from './modules/drivers/offer-bonus.service';
 import { DeliveryOwnerAlerts } from './modules/drivers/owner-alerts.service';
 import { SaverRunService } from './modules/drivers/saver-runs.service';
+import { SpecialOffers, SPECIAL_OFFER_RAISE_TIMER } from './modules/drivers/special-offers.service';
 import { RECEIPT_TIMER, TripService } from './modules/drivers/trips.service';
+import { AcceptanceFactorService } from './modules/far-quotes/acceptance-factors.service';
+import { FarQuoteEvidence } from './modules/far-quotes/far-quote-evidence.service';
+import { FarQuoteOutcomes } from './modules/far-quotes/far-quote-outcomes.service';
+import { createFarQuoteHandlers } from './modules/far-quotes/far-quotes.handlers';
+import { FarQuotesRepo } from './modules/far-quotes/far-quotes.repo';
+import { FarQuoteService } from './modules/far-quotes/far-quotes.service';
+import { NightlyLearningService } from './modules/jobs/nightly-learning.service';
 import { createJobsRouter } from './modules/jobs/jobs.routes';
 import { JobService, type Job } from './modules/jobs/jobs.service';
 import { TimersRepo } from './modules/jobs/timers.repo';
@@ -175,10 +188,10 @@ const routes = new RouteService(
   logger,
   () => new Date(),
 );
-// TODO(5.5): use the learned zone time factors.
+const zoneFactors = new ZoneFactorService(new ZoneFactorsRepo(database.db), () => new Date());
 const deliverySettings = new DeliverySettingsRepo();
-const delivery = new DeliveryService(database.db, deliverySettings, shops, routes, () =>
-  Promise.resolve(1),
+const delivery = new DeliveryService(database.db, deliverySettings, shops, routes, (destination) =>
+  zoneFactors.timeFactor(destination),
 );
 const saverSchedule = new SaverScheduleService(
   database.db,
@@ -265,6 +278,7 @@ const trips = new TripService(
   conversations,
   notifier,
   timers,
+  zoneFactors,
   logger,
   () => new Date(),
 );
@@ -281,13 +295,16 @@ const saverRuns = new SaverRunService(
 timers.register(OFFER_UNANSWERED_TIMER, (timer) => bonuses.offerUnanswered(timer));
 timers.register(RECEIPT_TIMER, (timer) => trips.receiptTimeout(timer));
 timers.register(SAVER_RUN_TIMER, (timer) => saverRuns.runScheduled(timer));
-
-const jobs = new JobService(
-  new Map<string, Job>([
-    ['tick', () => timers.tick()],
-    ['saver-run', () => saverRuns.runAll()],
-  ]),
+const specialOffers = new SpecialOffers(
+  database.db,
+  deliveryJobs,
+  driversRepo,
+  jobOffers,
+  timers,
+  events,
+  () => new Date(),
 );
+
 const receiptPage = timedFetch(RECEIPT_PAGE_TIMEOUT_MS);
 const receiptReader = new ReceiptReader(model, logger);
 const paymentProofs = new PaymentProofsRepo();
@@ -357,9 +374,8 @@ const registry = new ToolRegistry(
   guard,
   logger,
 );
-const runtime = new AgentRuntime(model, registry, database.db, new TracesRepo(), () =>
-  performance.now(),
-);
+const traces = new TracesRepo();
+const runtime = new AgentRuntime(model, registry, database.db, traces, () => performance.now());
 const salesAgent = new SalesAgent(
   runtime,
   new SalesContext(catalog, customers, orders, customerMemory),
@@ -369,6 +385,66 @@ const salesAgent = new SalesAgent(
   logger,
 );
 
+const farQuotesRepo = new FarQuotesRepo();
+const acceptance = new AcceptanceFactorService(database.db, farQuotesRepo, () => new Date());
+const farQuotes = new FarQuoteService(
+  database.db,
+  farQuotesRepo,
+  orders,
+  customers,
+  delivery,
+  new FarQuoteEvidence(
+    zoneFactors,
+    acceptance,
+    new AreaNotesService(database.db, new AreaNotesRepo(), () => new Date()),
+    () => new Date(),
+  ),
+  new FarPriceEstimator(
+    (tools) =>
+      new AgentRuntime(model, new ToolRegistry(tools, guard, logger), database.db, traces, () =>
+        performance.now(),
+      ),
+    guard,
+    logger,
+  ),
+  guard,
+  specialOffers,
+  deliveryAlerts,
+  messenger,
+  logger,
+);
+const farQuoteOutcomes = new FarQuoteOutcomes(
+  database.db,
+  farQuotesRepo,
+  orders,
+  checkout,
+  customers,
+  specialOffers,
+  messenger,
+);
+timers.register(SPECIAL_OFFER_RAISE_TIMER, (timer) => farQuotes.raiseDue(timer));
+timers.register(orderTimerKinds.quoteExpire, (timer) => farQuoteOutcomes.holdExpired(timer));
+events.subscribe('delivery.offer_held', (event) => farQuoteOutcomes.driverHeld(event));
+events.subscribe('order.transitioned', (event) => farQuoteOutcomes.orderTransitioned(event));
+
+const updatesRepo = new TelegramUpdatesRepo(database.db);
+const nightlyLearning = new NightlyLearningService(
+  zoneFactors,
+  acceptance,
+  orders,
+  customers,
+  updatesRepo,
+  logger,
+  () => new Date(),
+);
+const jobs = new JobService(
+  new Map<string, Job>([
+    ['tick', () => timers.tick()],
+    ['saver-run', () => saverRuns.runAll()],
+    ['nightly-learning', () => nightlyLearning.run()],
+  ]),
+);
+
 const bot = createBot({
   token: env.TELEGRAM_BOT_TOKEN,
   botInfo,
@@ -376,7 +452,8 @@ const bot = createBot({
   driverShopIds: (telegramUserId) => drivers.shopIds(telegramUserId),
   handlers: [
     createDriverHandlers(drivers),
-    createDispatchHandlers({ dispatch, trips, bonuses }),
+    createDispatchHandlers({ dispatch, trips, bonuses, specialOffers }),
+    createFarQuoteHandlers({ quotes: farQuotes, outcomes: farQuoteOutcomes }),
     createConversationHandlers({ conversations, customers }),
     createPurchaseHandlers({
       catalog,
@@ -385,6 +462,7 @@ const bot = createBot({
       locations,
       landmarks,
       chat: customerChat,
+      farQuotes,
     }),
     createPaymentHandlers({
       intake: imageIntake,
@@ -400,7 +478,6 @@ const bot = createBot({
   ],
 });
 
-const updatesRepo = new TelegramUpdatesRepo(database.db);
 const worker = new UpdateWorker(updatesRepo, (update) => bot.handleUpdate(update), logger);
 const ingress = new TelegramIngress(updatesRepo, worker);
 

@@ -1,6 +1,7 @@
 import { Money } from '@buchi/shared';
 import type { Logger } from 'pino';
 import type { DeliveryService } from '../delivery/delivery.service';
+import type { TripCost } from '../delivery/fees.domain';
 import type { RouteService } from '../delivery/route.service';
 import type { SaverScheduleService } from '../delivery/saver-schedule.service';
 import type { OrderService } from '../orders/orders.service';
@@ -109,13 +110,22 @@ export class SaverRunService {
       return sum.add(trip.payout);
     }, Money.zero);
     return this.dispatch.createJob(shopId, {
-      orderIds: legs.map((leg) => leg.stop.id),
+      stops: legs.map((leg, index) => ({
+        orderId: leg.stop.id,
+        ...legTimes(route.legs, index),
+      })),
       payout: route.payout,
       separateTripsPayout,
       routeMeters: route.meters,
       estimatedMinutes: route.expectedMinutes,
     });
   }
+}
+
+function legTimes(legs: TripCost['legs'], index: number): TripCost['legs'][number] {
+  const leg = legs[index];
+  if (!leg) throw new RangeError(`No leg ${String(index)} on the route`);
+  return leg;
 }
 
 /** Matrix index `i` is the group's stop `i - 1`, because index 0 is the shop. */

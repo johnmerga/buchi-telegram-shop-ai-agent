@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import type { Transaction } from '../../db/client';
+import type { Database, Transaction } from '../../db/client';
 import { customers } from '../../db/schema';
 
 export type CustomerRow = typeof customers.$inferSelect;
@@ -49,8 +49,20 @@ export class CustomersRepo {
   ): Promise<void> {
     await tx
       .update(customers)
-      .set({ deliveryLatitude: pin?.latitude ?? null, deliveryLongitude: pin?.longitude ?? null })
+      .set({
+        deliveryLatitude: pin?.latitude ?? null,
+        deliveryLongitude: pin?.longitude ?? null,
+        deliveryPinAt: pin ? sql`now()` : null,
+      })
       .where(eq(customers.id, customerId));
+  }
+
+  /** Looks across all shops through the `forget_pending_pins` database function. */
+  async forgetPendingPinsBefore(db: Database, before: Date): Promise<number> {
+    const [row] = await db.execute<{ forgotten: number }>(
+      sql`select forget_pending_pins(${before.toISOString()}::timestamptz) as forgotten`,
+    );
+    return row?.forgotten ?? 0;
   }
 
   async telegramUserId(tx: Transaction, customerId: string): Promise<number | undefined> {

@@ -51,6 +51,8 @@ export class OfferBonusService {
       const outcome = await withShop(this.db, shopId, async (tx) => {
         const offer = await this.jobs.findOffer(tx, offerId);
         if (!offer) return undefined;
+        // A special offer's price rises only within the owner's cap, never by a bonus.
+        if ((await this.jobs.findJob(tx, offer.jobId))?.special) return 'closed' as const;
         if (!(await this.jobs.expireOffer(tx, offerId))) return 'closed' as const;
         const price = Money.of(offer.price).add(suggestedBonus(Money.of(offer.price)));
         return this.offers.open(tx, {

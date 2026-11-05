@@ -1,5 +1,5 @@
 import type { MoneyString } from '@buchi/shared';
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, max, ne } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { deliveryJobs, jobOffers, jobStops, offerMessages } from '../../db/schema';
 import type { MessageRef } from '../owner/owner-notifier.service';
@@ -9,26 +9,34 @@ export type StopRow = typeof jobStops.$inferSelect;
 export type OfferRow = typeof jobOffers.$inferSelect;
 export type Receipt = NonNullable<StopRow['receipt']>;
 
+/** An order on a job, with the routing time of the leg that ends at it. */
+export interface NewStop {
+  orderId: string;
+  routingSeconds: number;
+  expectedSeconds: number;
+}
+
 export interface NewJob {
   shopId: string;
+  special: boolean;
   payout: MoneyString;
   separateTripsPayout: MoneyString;
   routeMeters: number;
   estimatedMinutes: number;
   /** In the order the driver visits them. */
-  orderIds: string[];
+  stops: NewStop[];
 }
 
 export class DeliveryJobsRepo {
   async insertJob(tx: Transaction, job: NewJob): Promise<JobRow> {
-    const { orderIds, ...values } = job;
+    const { stops, ...values } = job;
     const [row] = await tx.insert(deliveryJobs).values(values).returning();
     if (!row) throw new Error('Insert returned no delivery job');
     await tx.insert(jobStops).values(
-      orderIds.map((orderId, index) => ({
+      stops.map((stop, index) => ({
+        ...stop,
         shopId: job.shopId,
         jobId: row.id,
-        orderId,
         position: index + 1,
       })),
     );
@@ -83,19 +91,65 @@ export class DeliveryJobsRepo {
 
   /**
    * First accept wins: the offer moves from open to taken in one conditional statement. A parallel
-   * accept waits for the row lock, then finds the offer no longer open and gets nothing.
+   * accept waits for the row lock, then finds the offer no longer open and gets nothing. A special
+   * offer is only ever held, because its customer has not paid yet.
    */
-  async takeOffer(
-    tx: Transaction,
-    offerId: string,
-    driverId: string,
-  ): Promise<OfferRow | undefined> {
+  takeOffer(tx: Transaction, offerId: string, driverId: string): Promise<OfferRow | undefined> {
+    return this.claimOffer(tx, offerId, driverId, { to: 'taken', special: false });
+  }
+
+  /** First accept wins for a special offer too, but the driver only holds it until payment. */
+  holdOffer(tx: Transaction, offerId: string, driverId: string): Promise<OfferRow | undefined> {
+    return this.claimOffer(tx, offerId, driverId, { to: 'held', special: true });
+  }
+
+  /** The held offer on the special job of an order, which its holder takes once the order is paid. */
+  async heldOfferOf(tx: Transaction, orderId: string): Promise<OfferRow | undefined> {
+    const [row] = await tx
+      .select({ offer: jobOffers })
+      .from(jobOffers)
+      .innerJoin(jobStops, eq(jobStops.jobId, jobOffers.jobId))
+      .where(and(eq(jobStops.orderId, orderId), eq(jobOffers.status, 'held')));
+    return row?.offer;
+  }
+
+  async takeHeldOffer(tx: Transaction, offerId: string): Promise<OfferRow | undefined> {
     const [row] = await tx
       .update(jobOffers)
-      .set({ status: 'taken', takenByDriverId: driverId })
-      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.status, 'open')))
+      .set({ status: 'taken' })
+      .where(and(eq(jobOffers.id, offerId), eq(jobOffers.status, 'held')))
       .returning();
     return row;
+  }
+
+  /** The special job of an order that no driver has taken yet. */
+  async untakenSpecialJobOf(tx: Transaction, orderId: string): Promise<JobRow | undefined> {
+    const [row] = await tx
+      .select({ job: deliveryJobs })
+      .from(deliveryJobs)
+      .innerJoin(jobStops, eq(jobStops.jobId, deliveryJobs.id))
+      .where(
+        and(
+          eq(jobStops.orderId, orderId),
+          eq(deliveryJobs.special, true),
+          eq(deliveryJobs.status, 'offered'),
+        ),
+      );
+    return row?.job;
+  }
+
+  /** Every offer message of a job, from every raise step. */
+  jobOfferMessages(tx: Transaction, jobId: string): Promise<MessageRef[]> {
+    return tx
+      .select({ chatId: offerMessages.chatId, messageId: offerMessages.messageId })
+      .from(offerMessages)
+      .innerJoin(jobOffers, eq(jobOffers.id, offerMessages.offerId))
+      .where(eq(jobOffers.jobId, jobId));
+  }
+
+  /** Deletes a job with its stops and offers, which frees its orders for another job. */
+  async deleteJob(tx: Transaction, jobId: string): Promise<void> {
+    await tx.delete(deliveryJobs).where(eq(deliveryJobs.id, jobId));
   }
 
   async expireOffer(tx: Transaction, offerId: string): Promise<OfferRow | undefined> {
@@ -249,6 +303,43 @@ export class DeliveryJobsRepo {
       )
       .returning({ id: jobStops.id });
     return updated.length > 0;
+  }
+
+  /**
+   * When the leg to a stop began: when the driver delivered the job's previous stop, or picked up
+   * the parcels for the first one.
+   */
+  async legStart(tx: Transaction, stop: StopRow): Promise<Date | undefined> {
+    const [previous] = await tx
+      .select({ at: max(jobStops.deliveredAt) })
+      .from(jobStops)
+      .where(and(eq(jobStops.jobId, stop.jobId), ne(jobStops.id, stop.id)));
+    if (previous?.at) return previous.at;
+    return (await this.findJob(tx, stop.jobId))?.pickedUpAt ?? undefined;
+  }
+
+  private async claimOffer(
+    tx: Transaction,
+    offerId: string,
+    driverId: string,
+    claim: { to: 'taken' | 'held'; special: boolean },
+  ): Promise<OfferRow | undefined> {
+    const jobsOfKind = tx
+      .select({ id: deliveryJobs.id })
+      .from(deliveryJobs)
+      .where(eq(deliveryJobs.special, claim.special));
+    const [row] = await tx
+      .update(jobOffers)
+      .set({ status: claim.to, takenByDriverId: driverId })
+      .where(
+        and(
+          eq(jobOffers.id, offerId),
+          eq(jobOffers.status, 'open'),
+          inArray(jobOffers.jobId, jobsOfKind),
+        ),
+      )
+      .returning();
+    return row;
   }
 
   private jobsOnTheWay(tx: Transaction, driverId: string) {

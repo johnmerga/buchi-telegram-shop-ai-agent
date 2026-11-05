@@ -45,9 +45,13 @@ describe('deliveryChoice', () => {
     expect(text).toContain('about 5.2 km, estimated');
   });
 
-  it('explains the far range and the range beyond it, offering pickup', () => {
+  it('offers to ask the drivers for a far-area price, or pickup', () => {
     const far = deliveryChoice({ area: 'far', route, options: [pickup] });
-    expect(far.text).toContain('outside our usual delivery area');
+    expect(far.text).toContain('ask our drivers for a price, which takes about 10 minutes');
+    expect(far.buttons.map((b) => b.data)).toEqual(['deliver:far', 'deliver:pickup']);
+  });
+
+  it('offers only pickup beyond the far range', () => {
     const beyond = deliveryChoice({ area: 'beyond', route, options: [pickup] });
     expect(beyond.text).toContain('too far for delivery');
     expect(beyond.buttons.map((b) => b.data)).toEqual(['deliver:pickup']);

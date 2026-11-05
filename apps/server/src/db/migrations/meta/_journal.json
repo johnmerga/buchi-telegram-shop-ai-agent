@@ -127,6 +127,20 @@
       "when": 1793844213641,
       "tag": "0017_sales_agent",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793845712339,
+      "tag": "0018_far_quotes_and_zone_factors",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793845713539,
+      "tag": "0019_delivery_pin_retention",
+      "breakpoints": true
     }
   ]
 }

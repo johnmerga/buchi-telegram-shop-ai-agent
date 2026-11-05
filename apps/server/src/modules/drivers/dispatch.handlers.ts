@@ -4,6 +4,7 @@ import type { BuchiContext } from '../../telegram/actor';
 import {
   acceptedNotice,
   deliveredReply,
+  heldNotice,
   problemReply,
   receivedThanks,
   shareLocationPrompt,
@@ -11,12 +12,14 @@ import {
 import type { AcceptResult, DispatchService } from './dispatch.service';
 import { jobCallbackSchema, receiptCallbackSchema } from './drivers.schemas';
 import type { OfferBonusService } from './offer-bonus.service';
+import type { HoldResult, SpecialOffers } from './special-offers.service';
 import type { TripService } from './trips.service';
 
 interface DispatchDeps {
   dispatch: Pick<DispatchService, 'accept'>;
   trips: TripService;
   bonuses: Pick<OfferBonusService, 'raise'>;
+  specialOffers: Pick<SpecialOffers, 'hold'>;
 }
 
 const acceptAnswers: Record<AcceptResult, string> = {
@@ -25,13 +28,19 @@ const acceptAnswers: Record<AcceptResult, string> = {
   not_found: 'Only drivers of this shop can take this job.',
 };
 
+const holdAnswers: Record<HoldResult, string> = {
+  held: 'You hold this job until the customer pays.',
+  closed: 'Sorry, this job is no longer open.',
+  not_found: 'Only drivers of this shop can take this job.',
+};
+
 /**
- * Job buttons for drivers (**Accept**, **Picked up**, **Delivered** and the location that
+ * Job buttons for drivers (**Accept** on an offer or a special offer, **Picked up**, **Delivered** and the location that
  * confirms it), the owners' **Add bonus**, and the customer's answer after a delivery. Buttons on
  * these messages act on an order, so they run before the takeover guard that relays customer chats.
  */
 export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContext> {
-  const { dispatch, trips, bonuses } = deps;
+  const { dispatch, trips, bonuses, specialOffers } = deps;
   const handlers = new Composer<BuchiContext>();
 
   handlers.callbackQuery(/^job:/, async (ctx) => {
@@ -47,6 +56,12 @@ export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContex
         const result = await dispatch.accept(telegramUserId, id);
         await ctx.answerCallbackQuery({ text: acceptAnswers[result] });
         if (result === 'accepted') await ctx.editMessageText(acceptedNotice);
+        return;
+      }
+      case 'hold': {
+        const result = await specialOffers.hold(telegramUserId, id);
+        await ctx.answerCallbackQuery({ text: holdAnswers[result] });
+        if (result === 'held') await ctx.editMessageText(heldNotice);
         return;
       }
       case 'picked': {

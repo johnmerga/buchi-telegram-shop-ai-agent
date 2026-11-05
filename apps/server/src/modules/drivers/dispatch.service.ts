@@ -7,7 +7,7 @@ import type { DeliveryService } from '../delivery/delivery.service';
 import type { OrderService, OrderWithItems } from '../orders/orders.service';
 import type { Messenger } from '../owner/owner-notifier.service';
 import type { ShopsService } from '../shops/shops.service';
-import type { DeliveryJobsRepo, JobRow, StopRow } from './delivery-jobs.repo';
+import type { DeliveryJobsRepo, JobRow, NewStop, StopRow } from './delivery-jobs.repo';
 import { jobDetails, readyForPickup, takenNotice } from './dispatch-messages.domain';
 import { point } from './dispatch.domain';
 import type { DriversRepo } from './drivers.repo';
@@ -16,7 +16,7 @@ import type { JobOffers } from './job-offers.service';
 
 /** One trip to offer: its stops in visiting order and what the formula pays for it. */
 export interface JobPlan {
-  orderIds: string[];
+  stops: NewStop[];
   payout: Money;
   separateTripsPayout: Money;
   routeMeters: number;
@@ -57,9 +57,10 @@ export class DispatchService {
       case 'express':
       case 'free':
         return this.dispatchNow(order);
-      // Saver orders wait for the shop's next Saver run. Far-area orders come with Task 5.6.
-      case 'saver':
       case 'far':
+        return this.assignHolder(order);
+      // Saver orders wait for the shop's next Saver run.
+      case 'saver':
         return;
     }
   }
@@ -74,7 +75,8 @@ export class DispatchService {
       offer = await withShop(this.db, shopId, async (tx) => {
         const job = await this.jobs.insertJob(tx, {
           shopId,
-          orderIds: plan.orderIds,
+          special: false,
+          stops: plan.stops,
           payout: plan.payout.toString(),
           separateTripsPayout: plan.separateTripsPayout.toString(),
           routeMeters: plan.routeMeters,
@@ -86,7 +88,7 @@ export class DispatchService {
       if (isUniqueViolation(err)) return false;
       throw err;
     }
-    for (const orderId of plan.orderIds) {
+    for (const { orderId } of plan.stops) {
       await this.orders.transition(shopId, orderId, 'dispatched', 'system', 'Offered to drivers');
     }
     await this.offers.broadcast(shopId, offer);
@@ -149,12 +151,40 @@ export class DispatchService {
     const trip = await this.delivery.tripTo(order.shopId, destination);
     if (!trip) throw new Error('The shop no longer has delivery settings');
     await this.createJob(order.shopId, {
-      orderIds: [order.id],
+      stops: trip.legs.map((leg) => ({ orderId: order.id, ...leg })),
       payout: trip.payout,
       separateTripsPayout: trip.payout,
       routeMeters: trip.meters,
       estimatedMinutes: trip.expectedMinutes,
     });
+  }
+
+  /** A paid far-area order goes to the driver who held its price, without a new offer. */
+  private async assignHolder(order: OrderWithItems): Promise<void> {
+    const { shopId } = order;
+    const assigned = await withShop(this.db, shopId, async (tx) => {
+      const held = await this.jobs.heldOfferOf(tx, order.id);
+      const offer = held && (await this.jobs.takeHeldOffer(tx, held.id));
+      if (!offer?.takenByDriverId) return undefined;
+      const driver = await this.drivers.find(tx, offer.takenByDriverId);
+      const job = await this.jobs.assign(tx, offer.jobId, {
+        driverId: offer.takenByDriverId,
+        payout: offer.price,
+        acceptedAt: this.now(),
+      });
+      const chatId = driver?.telegramUserId ?? null;
+      if (!job || chatId === null) throw new Error('A held far-area job cannot go to its driver');
+      return { job, chatId, stops: await this.jobs.stops(tx, job.id) };
+    });
+    if (!assigned) throw new Error('A paid far-area order has no driver holding it');
+    await this.orders.transition(
+      shopId,
+      order.id,
+      'driver_assigned',
+      'system',
+      'Paid, so the driver who held the price takes the job',
+    );
+    await this.sendDetails(shopId, assigned.chatId, assigned.job, assigned.stops);
   }
 
   private async sendDetails(

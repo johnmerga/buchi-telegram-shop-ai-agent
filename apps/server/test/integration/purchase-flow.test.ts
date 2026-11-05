@@ -124,6 +124,7 @@ const bot = createBot({
       locations: new LocationService(redirects, logger),
       landmarks: { confirm: () => Promise.resolve() },
       chat: new TelegramCustomerChat(chatApi),
+      farQuotes: { start: () => Promise.reject(new Error('unused')) },
     }),
   ],
 });
@@ -286,12 +287,15 @@ describe('purchase flow with delivery', () => {
     expect(instructions).toContain('Telebirr: 0922345678');
   });
 
-  it('offers only pickup in the far range, and places a pickup order', async () => {
+  it('offers a driver price or pickup in the far range, and places a pickup order', async () => {
     road.meters = 15_000;
     await chooseSizeAndShareContact(meron);
     await bot.handleUpdate(message({ text: '9.10, 38.70' }, meron));
-    expect(sent.at(-1)).toContain('outside our usual delivery area');
-    expect(buttons).toEqual(['🏪 ከሱቁ መውሰድ / Pickup at the shop']);
+    expect(sent.at(-1)).toContain('I can ask our drivers for a price');
+    expect(buttons).toEqual([
+      '🛵 ዋጋ ጠይቅ / Yes, ask the drivers for a price',
+      '🏪 ከሱቁ መውሰድ / Pickup at the shop',
+    ]);
 
     await bot.handleUpdate(tap('deliver:pickup', meron));
     expect(sent.at(-1)).toContain('Total: 4,500.00 ብር\nPickup at the shop.');

@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Update } from 'grammy/types';
 import type { Database } from '../db/client';
 import { telegramUpdates as updates } from '../db/schema';
@@ -45,6 +45,18 @@ export class TelegramUpdatesRepo {
       .update(updates)
       .set({ status: 'failed', error, processedAt: sql`now()` })
       .where(eq(updates.updateId, updateId));
+  }
+
+  /**
+   * Deletes processed updates received before `before`. They hold shared contacts and locations,
+   * and deduplication only needs the recent ones. Returns how many it deleted.
+   */
+  async deleteProcessedBefore(before: Date): Promise<number> {
+    const deleted = await this.db
+      .delete(updates)
+      .where(and(inArray(updates.status, ['done', 'failed']), lt(updates.receivedAt, before)))
+      .returning({ updateId: updates.updateId });
+    return deleted.length;
   }
 
   /** Returns updates that a crash interrupted to the queue. Safe because one instance processes updates. */

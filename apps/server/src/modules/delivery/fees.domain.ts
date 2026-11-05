@@ -4,7 +4,7 @@ import type { Route } from './distance.domain';
 /** Which of the design doc's four ranges the road distance falls in. */
 export type DeliveryArea = 'free' | 'standard' | 'far' | 'beyond';
 
-/** Far-area prices come from drivers (Task 5.6), so the formula prices only these options. */
+/** Far-area prices come from the drivers, so the formula prices only these options. */
 export type PricedDeliveryType = Exclude<DeliveryType, 'far'>;
 
 export interface DeliveryOption {
@@ -58,6 +58,8 @@ export interface TripCost {
   payout: Money;
   meters: number;
   expectedMinutes: number;
+  /** Each leg's routing time and its time scaled by the zone's factor, to learn from later. */
+  legs: { routingSeconds: number; expectedSeconds: number }[];
 }
 
 /**
@@ -66,11 +68,16 @@ export interface TripCost {
  */
 export function tripCost(legs: Leg[], settings: DeliverySettings): TripCost {
   const meters = legs.reduce((sum, leg) => sum + leg.meters, 0);
-  const seconds = legs.reduce((sum, leg) => sum + Math.round(leg.seconds * leg.timeFactor), 0);
+  const timed = legs.map((leg) => ({
+    routingSeconds: leg.seconds,
+    expectedSeconds: Math.round(leg.seconds * leg.timeFactor),
+  }));
+  const seconds = timed.reduce((sum, leg) => sum + leg.expectedSeconds, 0);
   return {
     payout: driverPayout({ meters, seconds, approximate: false }, 1, settings),
     meters,
     expectedMinutes: Math.round(seconds / 60),
+    legs: timed,
   };
 }
 

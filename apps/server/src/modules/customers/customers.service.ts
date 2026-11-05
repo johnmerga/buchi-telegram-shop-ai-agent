@@ -55,6 +55,11 @@ export class CustomersService {
     await withShop(this.db, shopId, (tx) => this.repo.setDeliveryPin(tx, customerId, pin));
   }
 
+  /** Deletes pins of checkouts that were never finished, in every shop. Returns how many. */
+  forgetPendingPinsBefore(before: Date): Promise<number> {
+    return this.repo.forgetPendingPinsBefore(this.db, before);
+  }
+
   /** The customer's private chat with the bot has the same ID as their Telegram user. */
   async telegramUserId(shopId: string, customerId: string): Promise<number> {
     const id = await withShop(this.db, shopId, (tx) => this.repo.telegramUserId(tx, customerId));

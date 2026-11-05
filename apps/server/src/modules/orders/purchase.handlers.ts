@@ -12,7 +12,8 @@ import type { PricedDeliveryType } from '../delivery/fees.domain';
 import type { LandmarkService } from '../delivery/landmarks.service';
 import { checkPin, type PinResult } from '../delivery/location.domain';
 import type { LocationService } from '../delivery/location.service';
-import type { CheckoutService, PlaceOrderResult } from './checkout.service';
+import type { FarQuoteService } from '../far-quotes/far-quotes.service';
+import type { CheckoutService, CheckoutStep } from './checkout.service';
 import { deliveryChoice, pinRequest } from './delivery-choice.domain';
 import { deliveryChoiceCallbackSchema } from './orders.schemas';
 
@@ -25,6 +26,7 @@ export interface PurchaseDeps {
   locations: Pick<LocationService, 'fromText'>;
   landmarks: Pick<LandmarkService, 'confirm'>;
   chat: Pick<TelegramCustomerChat, 'productCard' | 'orderStep' | 'askForPin'>;
+  farQuotes: Pick<FarQuoteService, 'start'>;
 }
 
 type Session = NonNullable<Awaited<ReturnType<CustomersService['sessionOf']>>>;
@@ -40,7 +42,7 @@ const buyerOf = (from: User) => ({
  * when Gemini is unavailable.
  */
 export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContext> {
-  const { catalog, customers, checkout, locations, landmarks, chat } = deps;
+  const { catalog, customers, checkout, locations, landmarks, chat, farQuotes } = deps;
   const purchase = new Composer<BuchiContext>();
 
   purchase.command('start', async (ctx, next) => {
@@ -137,6 +139,17 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
       checkout.placeWithDelivery(session.shopId, buyerOf(ctx.from), session.variantId, choice),
     );
 
+  /** Tells the customer the drivers are asked first, because pricing takes a model call. */
+  const askDrivers = async (
+    ctx: Context & { from: User },
+    session: Session & { variantId: string },
+  ) => {
+    const result = await replyWith(ctx, chat, () =>
+      checkout.requestFarQuote(session.shopId, buyerOf(ctx.from), session.variantId),
+    );
+    if (result?.status === 'quoting') await farQuotes.start(result.shopId, result.orderId);
+  };
+
   const offerOptions = async (
     ctx: Context & { from: User },
     session: Session,
@@ -207,7 +220,8 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
     }
     // Removing the buttons first keeps a second tap from placing the order twice.
     await ctx.editMessageReplyMarkup();
-    await choose(ctx, session, choice.data);
+    if (choice.data === 'far') await askDrivers(ctx, session);
+    else await choose(ctx, session, choice.data);
   });
 
   return purchase;
@@ -215,19 +229,20 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
 
 const startAgain = 'እባክዎ በቻናሉ ላይ ያለውን ቁልፍ እንደገና ይጫኑ / Tap the button on the channel post again.';
 
-/** Sends the result of placing an order, or the reason it could not be placed. */
-async function replyWith(
+/** Sends the result of placing an order, or the reason it could not be placed, and returns it. */
+async function replyWith<Step extends CheckoutStep>(
   ctx: Context & { from: User },
   chat: Pick<TelegramCustomerChat, 'orderStep'>,
-  place: () => Promise<PlaceOrderResult | undefined>,
-): Promise<void> {
+  place: () => Promise<Step | undefined>,
+): Promise<Step | undefined> {
   try {
     const result = await place();
     if (result) await chat.orderStep(ctx.from.id, result);
+    return result;
   } catch (err) {
     if (err instanceof AppError && (err.code === 'CONFLICT' || err.code === 'NOT_FOUND')) {
       await ctx.reply(`ይቅርታ / Sorry: ${err.message}.`);
-      return;
+      return undefined;
     }
     throw err;
   }

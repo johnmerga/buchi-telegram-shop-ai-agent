@@ -5,11 +5,12 @@ import { AppError } from '../../shared/errors';
 import type { CustomersService } from '../customers/customers.service';
 import { straightLineMeters } from '../delivery/distance.domain';
 import type { Coordinates } from '../delivery/location.domain';
+import type { ZoneFactorService } from '../delivery/zone-factors.service';
 import type { OrderService } from '../orders/orders.service';
 import type { ConversationService } from '../owner/conversations.service';
 import type { Button } from '../owner/owner.domain';
 import type { Messenger, OwnerNotifier } from '../owner/owner-notifier.service';
-import type { DeliveryJobsRepo } from './delivery-jobs.repo';
+import type { DeliveryJobsRepo, StopRow } from './delivery-jobs.repo';
 import {
   deliveredQuestion,
   deliverPrompt,
@@ -52,6 +53,7 @@ export class TripService {
     private readonly conversations: Pick<ConversationService, 'open'>,
     private readonly notifier: Pick<OwnerNotifier, 'notify'>,
     private readonly timers: TimerScheduler,
+    private readonly legs: Pick<ZoneFactorService, 'recordLeg'>,
     private readonly logger: Logger,
     private readonly now: () => Date,
   ) {}
@@ -132,13 +134,17 @@ export class TripService {
       if (!done) return undefined;
       const receiptDue = new Date(now.getTime() + RECEIPT_WINDOW_MS);
       await this.timers.schedule(tx, RECEIPT_TIMER, stop.orderId, shopId, receiptDue);
-      if ((await this.jobs.undeliveredStops(tx, stop.jobId)) > 0) return { jobDone: false };
+      const legStart = await this.jobs.legStart(tx, done);
+      if ((await this.jobs.undeliveredStops(tx, stop.jobId)) > 0) {
+        return { jobDone: false, legStart };
+      }
       const job = await this.jobs.findJob(tx, stop.jobId);
       const actualMinutes = minutesBetween(job?.pickedUpAt ?? now, now);
       await this.jobs.finish(tx, stop.jobId, { deliveredAt: now, actualMinutes });
-      return { jobDone: true };
+      return { jobDone: true, legStart };
     });
     if (!delivered) return { status: 'not_found' };
+    await this.recordLeg(stop, pin, delivered.legStart);
 
     const reason = review ? `Delivered ${String(metersFromPin)} m from the pin` : 'Delivered';
     await this.orders.transition(shopId, order.id, 'delivered', 'driver', reason);
@@ -187,6 +193,24 @@ export class TripService {
     await withShop(this.db, shopId, (tx) =>
       this.jobs.setReceipt(tx, targetId, 'assumed', this.now()),
     );
+  }
+
+  /** Teaches the time factors how long the leg to this stop took. Older stops have no times. */
+  private async recordLeg(
+    stop: StopRow,
+    destination: Coordinates,
+    startedAt: Date | undefined,
+  ): Promise<void> {
+    const { routingSeconds, expectedSeconds } = stop;
+    if (!startedAt || routingSeconds === null || expectedSeconds === null) return;
+    const actualSeconds = Math.round((this.now().getTime() - startedAt.getTime()) / 1000);
+    await this.legs.recordLeg({
+      destination,
+      startedAt,
+      routingSeconds,
+      expectedSeconds,
+      actualSeconds,
+    });
   }
 
   /** Runs `work` in each shop the user drives for, until one returns a result. */

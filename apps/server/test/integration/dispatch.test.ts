@@ -23,6 +23,8 @@ import { DeliveryService } from '../../src/modules/delivery/delivery.service';
 import { straightLineMatrix } from '../../src/modules/delivery/distance.domain';
 import type { Coordinates } from '../../src/modules/delivery/location.domain';
 import { RouteService } from '../../src/modules/delivery/route.service';
+import { ZoneFactorsRepo } from '../../src/modules/delivery/zone-factors.repo';
+import { ZoneFactorService } from '../../src/modules/delivery/zone-factors.service';
 import { DeliveryJobsRepo } from '../../src/modules/drivers/delivery-jobs.repo';
 import { createDispatchHandlers } from '../../src/modules/drivers/dispatch.handlers';
 import { DispatchService } from '../../src/modules/drivers/dispatch.service';
@@ -135,6 +137,7 @@ const routes = new RouteService(
   logger,
   clock,
 );
+const zoneFactors = new ZoneFactorService(new ZoneFactorsRepo(db), clock);
 const delivery = new DeliveryService(db, new DeliverySettingsRepo(), shops, routes, () =>
   Promise.resolve(1),
 );
@@ -187,6 +190,7 @@ const trips = new TripService(
   conversations,
   notifier,
   timerService,
+  zoneFactors,
   logger,
   clock,
 );
@@ -208,7 +212,12 @@ const bot = createBot({
   driverShopIds: (id) => drivers.shopIds(id),
   handlers: [
     createDriverHandlers(drivers),
-    createDispatchHandlers({ dispatch, trips, bonuses }),
+    createDispatchHandlers({
+      dispatch,
+      trips,
+      bonuses,
+      specialOffers: { hold: () => Promise.reject(new Error('unused')) },
+    }),
     createConversationHandlers({ conversations, customers }),
   ],
 });
@@ -519,7 +528,7 @@ describe('an Express delivery', () => {
     const { job, stop } = (await jobOf(shop.shopId, orderId)) ?? {};
     expect(job).toMatchObject({ status: 'delivered', payout: '125.00', estimatedMinutes: 15 });
     expect(job?.actualMinutes).toBe(0);
-    expect(stop).toMatchObject({ needsReview: false });
+    expect(stop).toMatchObject({ needsReview: false, routingSeconds: 900, expectedSeconds: 900 });
     expect(stop?.metersFromPin).toBeLessThan(150);
     expect(await timerFor(RECEIPT_TIMER, orderId)).toBeDefined();
   });

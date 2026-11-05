@@ -146,6 +146,7 @@ const bot = createBot({
       customers,
       checkout,
       locations: { fromText: () => Promise.resolve({ status: 'not_a_location' }) },
+      farQuotes: { start: () => Promise.reject(new Error('unused')) },
       landmarks: { confirm: () => Promise.resolve() },
       chat: new TelegramCustomerChat(messengerApi),
     }),

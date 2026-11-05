@@ -61,6 +61,7 @@ export class JobOffers {
     ]);
     if (!job) throw new Error('An offer has no delivery job');
     const text = offerText({
+      special: job.special,
       shopName: shop.name,
       stops: stops.length,
       routeMeters: job.routeMeters,
@@ -68,7 +69,9 @@ export class JobOffers {
       price: offer.price,
       raiseStep: offer.raiseStep,
     });
-    const buttons = [{ text: '✅ Accept / እቀበላለሁ', data: jobCallbackData('accept', offer.id) }];
+    // A special offer's accept only holds the job until the customer pays.
+    const action = job.special ? 'hold' : 'accept';
+    const buttons = [{ text: '✅ Accept / እቀበላለሁ', data: jobCallbackData(action, offer.id) }];
 
     const sent: MessageRef[] = [];
     for (const driver of drivers) {
@@ -92,8 +95,16 @@ export class JobOffers {
     exceptChatId?: number,
   ): Promise<void> {
     const messages = await withShop(this.db, shopId, (tx) => this.jobs.offerMessages(tx, offerId));
+    await this.closeMessages(
+      shopId,
+      messages.filter((message) => message.chatId !== exceptChatId),
+      notice,
+    );
+  }
+
+  /** Replaces offer messages that were read before their offer was deleted. */
+  async closeMessages(shopId: string, messages: MessageRef[], notice: string): Promise<void> {
     for (const message of messages) {
-      if (message.chatId === exceptChatId) continue;
       try {
         await this.messenger.edit(message, notice, []);
       } catch (err) {

@@ -27,6 +27,8 @@ export const customers = pgTable(
     /** The pin for the order the customer is placing. It moves to the order once it is placed. */
     deliveryLatitude: doublePrecision('delivery_latitude'),
     deliveryLongitude: doublePrecision('delivery_longitude'),
+    /** A pin left behind by an unfinished checkout is deleted a week after this. */
+    deliveryPinAt: timestamp('delivery_pin_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -34,7 +36,7 @@ export const customers = pgTable(
     unique('customers_id_shop_unique').on(t.id, t.shopId),
     check(
       'customers_delivery_pin_complete',
-      sql`(${t.deliveryLatitude} is null) = (${t.deliveryLongitude} is null)`,
+      sql`(${t.deliveryLatitude} is null) = (${t.deliveryLongitude} is null) and (${t.deliveryLatitude} is null) = (${t.deliveryPinAt} is null)`,
     ),
     shopIsolation(t.shopId),
   ],

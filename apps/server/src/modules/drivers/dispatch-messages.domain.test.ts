@@ -14,6 +14,7 @@ const pin = { latitude: 8.99706, longitude: 38.78661 };
 
 describe('offerText', () => {
   const offer = {
+    special: false,
     shopName: 'Selam Shoes',
     stops: 1,
     routeMeters: 6240,
@@ -36,6 +37,13 @@ describe('offerText', () => {
     const text = offerText({ ...offer, stops: 4, raiseStep: 1, price: '155.00' });
     expect(text).toContain('4 stops');
     expect(text).toContain('155.00 ብር (bonus included)');
+  });
+
+  it('marks a far-area job as a special offer that only holds until payment', () => {
+    const text = offerText({ ...offer, special: true, raiseStep: 2, price: '480.00' });
+    expect(text).toContain('Special offer · Selam Shoes');
+    expect(text).toContain('480.00 ብር (raised)');
+    expect(text).toContain('once the customer confirms and pays');
   });
 });
 

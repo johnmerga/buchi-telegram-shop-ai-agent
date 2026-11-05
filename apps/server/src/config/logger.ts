@@ -7,6 +7,8 @@ const redactPaths = [
   'req.headers["x-telegram-bot-api-secret-token"]',
   'req.headers["x-job-secret"]',
   '*.phone',
+  '*.latitude',
+  '*.longitude',
   '*.initData',
 ];
 

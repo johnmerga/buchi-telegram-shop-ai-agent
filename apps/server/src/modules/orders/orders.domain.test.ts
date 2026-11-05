@@ -56,15 +56,23 @@ describe('orderReference', () => {
 });
 
 describe('paymentInstructions', () => {
-  const text = paymentInstructions({
+  const pickup = {
     orderId: '3f2a9c1e-0000-4000-8000-000000000000',
+    deliveryType: 'pickup' as const,
+    itemsTotal: '4500',
+    deliveryFee: '0',
     total: '4500',
     deadline: new Date('2026-11-05T15:30:00Z'),
     accounts: [
-      { provider: 'telebirr', accountName: 'Selam Tesfaye', accountNumber: '0911234567' },
-      { provider: 'cbe_bank', accountName: 'Selam Tesfaye', accountNumber: '1000123456789' },
+      { provider: 'telebirr' as const, accountName: 'Selam Tesfaye', accountNumber: '0911234567' },
+      {
+        provider: 'cbe_bank' as const,
+        accountName: 'Selam Tesfaye',
+        accountNumber: '1000123456789',
+      },
     ],
-  });
+  };
+  const text = paymentInstructions(pickup);
 
   it('lists the exact total and every account', () => {
     expect(text).toContain('#3F2A9C');
@@ -75,5 +83,23 @@ describe('paymentInstructions', () => {
 
   it('shows the deadline in Addis Ababa time', () => {
     expect(text).toContain('5 Nov, 18:30');
+  });
+
+  it('says a pickup order is collected at the shop', () => {
+    expect(text).toContain('Pickup at the shop.');
+    expect(text).not.toContain('Items');
+  });
+
+  it('breaks a delivery total into items and the delivery fee', () => {
+    const delivery = paymentInstructions({
+      ...pickup,
+      deliveryType: 'express',
+      deliveryFee: '130',
+      total: '4630',
+    });
+    expect(delivery).toContain('Items: 4,500.00 ብር');
+    expect(delivery).toContain('Express delivery: 130.00 ብር');
+    expect(delivery).toContain('Total: 4,630.00 ብር');
+    expect(delivery).not.toContain('Pickup');
   });
 });

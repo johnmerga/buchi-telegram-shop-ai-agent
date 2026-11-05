@@ -30,6 +30,7 @@ import { ShopsService } from '../../src/modules/shops/shops.service';
 import { EventBus } from '../../src/shared/events';
 import { createBot } from '../../src/telegram/bot';
 import { TelegramMessenger } from '../../src/telegram/messenger';
+import { pickupOnlyDelivery } from '../fakes/pickup-only-delivery';
 import { testDatabaseUrl } from './test-database';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
@@ -66,7 +67,7 @@ const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo
 const events = new EventBus(logger);
 const timers = new TimerService(new TimersRepo(db), logger);
 const orders = new OrderService(db, new OrdersRepo(), events, timers);
-const checkout = new CheckoutService(customers, orders, shops, clock);
+const checkout = new CheckoutService(customers, orders, shops, pickupOnlyDelivery, clock);
 
 interface SentMessage {
   method: string;
@@ -122,7 +123,13 @@ const bot = createBot({
   ownedShopIds: (telegramUserId) => shops.ownedShopIds(telegramUserId),
   handlers: [
     createConversationHandlers({ conversations, customers }),
-    createPurchaseHandlers({ catalog, customers, checkout, conversations }),
+    createPurchaseHandlers({
+      catalog,
+      customers,
+      checkout,
+      conversations,
+      locations: { fromText: () => Promise.resolve({ status: 'not_a_location' }) },
+    }),
   ],
 });
 fakeTelegram(bot.api);

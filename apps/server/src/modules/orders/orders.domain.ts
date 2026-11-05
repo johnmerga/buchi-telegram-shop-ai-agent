@@ -1,5 +1,6 @@
 import {
   formatBirr,
+  type DeliveryType,
   type MoneyString,
   type OrderStatus,
   type PaymentAccount,
@@ -78,12 +79,38 @@ const addisTime = new Intl.DateTimeFormat('en-GB', {
   minute: '2-digit',
 });
 
+const deliveryNames: Record<Exclude<DeliveryType, 'pickup'>, string> = {
+  free: 'ነፃ ማድረሻ / Free delivery',
+  express: 'ፈጣን ማድረሻ / Express delivery',
+  saver: 'ቁጠባ ማድረሻ / Saver delivery',
+  far: 'ማድረሻ / Delivery',
+};
+
+/** Pickup shows only the total. A delivery shows what the items and the delivery each cost. */
+function amountLines(input: {
+  deliveryType: DeliveryType;
+  itemsTotal: MoneyString;
+  deliveryFee: MoneyString;
+  total: MoneyString;
+}): string {
+  const total = `ጠቅላላ / Total: ${formatBirr(input.total)}`;
+  if (input.deliveryType === 'pickup') return `${total}\nPickup at the shop.`;
+  return [
+    `ዕቃዎች / Items: ${formatBirr(input.itemsTotal)}`,
+    `${deliveryNames[input.deliveryType]}: ${formatBirr(input.deliveryFee)}`,
+    total,
+  ].join('\n');
+}
+
 /**
  * Payment instructions come from this template, never from the model, so account numbers and
  * amounts are always exactly what the shop configured.
  */
 export function paymentInstructions(input: {
   orderId: string;
+  deliveryType: DeliveryType;
+  itemsTotal: MoneyString;
+  deliveryFee: MoneyString;
   total: MoneyString;
   deadline: Date;
   accounts: PaymentAccount[];
@@ -93,7 +120,7 @@ export function paymentInstructions(input: {
   );
   return [
     `✅ ትዕዛዝ ${orderReference(input.orderId)} ተይዞልዎታል / Order ${orderReference(input.orderId)} is reserved for you.`,
-    `ጠቅላላ / Total: ${formatBirr(input.total)}\nPickup at the shop.`,
+    amountLines(input),
     ['ከእነዚህ በአንዱ ይክፈሉ / Pay to one of these accounts:', ...accounts].join('\n'),
     `Pay before ${addisTime.format(input.deadline)} (Addis Ababa time), then send the payment screenshot here.`,
   ].join('\n\n');

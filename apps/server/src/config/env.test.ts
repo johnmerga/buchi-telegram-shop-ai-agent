@@ -8,6 +8,7 @@ describe('loadEnv', () => {
     TELEGRAM_WEBHOOK_SECRET: 'a'.repeat(32),
     JOB_SECRET: 'x'.repeat(32),
     AUTH_TOKEN_SECRET: 'y'.repeat(32),
+    ORS_API_KEY: 'ors-key',
   };
 
   it('applies defaults', () => {
@@ -16,6 +17,8 @@ describe('loadEnv', () => {
       NODE_ENV: 'development',
       PORT: 3000,
       LOG_LEVEL: 'info',
+      ORS_BASE_URL: 'https://api.heigit.org',
+      NOMINATIM_USER_AGENT: 'Buchi/1.0 (contact via GitHub johnmerga/buchi-telegram-shop-ai-agent)',
     });
   });
 

@@ -89,13 +89,22 @@ export class OrdersRepo {
       status: OrderStatus;
       deliveryType: DeliveryType;
       itemsTotal: MoneyString;
+      deliveryFee: MoneyString;
       total: MoneyString;
+      destination: { latitude: number; longitude: number } | null;
       paymentDeadline: Date | null;
       items: { variantId: string; quantity: number; unitPrice: MoneyString }[];
     },
   ): Promise<OrderRow> {
-    const { items, ...values } = order;
-    const [row] = await tx.insert(orders).values(values).returning();
+    const { items, destination, ...values } = order;
+    const [row] = await tx
+      .insert(orders)
+      .values({
+        ...values,
+        deliveryLatitude: destination?.latitude ?? null,
+        deliveryLongitude: destination?.longitude ?? null,
+      })
+      .returning();
     if (!row) throw new Error('Insert returned no order');
     await tx
       .insert(orderItems)

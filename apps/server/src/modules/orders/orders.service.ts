@@ -3,15 +3,21 @@ import type { Database, Transaction } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import { AppError } from '../../shared/errors';
 import type { EventBus } from '../../shared/events';
+import type { Coordinates } from '../delivery/location.domain';
 import type { TimerService } from '../jobs/timers.service';
 import { paymentTimers } from './orders.deadlines.domain';
 import { nextState, type OrderEvent, type StockEffect } from './orders.domain';
 import type { OrderActor, OrderItemRow, OrderRow, OrdersRepo, OrderSummary } from './orders.repo';
 
+/** How the order reaches the customer. Every delivery has a fee, even a free one, and a pin. */
+export type OrderDelivery =
+  | { type: 'pickup' }
+  | { type: Exclude<DeliveryType, 'pickup'>; fee: Money; destination: Coordinates };
+
 export interface NewOrder {
   customerId: string;
   items: { variantId: string; quantity: number }[];
-  deliveryType: DeliveryType;
+  delivery: OrderDelivery;
   paymentDeadline: Date;
 }
 
@@ -61,13 +67,17 @@ export class OrderService {
         (sum, line) => sum.add(Money.of(line.unitPrice).times(line.quantity)),
         Money.zero,
       );
+      const { delivery } = order;
+      const deliveryFee = delivery.type === 'pickup' ? Money.zero : delivery.fee;
       const row = await this.repo.insertOrder(tx, {
         shopId,
         customerId: order.customerId,
         status: 'awaiting_payment',
-        deliveryType: order.deliveryType,
+        deliveryType: delivery.type,
         itemsTotal: itemsTotal.toString(),
-        total: itemsTotal.toString(),
+        deliveryFee: deliveryFee.toString(),
+        total: itemsTotal.add(deliveryFee).toString(),
+        destination: delivery.type === 'pickup' ? null : delivery.destination,
         paymentDeadline: order.paymentDeadline,
         items: lines.map(({ variantId, quantity, unitPrice }) => ({
           variantId,

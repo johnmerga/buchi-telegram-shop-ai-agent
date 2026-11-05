@@ -11,6 +11,14 @@ const envSchema = z.object({
   JOB_SECRET: z.string().min(32),
   /** Signs the bearer tokens that Mini Apps send to the API. */
   AUTH_TOKEN_SECRET: z.string().min(32),
+  /** HeiGIT basic key for OpenRouteService, sent as the raw `Authorization` header. */
+  ORS_API_KEY: z.string().min(1),
+  ORS_BASE_URL: z.url().default('https://api.heigit.org'),
+  /** Nominatim's usage policy requires a user agent that identifies the application. */
+  NOMINATIM_USER_AGENT: z
+    .string()
+    .min(1)
+    .default('Buchi/1.0 (contact via GitHub johnmerga/buchi-telegram-shop-ai-agent)'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 

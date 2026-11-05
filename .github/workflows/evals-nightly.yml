@@ -1,0 +1,65 @@
+name: Nightly evaluations
+
+on:
+  schedule:
+    # 02:00 UTC is 05:00 in Addis Ababa, before shops open.
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  # A job's `if` cannot read secrets, so this job tells the next one whether the key exists.
+  key:
+    runs-on: ubuntu-latest
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - id: check
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$GEMINI_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping the live evaluation: the GEMINI_API_KEY repository secret is not set."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  live:
+    needs: key
+    if: needs.key.outputs.present == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: buchi
+          POSTGRES_PASSWORD: buchi
+          POSTGRES_DB: buchi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U buchi -d buchi"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL_FAST: ${{ vars.GEMINI_MODEL_FAST }}
+      GEMINI_MODEL_SMART: ${{ vars.GEMINI_MODEL_SMART }}
+      GEMINI_MODEL_EMBED: ${{ vars.GEMINI_MODEL_EMBED }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm evals:live
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evals-report
+          path: evals/report.json
+          if-no-files-found: ignore

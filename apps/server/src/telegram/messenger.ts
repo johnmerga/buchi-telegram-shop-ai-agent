@@ -27,4 +27,8 @@ export class TelegramMessenger implements Messenger {
     });
     return message.message_id;
   }
+
+  async edit(message: MessageRef, text: string, buttons: Button[]): Promise<void> {
+    await this.api.editMessageText(message.chatId, message.messageId, text, markup(buttons));
+  }
 }

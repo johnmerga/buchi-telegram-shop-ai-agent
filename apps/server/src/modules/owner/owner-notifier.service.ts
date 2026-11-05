@@ -18,6 +18,8 @@ export interface Messenger {
     source: MessageRef,
     options: { caption?: string; buttons: Button[] },
   ): Promise<number>;
+  /** Replaces a sent message's text, and its buttons with `buttons`. */
+  edit(message: MessageRef, text: string, buttons: Button[]): Promise<void>;
 }
 
 interface ShopOwners {

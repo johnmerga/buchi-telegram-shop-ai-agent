@@ -30,11 +30,16 @@ const start = (fromId: number): Update => ({
   },
 });
 
-async function replyTo(fromId: number, ownedShopIds: string[]): Promise<string> {
+async function replyTo(
+  fromId: number,
+  ownedShopIds: string[],
+  driverShopIds: string[] = [],
+): Promise<string> {
   const bot = createBot({
     token: 'test',
     botInfo,
     ownedShopIds: () => Promise.resolve(ownedShopIds),
+    driverShopIds: () => Promise.resolve(driverShopIds),
     handlers: [],
   });
   const sent: string[] = [];
@@ -52,6 +57,14 @@ describe('createBot', () => {
   });
 
   it('recognizes a shop owner by Telegram user ID', async () => {
-    expect(await replyTo(20, ['shop-1'])).toContain('Welcome back');
+    expect(await replyTo(20, ['shop-1'])).toContain('watching your shop');
+  });
+
+  it('recognizes a driver by Telegram user ID', async () => {
+    expect(await replyTo(30, [], ['shop-1'])).toContain('/duty');
+  });
+
+  it('greets an owner who also drives as an owner', async () => {
+    expect(await replyTo(40, ['shop-1'], ['shop-1'])).toContain('watching your shop');
   });
 });

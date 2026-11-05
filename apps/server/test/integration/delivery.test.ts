@@ -1,8 +1,9 @@
+import { and, eq } from 'drizzle-orm';
 import { pino } from 'pino';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { connectDatabase } from '../../src/db/client';
-import { landmarks } from '../../src/db/schema';
+import { landmarks, timers } from '../../src/db/schema';
 import { withShop } from '../../src/db/with-shop';
 import { createApp } from '../../src/http/app';
 import { requireAuth } from '../../src/http/middleware/require-auth';
@@ -15,6 +16,12 @@ import { LandmarksRepo } from '../../src/modules/delivery/landmarks.repo';
 import { LandmarkService } from '../../src/modules/delivery/landmarks.service';
 import type { Coordinates } from '../../src/modules/delivery/location.domain';
 import { RouteService } from '../../src/modules/delivery/route.service';
+import {
+  SAVER_RUN_TIMER,
+  SaverScheduleService,
+} from '../../src/modules/delivery/saver-schedule.service';
+import { TimersRepo } from '../../src/modules/jobs/timers.repo';
+import { TimerService } from '../../src/modules/jobs/timers.service';
 import { ShopsRepo } from '../../src/modules/shops/shops.repo';
 import { ShopsService } from '../../src/modules/shops/shops.service';
 import { launchFields, signInitData } from '../sign-init-data';
@@ -27,12 +34,23 @@ const logger = pino({ level: 'silent' });
 const unusedChannels = { verifyPostingRights: () => Promise.reject(new Error('not used')) };
 const shops = new ShopsService(db, new ShopsRepo(db), unusedChannels);
 const routes = new RouteService(
-  { route: () => Promise.resolve({ meters: 6000, seconds: 1200 }) },
+  {
+    route: () => Promise.resolve({ meters: 6000, seconds: 1200 }),
+    matrix: () => Promise.reject(new Error('unused')),
+  },
   logger,
   () => new Date(),
 );
 const delivery = new DeliveryService(db, new DeliverySettingsRepo(), shops, routes, () =>
   Promise.resolve(1.5),
+);
+/** 09:30 in Addis Ababa. */
+let now = new Date('2026-11-05T06:30:00Z');
+const saverSchedule = new SaverScheduleService(
+  db,
+  new DeliverySettingsRepo(),
+  new TimerService(new TimersRepo(db), logger),
+  () => now,
 );
 
 const botToken = '123456:test-token';
@@ -42,6 +60,7 @@ const app = createApp({
   routers: [
     createDeliveryRouter({
       delivery,
+      saverSchedule,
       requireAuth: requireAuth((token) => auth.verifyToken(token)),
       requireShopOwner: requireShopOwner((id) => shops.ownedShopIds(id)),
     }),
@@ -121,6 +140,63 @@ describe('delivery settings API', () => {
       .set('authorization', await bearer(6002))
       .send(settings);
     expect(blocked.status).toBe(403);
+  });
+});
+
+describe('Saver run times API', () => {
+  const path = (id: string) => `/shops/${id}/saver-run-times`;
+  const saverTimers = (id: string) =>
+    db
+      .select({ dueAt: timers.dueAt })
+      .from(timers)
+      .where(and(eq(timers.kind, SAVER_RUN_TIMER), eq(timers.shopId, id)))
+      .orderBy(timers.createdAt);
+
+  it('schedules the next run at the time the owner set', async () => {
+    const saved = await request(app)
+      .put(path(shopId))
+      .set('authorization', await bearer(6001))
+      .send({ times: ['14:00', '10:00'] });
+    expect(saved.status).toBe(204);
+    expect(await saverTimers(shopId)).toEqual([{ dueAt: new Date('2026-11-05T07:00:00Z') }]);
+  });
+
+  it('lets only the current timer claim a run, and chains the next one', async () => {
+    const tenOClock = new Date('2026-11-05T07:00:00Z');
+    now = tenOClock;
+    await expect(saverSchedule.claim(shopId, tenOClock)).resolves.toBe(true);
+    await expect(saverSchedule.claim(shopId, tenOClock)).resolves.toBe(false);
+    expect((await saverTimers(shopId)).at(-1)).toEqual({
+      dueAt: new Date('2026-11-05T11:00:00Z'),
+    });
+  });
+
+  it('retires the old timer chain when the owner changes the times', async () => {
+    const saved = await request(app)
+      .put(path(shopId))
+      .set('authorization', await bearer(6001))
+      .send({ times: ['16:00'] });
+    expect(saved.status).toBe(204);
+    await expect(saverSchedule.claim(shopId, new Date('2026-11-05T11:00:00Z'))).resolves.toBe(
+      false,
+    );
+    await expect(saverSchedule.claim(shopId, new Date('2026-11-05T13:00:00Z'))).resolves.toBe(true);
+  });
+
+  it('needs delivery settings first', async () => {
+    const response = await request(app)
+      .put(path(otherShopId))
+      .set('authorization', await bearer(6002))
+      .send({ times: ['10:00'] });
+    expect(response.status).toBe(409);
+  });
+
+  it('rejects a time that is not a 24-hour time', async () => {
+    const response = await request(app)
+      .put(path(shopId))
+      .set('authorization', await bearer(6001))
+      .send({ times: ['25:00'] });
+    expect(response.status).toBe(400);
   });
 });
 

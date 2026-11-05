@@ -1,12 +1,19 @@
 import { cellToLatLng, latLngToCell } from 'h3-js';
 import type { Logger } from 'pino';
 import { TtlCache } from '../../shared/ttl-cache';
-import { straightLineRoute, type Route } from './distance.domain';
+import { straightLineMatrix, straightLineRoute, type Route } from './distance.domain';
 import type { Coordinates } from './location.domain';
+
+/** Road meters and seconds from each point (row) to each point (column). */
+export interface TravelMatrix {
+  meters: number[][];
+  seconds: number[][];
+}
 
 /** A road routing service. OpenRouteService is the only implementation. */
 export interface RoadRouter {
   route(from: Coordinates, to: Coordinates): Promise<{ meters: number; seconds: number }>;
+  matrix(points: Coordinates[]): Promise<TravelMatrix>;
 }
 
 /**
@@ -39,9 +46,8 @@ export class RouteService {
     const cached = this.cache.get(key);
     if (cached) return cached;
 
-    const [latitude, longitude] = cellToLatLng(zone);
     try {
-      const road = await this.router.route(origin, { latitude, longitude });
+      const road = await this.router.route(origin, zoneCenter(destination));
       const route = { ...road, approximate: false };
       this.cache.set(key, route);
       return route;
@@ -50,4 +56,25 @@ export class RouteService {
       return straightLineRoute(origin, destination);
     }
   }
+
+  /**
+   * Travel between the shop (row and column 0) and each destination, for ordering a Saver route.
+   * Destinations go to their zone centers like single routes. Without road data it estimates every
+   * pair from the straight line.
+   */
+  async matrix(origin: Coordinates, destinations: Coordinates[]): Promise<TravelMatrix> {
+    try {
+      return await this.router.matrix([origin, ...destinations.map(zoneCenter)]);
+    } catch (err) {
+      this.logger.warn({ err }, 'road matrix unavailable, using straight-line estimates');
+      return straightLineMatrix([origin, ...destinations]);
+    }
+  }
+}
+
+function zoneCenter(point: Coordinates): Coordinates {
+  const [latitude, longitude] = cellToLatLng(
+    latLngToCell(point.latitude, point.longitude, ZONE_RESOLUTION),
+  );
+  return { latitude, longitude };
 }

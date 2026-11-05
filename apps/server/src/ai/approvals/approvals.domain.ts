@@ -48,3 +48,11 @@ export function approvalButtons(decisionId: string): Button[] {
     { text: '✖️ Decline', data: approvalCallbackData('decline', decisionId) },
   ];
 }
+
+/** The same choices on a preview of the owner's own request. */
+export function confirmButtons(decisionId: string): Button[] {
+  return [
+    { text: '✅ አረጋግጥ / Confirm', data: approvalCallbackData('approve', decisionId) },
+    { text: '✖️ ሰርዝ / Cancel', data: approvalCallbackData('decline', decisionId) },
+  ];
+}

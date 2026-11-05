@@ -7,8 +7,9 @@ import {
   timestamp,
   unique,
   uuid,
+  vector,
 } from 'drizzle-orm/pg-core';
-import { productVariants } from './catalog';
+import { PRODUCT_EMBEDDING_DIMENSIONS, productVariants } from './catalog';
 import { customers } from './customers';
 import { shopIsolation } from './rls';
 import { shops } from './shops';
@@ -37,6 +38,10 @@ export const demandSignals = pgTable(
     description: text('description').notNull(),
     /** The customer tapped **Notify me**. */
     notifyRequested: boolean('notify_requested').notNull().default(false),
+    /** The description's embedding, compared with each new product's for **Notify me**. */
+    embedding: vector('embedding', { dimensions: PRODUCT_EMBEDDING_DIMENSIONS }),
+    /** When the customer was told about a similar product. */
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [sameShopCustomer(t), shopIsolation(t.shopId)],

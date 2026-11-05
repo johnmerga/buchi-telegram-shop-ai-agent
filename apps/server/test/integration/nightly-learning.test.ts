@@ -33,6 +33,9 @@ import { EventBus } from '../../src/shared/events';
 import { TelegramUpdatesRepo } from '../../src/telegram/updates.repo';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { testDatabaseUrl } from './test-database';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -54,6 +57,7 @@ const catalog = new CatalogService(
   { publish: () => Promise.reject(new Error('unused')) },
   'buchi_test_bot',
   noEmbeddings,
+  noEvents,
 );
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const orders = new OrderService(
@@ -62,6 +66,8 @@ const orders = new OrderService(
   new EventBus(logger),
   new TimerService(new TimersRepo(db), logger),
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 const zoneFactors = new ZoneFactorService(new ZoneFactorsRepo(db), clock);
 const acceptance = new AcceptanceFactorService(db, new FarQuotesRepo(), clock);

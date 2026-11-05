@@ -11,10 +11,17 @@ export class DemandService {
     private readonly events: Pick<EventBus, 'publish'>,
   ) {}
 
-  /** Records a product the shop does not have, and returns the ID that **Notify me** carries. */
-  recordUnmet(shopId: string, customerId: string, description: string): Promise<string> {
+  /**
+   * Records a product the shop does not have, with its description's embedding for matching new
+   * products, and returns the ID that **Notify me** carries.
+   */
+  recordUnmet(
+    shopId: string,
+    customerId: string,
+    request: { description: string; embedding: number[] },
+  ): Promise<string> {
     return withShop(this.db, shopId, (tx) =>
-      this.repo.insertSignal(tx, { shopId, customerId, description }),
+      this.repo.insertSignal(tx, { shopId, customerId, ...request }),
     );
   }
 
@@ -35,5 +42,17 @@ export class DemandService {
   /** The customers waiting for a sold-out variant, in the order they joined. */
   waitingCustomers(shopId: string, variantId: string): Promise<string[]> {
     return withShop(this.db, shopId, (tx) => this.repo.waiting(tx, variantId));
+  }
+
+  /** The customer leaves the line once told, so they are told only once. */
+  async markNotified(shopId: string, variantId: string, customerId: string): Promise<void> {
+    await withShop(this.db, shopId, (tx) => this.repo.markNotified(tx, variantId, customerId));
+  }
+
+  /** The customers whose **Notify me** request a product with this embedding answers. */
+  claimSimilarRequests(shopId: string, embedding: number[], maxDistance: number) {
+    return withShop(this.db, shopId, (tx) =>
+      this.repo.claimSimilarRequests(tx, embedding, maxDistance),
+    );
   }
 }

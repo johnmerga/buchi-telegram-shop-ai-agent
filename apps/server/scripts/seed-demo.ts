@@ -55,6 +55,8 @@ const noTelegram = {
   publish: () => Promise.reject(new Error('The seed does not use Telegram')),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), noTelegram);
+// The seed sets no stock that a waitlist or a photo request waits for.
+const noEvents = { publish: () => Promise.resolve() };
 // The seed only schedules the embeddings. The running server's timer tick computes them.
 const embeddings = new ProductEmbeddingService(
   db,
@@ -63,8 +65,17 @@ const embeddings = new ProductEmbeddingService(
   new TimersRepo(db),
   () => new Date(),
   pino({ level: 'silent' }),
+  noEvents,
 );
-const catalog = new CatalogService(db, new CatalogRepo(), shops, noTelegram, 'unused', embeddings);
+const catalog = new CatalogService(
+  db,
+  new CatalogRepo(),
+  shops,
+  noTelegram,
+  'unused',
+  embeddings,
+  noEvents,
+);
 
 try {
   const shopId = await shops.create(ownerId, { name: 'Selam Shoes' });

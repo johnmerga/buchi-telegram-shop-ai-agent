@@ -36,6 +36,9 @@ import { noEmbeddings } from '../fakes/no-embeddings';
 import { NegotiationService } from '../../src/modules/sales/negotiation.service';
 import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
 import { TelegramCustomerChat } from '../../src/telegram/customer-chat';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -73,6 +76,7 @@ const catalog = new CatalogService(
   telegram,
   botInfo.username,
   noEmbeddings,
+  noEvents,
 );
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const events = new EventBus(logger);
@@ -83,6 +87,8 @@ const orders = new OrderService(
   events,
   timers,
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 const checkout = new CheckoutService(customers, orders, shops, pickupOnlyDelivery, clock);
 

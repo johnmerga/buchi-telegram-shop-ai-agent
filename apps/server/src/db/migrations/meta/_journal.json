@@ -148,6 +148,20 @@
       "when": 1793847442178,
       "tag": "0020_delivery_pin_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793848676031,
+      "tag": "0021_owner_assistant_and_listings",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793848681339,
+      "tag": "0022_reporting_views",
+      "breakpoints": true
     }
   ]
 }

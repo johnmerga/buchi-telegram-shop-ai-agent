@@ -20,6 +20,7 @@ export interface SellableVariant {
   variantId: string;
   productId: string;
   productTitle: string;
+  productDescription: string;
   size: string;
   pricingMode: (typeof products.$inferSelect)['pricingMode'];
   price: MoneyString;
@@ -47,6 +48,7 @@ export class OrdersRepo {
         variantId: productVariants.id,
         productId: products.id,
         productTitle: products.title,
+        productDescription: products.description,
         size: productVariants.size,
         pricingMode: products.pricingMode,
         price: products.price,

@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   doublePrecision,
+  index,
   foreignKey,
   integer,
   numeric,
@@ -141,6 +142,37 @@ export const orderExchanges = pgTable(
       foreignColumns: [productVariants.id, productVariants.shopId],
     }),
     check('order_exchanges_other_size', sql`${t.fromVariantId} <> ${t.toVariantId}`),
+    shopIsolation(t.shopId),
+  ],
+);
+
+export const stockHoldStatus = pgEnum('stock_hold_status', ['held', 'used', 'released']);
+
+/**
+ * One unit of a restocked size held for a waitlisted customer. The unit counts in the variant's
+ * `reserved` while `held`; the customer's order uses it, or the expiry timer releases it.
+ */
+export const stockHolds = pgTable(
+  'stock_holds',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    shopId: shopId(),
+    variantId: uuid('variant_id').notNull(),
+    customerId: uuid('customer_id').notNull(),
+    status: stockHoldStatus('status').notNull().default('held'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.variantId, t.shopId],
+      foreignColumns: [productVariants.id, productVariants.shopId],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.customerId, t.shopId],
+      foreignColumns: [customers.id, customers.shopId],
+    }).onDelete('cascade'),
+    index('stock_holds_customer_variant_idx').on(t.customerId, t.variantId, t.status),
     shopIsolation(t.shopId),
   ],
 );

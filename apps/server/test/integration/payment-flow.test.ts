@@ -43,6 +43,9 @@ import { PhotoSearchService } from '../../src/modules/catalog/photo-search.servi
 import { DemandRepo } from '../../src/modules/demand/demand.repo';
 import { DemandService } from '../../src/modules/demand/demand.service';
 import { TelegramCustomerChat } from '../../src/telegram/customer-chat';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -76,6 +79,7 @@ const catalog = new CatalogService(
   noChannels,
   botInfo.username,
   noEmbeddings,
+  noEvents,
 );
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const timers = new TimerService(new TimersRepo(db), logger);
@@ -85,6 +89,8 @@ const orders = new OrderService(
   new EventBus(logger),
   timers,
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 const checkout = new CheckoutService(
   customers,

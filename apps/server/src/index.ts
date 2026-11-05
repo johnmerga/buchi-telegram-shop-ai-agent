@@ -8,6 +8,10 @@ import { OperationsAgent } from './ai/agents/operations/operations-agent';
 import { operationsApprovals, operationsTools } from './ai/agents/operations/operations-tools';
 import { SituationBuilder } from './ai/agents/operations/situation-builder';
 import { OwnerApprovals } from './ai/approvals/owner-approvals.service';
+import { OwnerAssistant } from './ai/agents/owner-assistant/owner-assistant';
+import { ownerAssistantTools } from './ai/agents/owner-assistant/owner-assistant-tools';
+import { weeklyAnalysisTool } from './ai/agents/owner-assistant/tools/weekly-analysis';
+import { WeeklySuggestions } from './ai/agents/owner-assistant/weekly-suggestions';
 import { SalesAgent } from './ai/agents/sales/sales-agent';
 import { SalesContext } from './ai/agents/sales/sales-context';
 import { salesTools } from './ai/agents/sales/sales-tools';
@@ -40,6 +44,7 @@ import { AuthService } from './modules/auth/auth.service';
 import { Nominatim } from './integrations/nominatim';
 import { HttpRedirects } from './integrations/redirects';
 import { OpenRouteService } from './integrations/ors';
+import { QuickChart } from './integrations/quickchart';
 import { AreaNotesRepo } from './modules/delivery/area-notes.repo';
 import { AreaNoteService } from './modules/delivery/area-notes.service';
 import { DeliverySettingsRepo } from './modules/delivery/delivery-settings.repo';
@@ -102,6 +107,9 @@ import { OrderTrackingService } from './modules/orders/order-tracking.service';
 import { OrdersRepo } from './modules/orders/orders.repo';
 import { createOrdersRouter } from './modules/orders/orders.routes';
 import { OrderService } from './modules/orders/orders.service';
+import { StockHoldsRepo } from './modules/orders/stock-holds.repo';
+import { OwnerRulesRepo } from './modules/rules/rules.repo';
+import { OwnerRulesService } from './modules/rules/rules.service';
 import { createReorderHandlers } from './modules/orders/orders.reorder.handlers';
 import { createPurchaseHandlers } from './modules/orders/purchase.handlers';
 import { ImageIntake } from './modules/payments/image-intake.service';
@@ -122,6 +130,13 @@ import { OrderAlerts } from './modules/owner/order-alerts.service';
 import { OwnerAlerts } from './modules/owner/owner-alerts.service';
 import { OwnerNotifier } from './modules/owner/owner-notifier.service';
 import { createDemandHandlers } from './modules/demand/demand.handlers';
+import { WaitlistNotifier } from './modules/demand/waitlist-notifier.service';
+import { InsightsRepo } from './modules/insights/insights.repo';
+import { InsightsService } from './modules/insights/insights.service';
+import { createListingHandlers } from './modules/listings/listings.handlers';
+import { ListingsRepo } from './modules/listings/listings.repo';
+import { ListingService } from './modules/listings/listings.service';
+import { createAssistantHandlers } from './modules/owner/assistant.handlers';
 import { DemandRepo } from './modules/demand/demand.repo';
 import { DemandService } from './modules/demand/demand.service';
 import { NegotiationService } from './modules/sales/negotiation.service';
@@ -185,6 +200,7 @@ const model = new GeminiModel(
   ),
 );
 const catalogRepo = new CatalogRepo();
+const events = new EventBus(logger);
 const embeddings = new ProductEmbeddingService(
   database.db,
   catalogRepo,
@@ -192,6 +208,7 @@ const embeddings = new ProductEmbeddingService(
   timers,
   () => new Date(),
   logger,
+  events,
 );
 timers.register(PRODUCT_EMBEDDING_TIMER, (timer) => embeddings.embed(timer));
 const catalog = new CatalogService(
@@ -201,16 +218,25 @@ const catalog = new CatalogService(
   channels,
   botInfo.username,
   embeddings,
+  events,
 );
 
-const events = new EventBus(logger);
 const customers = new CustomersService(
   database.db,
   new CustomersRepo(),
   new SessionsRepo(database.db),
 );
 const negotiations = new NegotiationService(database.db, new NegotiationsRepo());
-const orders = new OrderService(database.db, new OrdersRepo(), events, timers, negotiations);
+const ownerRules = new OwnerRulesService(database.db, new OwnerRulesRepo(), () => new Date());
+const orders = new OrderService(
+  database.db,
+  new OrdersRepo(),
+  events,
+  timers,
+  negotiations,
+  ownerRules,
+  new StockHoldsRepo(),
+);
 const routes = new RouteService(
   new OpenRouteService({ baseUrl: env.ORS_BASE_URL, apiKey: env.ORS_API_KEY }, fetch),
   logger,
@@ -218,8 +244,13 @@ const routes = new RouteService(
 );
 const zoneFactors = new ZoneFactorService(new ZoneFactorsRepo(database.db), () => new Date());
 const deliverySettings = new DeliverySettingsRepo();
-const delivery = new DeliveryService(database.db, deliverySettings, shops, routes, (destination) =>
-  zoneFactors.timeFactor(destination),
+const delivery = new DeliveryService(
+  database.db,
+  deliverySettings,
+  shops,
+  routes,
+  (destination) => zoneFactors.timeFactor(destination),
+  ownerRules,
 );
 const saverSchedule = new SaverScheduleService(
   database.db,
@@ -373,8 +404,9 @@ const photoSearch = new PhotoSearchService(
   demand,
   logger,
 );
+const telegramFiles = new TelegramFiles(telegramApi, env.TELEGRAM_BOT_TOKEN);
 const imageIntake = new ImageIntake(
-  new TelegramFiles(telegramApi, env.TELEGRAM_BOT_TOKEN),
+  telegramFiles,
   receiptReader,
   orders,
   verification,
@@ -414,6 +446,36 @@ const rescheduler = new DeliveryRescheduler(
   () => new Date(),
 );
 timers.register(RESCHEDULE_TIMER, (timer) => rescheduler.rescheduleIfSilent(timer));
+const waitlistNotifier = new WaitlistNotifier(
+  demand,
+  orders,
+  catalog,
+  customers,
+  conversations,
+  customerMessages,
+  customerChat,
+  logger,
+  () => new Date(),
+);
+events.subscribe('variant.restocked', (event) => waitlistNotifier.variantRestocked(event));
+events.subscribe('product.embedded', (event) => waitlistNotifier.productEmbedded(event));
+timers.register(orderTimerKinds.holdExpire, (timer) => waitlistNotifier.holdExpired(timer));
+const listings = new ListingService(
+  database.db,
+  new ListingsRepo(),
+  model,
+  telegramFiles,
+  catalog,
+  logger,
+);
+const insights = new InsightsService(database.db, new InsightsRepo(database.db), () => new Date());
+const ownerTools = ownerAssistantTools({
+  rules: ownerRules,
+  delivery,
+  catalog,
+  insights,
+  now: () => new Date(),
+});
 const operationsToolDeps = {
   customerMessages,
   trips: tripDetails,
@@ -448,6 +510,7 @@ const registry = new ToolRegistry(
       conversations,
     }),
     ...opsTools,
+    ...ownerTools.tools,
   ],
   guard,
   logger,
@@ -516,12 +579,35 @@ const jobs = new JobService(
     ['tick', () => timers.tick()],
     ['saver-run', () => saverRuns.runAll()],
     ['nightly-learning', () => nightlyLearning.run()],
+    ['weekly-suggestions', () => weeklySuggestions.run()],
   ]),
 );
 const approvals = new OwnerApprovals(
   database.db,
   decisions,
-  operationsApprovals(opsTools, operationsToolDeps),
+  [...operationsApprovals(opsTools, operationsToolDeps), ...ownerTools.approvals],
+  ownerAlerts,
+  logger,
+  () => new Date(),
+);
+const ownerAssistantAgent = new OwnerAssistant(
+  runtime,
+  approvals,
+  new QuickChart(fetch),
+  logger,
+  () => new Date(),
+);
+const weeklySuggestions = new WeeklySuggestions(
+  new AgentRuntime(
+    model,
+    new ToolRegistry([weeklyAnalysisTool({ insights, delivery })], guard, logger),
+    database.db,
+    traces,
+    () => performance.now(),
+  ),
+  insights,
+  guard,
+  approvals,
   ownerAlerts,
   logger,
   () => new Date(),
@@ -591,10 +677,12 @@ const bot = createBot({
       chat: customerChat,
     }),
     createReorderHandlers(checkout),
+    createListingHandlers(listings),
     createCatalogHandlers(catalog),
     createDemandHandlers({ demand, customers }),
     createOperationsHandlers({ triggers: operations, problems, customers }),
     // Last, so every button and code path answers before the model does.
+    createAssistantHandlers({ assistant: ownerAssistantAgent, customers }),
     createSalesHandlers({ agent: salesAgent, customers }),
   ],
 });

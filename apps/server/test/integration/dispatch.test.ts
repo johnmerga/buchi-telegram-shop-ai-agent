@@ -56,6 +56,9 @@ import { noEmbeddings } from '../fakes/no-embeddings';
 import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
 import { NegotiationService } from '../../src/modules/sales/negotiation.service';
 import { testDatabaseUrl } from './test-database';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPauses, noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -116,6 +119,7 @@ const catalog = new CatalogService(
   { publish: () => Promise.reject(new Error('unused')) },
   botInfo.username,
   noEmbeddings,
+  noEvents,
 );
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const timerService = new TimerService(new TimersRepo(db), logger);
@@ -126,6 +130,8 @@ const orders = new OrderService(
   events,
   timerService,
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 /** Every road trip from the shop is 5 km and 15 minutes. Matrices come from straight lines. */
 const routes = new RouteService(
@@ -137,8 +143,13 @@ const routes = new RouteService(
   clock,
 );
 const zoneFactors = new ZoneFactorService(new ZoneFactorsRepo(db), clock);
-const delivery = new DeliveryService(db, new DeliverySettingsRepo(), shops, routes, () =>
-  Promise.resolve(1),
+const delivery = new DeliveryService(
+  db,
+  new DeliverySettingsRepo(),
+  shops,
+  routes,
+  () => Promise.resolve(1),
+  noPauses,
 );
 const conversationsRepo = new ConversationsRepo();
 const notifier = new OwnerNotifier(db, conversationsRepo, shops, messenger, logger);

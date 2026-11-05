@@ -32,6 +32,9 @@ import { testDatabaseUrl } from './test-database';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { NegotiationService } from '../../src/modules/sales/negotiation.service';
 import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -42,7 +45,15 @@ const noTelegram = {
   publish: () => Promise.reject(new Error('unused')),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), noTelegram);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, noTelegram, 'bot', noEmbeddings);
+const catalog = new CatalogService(
+  db,
+  new CatalogRepo(),
+  shops,
+  noTelegram,
+  'bot',
+  noEmbeddings,
+  noEvents,
+);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const bus = new EventBus(logger);
 const timers = new TimerService(new TimersRepo(db), logger);
@@ -52,6 +63,8 @@ const orders = new OrderService(
   bus,
   timers,
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 const checkout = new CheckoutService(
   customers,
@@ -186,6 +199,8 @@ describe('scheduling payment deadlines', () => {
             : timers.schedule(...args),
       },
       new NegotiationService(db, new NegotiationsRepo()),
+      noPromotions,
+      new StockHoldsRepo(),
     );
     const variantId = await variantWithStock(2);
     const before = (await ordersOfCustomer()).length;

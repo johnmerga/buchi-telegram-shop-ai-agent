@@ -20,6 +20,9 @@ import { testDatabaseUrl } from './test-database';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { NegotiationService } from '../../src/modules/sales/negotiation.service';
 import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -30,7 +33,15 @@ const noChannels = {
 };
 const logger = pino({ level: 'silent' });
 const shops = new ShopsService(db, new ShopsRepo(db), noChannels);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, noChannels, 'bot', noEmbeddings);
+const catalog = new CatalogService(
+  db,
+  new CatalogRepo(),
+  shops,
+  noChannels,
+  'bot',
+  noEmbeddings,
+  noEvents,
+);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const orders = new OrderService(
   db,
@@ -38,6 +49,8 @@ const orders = new OrderService(
   new EventBus(logger),
   new TimerService(new TimersRepo(db), logger),
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 const refs = new PaymentRefsRepo(db);
 const signals = new RiskSignalsRepo(db);

@@ -2,12 +2,16 @@ export const orderTimerKinds = {
   paymentReminder: 'order.payment_reminder',
   expire: 'order.expire',
   quoteExpire: 'order.quote_expire',
+  holdExpire: 'stock_hold.expire',
 } as const;
 
 type OrderTimerKind = (typeof orderTimerKinds)[keyof typeof orderTimerKinds];
 
 /** The design doc's default payment deadline. */
 export const PAYMENT_WINDOW_MS = 3 * 60 * 60_000;
+
+/** The design doc's rule: a restocked unit waits 30 minutes for each waitlisted customer. */
+export const WAITLIST_HOLD_MS = 30 * 60_000;
 
 /** The design doc's rule: a far-area quote holds the stock for 20 minutes. */
 export const QUOTE_HOLD_MS = 20 * 60_000;

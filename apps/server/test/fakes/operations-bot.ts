@@ -66,6 +66,9 @@ import type { BuchiContext } from '../../src/telegram/actor';
 import { createBot } from '../../src/telegram/bot';
 import { TelegramMessenger } from '../../src/telegram/messenger';
 import { noEmbeddings } from './no-embeddings';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from './no-events';
+import { noPauses, noPromotions } from './no-owner-rules';
 
 export interface SentMessage {
   method: string;
@@ -130,6 +133,7 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
     { publish: unused },
     botInfo.username,
     noEmbeddings,
+    noEvents,
   );
   const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
   const timers = new TimerService(new TimersRepo(db), logger);
@@ -140,6 +144,8 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
     events,
     timers,
     new NegotiationService(db, new NegotiationsRepo()),
+    noPromotions,
+    new StockHoldsRepo(),
   );
   const routes = new RouteService(
     {
@@ -149,8 +155,13 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
     logger,
     now,
   );
-  const delivery = new DeliveryService(db, new DeliverySettingsRepo(), shops, routes, () =>
-    Promise.resolve(1),
+  const delivery = new DeliveryService(
+    db,
+    new DeliverySettingsRepo(),
+    shops,
+    routes,
+    () => Promise.resolve(1),
+    noPauses,
   );
   const conversationsRepo = new ConversationsRepo();
   const notifier = new OwnerNotifier(db, conversationsRepo, shops, messenger, logger);

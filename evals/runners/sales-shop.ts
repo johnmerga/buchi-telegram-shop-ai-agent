@@ -34,6 +34,7 @@ import { ShopsRepo } from '@buchi/server/modules/shops/shops.repo';
 import { ShopsService } from '@buchi/server/modules/shops/shops.service';
 import { EventBus } from '@buchi/server/shared/events';
 import { pino } from 'pino';
+import { StockHoldsRepo } from '@buchi/server/modules/orders/stock-holds.repo';
 
 const offline = () => Promise.reject(new Error('Evaluations do not call Telegram'));
 
@@ -45,13 +46,29 @@ export function createSalesShop(db: Database, model: LanguageModel, now: () => D
   const logger = pino({ level: 'silent' });
   const channels = { verifyPostingRights: offline, publish: offline };
   const shops = new ShopsService(db, new ShopsRepo(db), channels);
-  const catalog = new CatalogService(db, new CatalogRepo(), shops, channels, 'evals_bot', {
-    enqueue: () => Promise.resolve(),
-  });
+  const catalog = new CatalogService(
+    db,
+    new CatalogRepo(),
+    shops,
+    channels,
+    'evals_bot',
+    {
+      enqueue: () => Promise.resolve(),
+    },
+    { publish: () => Promise.resolve() },
+  );
   const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
   const timers = new TimerService(new TimersRepo(db), logger);
   const negotiations = new NegotiationService(db, new NegotiationsRepo());
-  const orders = new OrderService(db, new OrdersRepo(), new EventBus(logger), timers, negotiations);
+  const orders = new OrderService(
+    db,
+    new OrdersRepo(),
+    new EventBus(logger),
+    timers,
+    negotiations,
+    { activePromotions: () => Promise.resolve([]) },
+    new StockHoldsRepo(),
+  );
   const pickupOnly = {
     offersDelivery: () => Promise.resolve(false),
     quote: () => Promise.resolve(undefined),

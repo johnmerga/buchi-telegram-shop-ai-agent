@@ -28,6 +28,7 @@ import { TelegramCustomerChat } from '../../src/telegram/customer-chat';
 import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
 import { EventBus } from '../../src/shared/events';
 import { testDatabaseUrl } from './test-database';
+import { noEvents } from '../fakes/no-events';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -58,6 +59,7 @@ const embeddings = new ProductEmbeddingService(
   timers,
   () => new Date(),
   logger,
+  noEvents,
 );
 timers.register(PRODUCT_EMBEDDING_TIMER, (timer) => embeddings.embed(timer));
 const noTelegram = {
@@ -65,7 +67,7 @@ const noTelegram = {
   publish: () => Promise.reject(new Error('unused')),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), noTelegram);
-const catalog = new CatalogService(db, catalogRepo, shops, noTelegram, 'bot', embeddings);
+const catalog = new CatalogService(db, catalogRepo, shops, noTelegram, 'bot', embeddings, noEvents);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const demand = new DemandService(db, new DemandRepo(), new EventBus(logger));
 const photos = new PhotoSearchService(db, catalogRepo, catalog, model, demand, logger);
@@ -160,6 +162,7 @@ describe('product embeddings', () => {
       timers,
       () => new Date('2026-11-05T12:00:00Z'),
       logger,
+      noEvents,
     );
     const product = await catalog.createProduct(
       shopId,

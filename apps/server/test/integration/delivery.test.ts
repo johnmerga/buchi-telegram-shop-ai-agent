@@ -26,6 +26,7 @@ import { ShopsRepo } from '../../src/modules/shops/shops.repo';
 import { ShopsService } from '../../src/modules/shops/shops.service';
 import { launchFields, signInitData } from '../sign-init-data';
 import { testDatabaseUrl } from './test-database';
+import { noPauses } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -41,8 +42,13 @@ const routes = new RouteService(
   logger,
   () => new Date(),
 );
-const delivery = new DeliveryService(db, new DeliverySettingsRepo(), shops, routes, () =>
-  Promise.resolve(1.5),
+const delivery = new DeliveryService(
+  db,
+  new DeliverySettingsRepo(),
+  shops,
+  routes,
+  () => Promise.resolve(1.5),
+  noPauses,
 );
 /** 09:30 in Addis Ababa. */
 let now = new Date('2026-11-05T06:30:00Z');

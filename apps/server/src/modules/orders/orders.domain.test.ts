@@ -112,18 +112,39 @@ describe('paymentInstructions', () => {
 });
 
 describe('unitPriceOf', () => {
-  const boots = { pricingMode: 'negotiable' as const, price: '1000.00', lowestPrice: '800.00' };
+  const named = { title: 'Leather boots', description: '' };
+  const boots = {
+    ...named,
+    pricingMode: 'negotiable' as const,
+    price: '1000.00',
+    lowestPrice: '800.00',
+  };
+  const fixed = { ...named, pricingMode: 'fixed' as const, price: '4500.00', lowestPrice: null };
+  const tenOffBoots = [{ percentOff: 10, keywords: ['boots'] }];
 
   it('sells a fixed-price product at its price, whatever was agreed', () => {
-    const fixed = { pricingMode: 'fixed' as const, price: '4500.00', lowestPrice: null };
-    expect(unitPriceOf(fixed, Money.of('100'))).toEqual({
+    expect(unitPriceOf(fixed, Money.of('100'), [])).toEqual({
       status: 'priced',
       price: Money.of('4500'),
     });
   });
 
+  it('takes a promotion off a fixed price', () => {
+    expect(unitPriceOf(fixed, undefined, tenOffBoots)).toEqual({
+      status: 'priced',
+      price: Money.of('4050'),
+    });
+  });
+
+  it('keeps a negotiable price to its own range during a promotion', () => {
+    expect(unitPriceOf(boots, Money.of('800'), tenOffBoots)).toEqual({
+      status: 'priced',
+      price: Money.of('800'),
+    });
+  });
+
   it('sells a negotiable product at the agreed price within the range', () => {
-    expect(unitPriceOf(boots, Money.of('800'))).toEqual({
+    expect(unitPriceOf(boots, Money.of('800'), [])).toEqual({
       status: 'priced',
       price: Money.of('800'),
     });
@@ -134,10 +155,10 @@ describe('unitPriceOf', () => {
     ['an agreed price below the lowest', Money.of('799.99')],
     ['an agreed price above the asking price', Money.of('1000.01')],
   ])('asks for an agreement with %s', (_case, agreed) => {
-    expect(unitPriceOf(boots, agreed)).toEqual({ status: 'needs_agreement' });
+    expect(unitPriceOf(boots, agreed, [])).toEqual({ status: 'needs_agreement' });
   });
 
   it('refuses a negotiable product without a lowest price', () => {
-    expect(() => unitPriceOf({ ...boots, lowestPrice: null }, Money.of('900'))).toThrow();
+    expect(() => unitPriceOf({ ...boots, lowestPrice: null }, Money.of('900'), [])).toThrow();
   });
 });

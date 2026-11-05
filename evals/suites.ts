@@ -1,8 +1,10 @@
 import type { Database } from '@buchi/server/db/client';
 import type { Suite } from './harness/suite';
+import { farPriceAgentSuite } from './runners/far-price-agent';
+import { farPriceStatisticsSuite } from './runners/far-price-statistics';
 import { negotiatedPriceSuite } from './runners/negotiated-price';
 
 /** Every suite the CLI runs, in report order. */
 export function createSuites(db: Database): Suite[] {
-  return [negotiatedPriceSuite(db)];
+  return [negotiatedPriceSuite(db), farPriceStatisticsSuite(), farPriceAgentSuite(db)];
 }

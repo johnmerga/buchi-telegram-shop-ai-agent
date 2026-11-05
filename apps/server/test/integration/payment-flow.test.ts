@@ -35,6 +35,7 @@ import { createBot } from '../../src/telegram/bot';
 import { TelegramMessenger } from '../../src/telegram/messenger';
 import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
 import { pickupOnlyDelivery } from '../fakes/pickup-only-delivery';
+import { AppError } from '../../src/shared/errors';
 import { testDatabaseUrl } from './test-database';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { NegotiationService } from '../../src/modules/sales/negotiation.service';
@@ -416,6 +417,19 @@ describe('owner review', () => {
 
     await bot.handleUpdate(tap(userOf(ownerA, 'Selam'), approve));
     expect(lastAnswer()?.text).toBe('This payment was already decided.');
+  });
+
+  it('sends the screenshot to the owners when Gemini has no quota left', async () => {
+    const hirut = userOf(424310, 'Hirut');
+    const orderId = await order(hirut, shopA.id, shopA.smallVariant);
+    const quota = new AppError('QUOTA_EXHAUSTED', 'No Gemini quota left');
+    script.push({ error: quota }, { error: quota });
+
+    await bot.handleUpdate(photo(hirut));
+
+    expect(await statusOf(shopA.id, orderId)).toBe('needs_review');
+    expect(lastTo(hirut.id)?.text).toContain('The shop is checking your payment');
+    expect(lastTo(ownerA)?.text).toContain('Buchi could not read the screenshot.');
   });
 
   it('sends a high-risk payer to review when the bank page is unavailable', async () => {

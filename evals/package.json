@@ -1,0 +1,22 @@
+{
+  "name": "@buchi/evals",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "evals": "tsx cli.ts replay",
+    "evals:record": "tsx --env-file-if-exists=../.env cli.ts record",
+    "evals:live": "tsx --env-file-if-exists=../.env cli.ts live"
+  },
+  "dependencies": {
+    "@buchi/server": "workspace:*",
+    "@buchi/shared": "workspace:*",
+    "@google/genai": "^2.32.0",
+    "pino": "^10.4.0",
+    "postgres": "^3.4.9",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

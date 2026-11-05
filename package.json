@@ -11,7 +11,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "evals": "pnpm --filter @buchi/evals evals",
+    "evals:record": "pnpm --filter @buchi/evals evals:record",
+    "evals:live": "pnpm --filter @buchi/evals evals:live"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

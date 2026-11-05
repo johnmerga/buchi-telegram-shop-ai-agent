@@ -49,6 +49,12 @@ export class ShopsService {
     });
   }
 
+  async channelChatId(shopId: string): Promise<number | null> {
+    const shop = await withShop(this.db, shopId, (tx) => this.repo.find(tx, shopId));
+    if (!shop) throw new AppError('NOT_FOUND', 'Shop not found');
+    return shop.channelChatId;
+  }
+
   async setLocation(shopId: string, location: ShopLocation): Promise<void> {
     await withShop(this.db, shopId, (tx) => this.repo.setLocation(tx, shopId, location));
   }

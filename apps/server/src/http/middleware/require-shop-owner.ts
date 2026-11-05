@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { AppError } from '../../shared/errors';
 import { callerOf } from '../caller';
 
-const shopIdSchema = z.uuid();
+// Postgres returns lowercase UUIDs, so the requested ID is compared in lowercase too.
+const shopIdSchema = z.uuid().transform((id) => id.toLowerCase());
 
 /** For `/shops/:shopId/...` routes behind `requireAuth`: lets only the shop's owners through. */
 export function requireShopOwner(

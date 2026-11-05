@@ -73,11 +73,28 @@ export class CatalogService {
     }
   }
 
-  async attachPhoto(shopId: string, productId: string, fileId: string): Promise<void> {
-    const attached = await withShop(this.db, shopId, (tx) =>
-      this.repo.addPhoto(tx, productId, fileId),
+  /** The most recent products across an owner's shops, for choosing where a photo goes. */
+  async recentProducts(shopIds: string[], limit: number): Promise<ProductRow[]> {
+    const perShop = await Promise.all(
+      shopIds.map((shopId) => withShop(this.db, shopId, (tx) => this.repo.listProducts(tx))),
     );
-    if (!attached) throw productNotFound();
+    return perShop
+      .flat()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+  }
+
+  /** Attaches a photo to a product in whichever of the owner's shops holds it. */
+  async attachPhoto(shopIds: string[], productId: string, fileId: string): Promise<ProductRow> {
+    for (const shopId of shopIds) {
+      const product = await withShop(this.db, shopId, async (tx) =>
+        (await this.repo.addPhoto(tx, productId, fileId))
+          ? this.repo.findProduct(tx, productId)
+          : undefined,
+      );
+      if (product) return product;
+    }
+    throw productNotFound();
   }
 
   /** Records the post first, because its ID goes into the Buy link that the post carries. */

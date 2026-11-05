@@ -16,6 +16,10 @@ function createService(): TimerService {
   return new TimerService(new TimersRepo(db), logger);
 }
 
+function schedule(service: TimerService, kind: string, targetId: string, dueAt: Date) {
+  return db.transaction((tx) => service.schedule(tx, kind, targetId, null, dueAt));
+}
+
 async function statusOf(id: string) {
   const [row] = await db.select().from(timers).where(eq(timers.id, id));
   return row;
@@ -33,9 +37,7 @@ describe('timers', () => {
     const handler = vi.fn((_timer: { id: string }) => Promise.resolve());
     service.register('test', handler);
     const scheduled = await Promise.all(
-      Array.from({ length: 20 }, (_, i) =>
-        service.schedule('test', `target-${String(i)}`, null, past),
-      ),
+      Array.from({ length: 20 }, (_, i) => schedule(service, 'test', `target-${String(i)}`, past)),
     );
 
     const [first, second] = await Promise.all([service.tick(), service.tick()]);
@@ -49,9 +51,9 @@ describe('timers', () => {
     const service = createService();
     service.register('ok', () => Promise.resolve());
     service.register('boom', () => Promise.reject(new Error('handler exploded')));
-    const ok1 = await service.schedule('ok', 'a', null, past);
-    const boom = await service.schedule('boom', 'b', null, past);
-    const ok2 = await service.schedule('ok', 'c', null, past);
+    const ok1 = await schedule(service, 'ok', 'a', past);
+    const boom = await schedule(service, 'boom', 'b', past);
+    const ok2 = await schedule(service, 'ok', 'c', past);
 
     expect(await service.tick()).toEqual({ done: 2, failed: 1 });
 
@@ -66,7 +68,7 @@ describe('timers', () => {
 
   it('fails a timer whose kind has no handler', async () => {
     const service = createService();
-    const orphan = await service.schedule('unknown', 'a', null, past);
+    const orphan = await schedule(service, 'unknown', 'a', past);
 
     expect(await service.tick()).toEqual({ done: 0, failed: 1 });
     expect(await statusOf(orphan.id)).toMatchObject({
@@ -79,9 +81,9 @@ describe('timers', () => {
     const service = createService();
     const handler = vi.fn((_timer: { id: string }) => Promise.resolve());
     service.register('test', handler);
-    const due = await service.schedule('test', 'due', null, past);
-    const notDue = await service.schedule('test', 'not-due', null, future);
-    const finished = await service.schedule('test', 'finished', null, past);
+    const due = await schedule(service, 'test', 'due', past);
+    const notDue = await schedule(service, 'test', 'not-due', future);
+    const finished = await schedule(service, 'test', 'finished', past);
     await db.update(timers).set({ status: 'done' }).where(eq(timers.id, finished.id));
 
     await service.tick();

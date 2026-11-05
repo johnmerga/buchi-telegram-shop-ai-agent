@@ -1,4 +1,5 @@
 import type { Logger } from 'pino';
+import type { Transaction } from '../../db/client';
 import type { Timer, TimersRepo } from './timers.repo';
 
 type TimerHandler = (timer: Timer) => Promise<void>;
@@ -28,8 +29,14 @@ export class TimerService {
     this.handlers.set(kind, handler);
   }
 
-  schedule(kind: string, targetId: string, shopId: string | null, dueAt: Date): Promise<Timer> {
-    return this.repo.schedule(kind, targetId, shopId, dueAt);
+  schedule(
+    tx: Transaction,
+    kind: string,
+    targetId: string,
+    shopId: string | null,
+    dueAt: Date,
+  ): Promise<Timer> {
+    return this.repo.schedule(tx, kind, targetId, shopId, dueAt);
   }
 
   async tick(): Promise<TickSummary> {

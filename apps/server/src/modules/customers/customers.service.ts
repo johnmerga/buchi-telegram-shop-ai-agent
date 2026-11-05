@@ -1,5 +1,6 @@
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
+import { AppError } from '../../shared/errors';
 import type { CustomerRow, CustomersRepo } from './customers.repo';
 import type { CustomerSession, SessionsRepo } from './sessions.repo';
 
@@ -31,5 +32,12 @@ export class CustomersService {
 
   async setPhone(shopId: string, customerId: string, phone: string): Promise<void> {
     await withShop(this.db, shopId, (tx) => this.repo.setPhone(tx, customerId, phone));
+  }
+
+  /** The customer's private chat with the bot has the same ID as their Telegram user. */
+  async telegramUserId(shopId: string, customerId: string): Promise<number> {
+    const id = await withShop(this.db, shopId, (tx) => this.repo.telegramUserId(tx, customerId));
+    if (id === undefined) throw new AppError('NOT_FOUND', 'Customer not found');
+    return id;
   }
 }

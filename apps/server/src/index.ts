@@ -154,6 +154,8 @@ import { DemandService } from './modules/demand/demand.service';
 import { NegotiationService } from './modules/sales/negotiation.service';
 import { NegotiationsRepo } from './modules/sales/negotiations.repo';
 import { PriceEvidenceService } from './modules/sales/price-evidence.service';
+import { ReplyTimesRepo } from './modules/sales/reply-times.repo';
+import { ReplyTimes } from './modules/sales/reply-times.service';
 import { createSalesHandlers } from './modules/sales/sales.handlers';
 import { DailyReportsRepo } from './modules/reports/daily-reports.repo';
 import { DailyReports } from './modules/reports/daily-reports.service';
@@ -736,7 +738,11 @@ const bot = createBot({
     createOperationsHandlers({ triggers: operations, problems, customers }),
     // Last, so every button and code path answers before the model does.
     createAssistantHandlers({ assistant: ownerAssistantAgent, customers }),
-    createSalesHandlers({ agent: salesAgent, customers }),
+    createSalesHandlers({
+      agent: salesAgent,
+      customers,
+      replyTimes: new ReplyTimes(database.db, new ReplyTimesRepo()),
+    }),
   ],
 });
 

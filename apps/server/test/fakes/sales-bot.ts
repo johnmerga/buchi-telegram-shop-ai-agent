@@ -35,6 +35,8 @@ import { OwnerNotifier } from '../../src/modules/owner/owner-notifier.service';
 import { NegotiationService } from '../../src/modules/sales/negotiation.service';
 import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
 import { PriceEvidenceService } from '../../src/modules/sales/price-evidence.service';
+import { ReplyTimesRepo } from '../../src/modules/sales/reply-times.repo';
+import { ReplyTimes } from '../../src/modules/sales/reply-times.service';
 import { createSalesHandlers } from '../../src/modules/sales/sales.handlers';
 import { ShopsRepo } from '../../src/modules/shops/shops.repo';
 import { ShopsService } from '../../src/modules/shops/shops.service';
@@ -90,7 +92,9 @@ export function createSalesBot(db: Database, model: LanguageModel, geocoder: Geo
         payload: fields,
       });
       const sends = ['sendMessage', 'sendPhoto', 'sendVenue', 'copyMessage'];
-      const result = sends.includes(method) ? { message_id: nextMessageId++ } : true;
+      const result = sends.includes(method)
+        ? { message_id: nextMessageId++, date: Math.floor(Date.now() / 1000) }
+        : true;
       return Promise.resolve({ ok: true, result } as never);
     });
   };
@@ -190,7 +194,11 @@ export function createSalesBot(db: Database, model: LanguageModel, geocoder: Geo
         landmarks,
         chat,
       }),
-      createSalesHandlers({ agent, customers }),
+      createSalesHandlers({
+        agent,
+        customers,
+        replyTimes: new ReplyTimes(db, new ReplyTimesRepo()),
+      }),
     ],
   });
   capture(bot.api);

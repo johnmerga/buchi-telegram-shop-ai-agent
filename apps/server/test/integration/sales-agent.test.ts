@@ -3,7 +3,13 @@ import type { FunctionCall } from '@google/genai';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { connectDatabase } from '../../src/db/client';
-import { agentDecisions, customerFacts, negotiations, waitlist } from '../../src/db/schema';
+import {
+  agentDecisions,
+  customerFacts,
+  negotiations,
+  replyTimes,
+  waitlist,
+} from '../../src/db/schema';
 import { withShop } from '../../src/db/with-shop';
 import { buyLink } from '../../src/modules/catalog/catalog.domain';
 import { AppError } from '../../src/shared/errors';
@@ -361,6 +367,31 @@ describe('sales agent tools', () => {
     expect(JSON.stringify(model.requests.at(-1)?.contents.at(-1))).toMatch(
       /"status":"awaiting_payment","total":"4500.00"/,
     );
+  });
+});
+
+describe('first reply time', () => {
+  it('records when the message reached Telegram and when the answer did', async () => {
+    const hanna = userOf(425030, 'Hanna');
+    await bot.handleUpdate(start(hanna, sneakersLink));
+    script.push({ text: 'Yes, they are original.' });
+    const sentAt = Math.floor(Date.now() / 1000) - 3;
+    const update = text(hanna, 'Are these original?');
+    if (update.message === undefined) throw new Error('Not a message');
+
+    await bot.handleUpdate({ ...update, message: { ...update.message, date: sentAt } });
+
+    expect(lastTo(hanna.id)?.text).toBe('Yes, they are original.');
+    const rows = await shopRows((tx) =>
+      tx
+        .select()
+        .from(replyTimes)
+        .where(eq(replyTimes.receivedAt, new Date(sentAt * 1000))),
+    );
+    expect(rows).toHaveLength(1);
+    const seconds = ((rows[0]?.repliedAt.getTime() ?? 0) - sentAt * 1000) / 1000;
+    expect(seconds).toBeGreaterThanOrEqual(3);
+    expect(seconds).toBeLessThan(10);
   });
 });
 

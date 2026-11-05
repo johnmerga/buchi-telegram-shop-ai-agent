@@ -49,8 +49,12 @@ function InsightTiles({ insights }: { insights: Insights }) {
         <Tile title="Policy guard" value={String(guard.rejected)} target="Blocked agent proposals">
           {guard.accepted} allowed · {guard.needsOwner} sent to you
         </Tile>
-        <Tile title="First reply time" value="—">
-          Not measured yet: Buchi does not record when each customer message arrived.
+        <Tile
+          title="First reply time"
+          value={seconds(insights.firstReply.medianSeconds)}
+          target="Target: under 10 seconds"
+        >
+          Median over {insights.firstReply.replies} customer messages Buchi answered
         </Tile>
       </div>
       <Card>
@@ -110,4 +114,8 @@ function Tile({
 
 function share(rate: Rate): string {
   return rate.total === 0 ? '—' : `${String(Math.round((rate.count / rate.total) * 100))}%`;
+}
+
+function seconds(median: number | null): string {
+  return median === null ? '—' : `${String(Math.round(median * 10) / 10)} s`;
 }

@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   foreignKey,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -76,6 +77,26 @@ export const relayedMessages = pgTable(
       columns: [t.conversationId, t.shopId],
       foreignColumns: [conversations.id, conversations.shopId],
     }).onDelete('cascade'),
+    shopIsolation(t.shopId),
+  ],
+);
+
+/**
+ * When a customer's message reached Telegram and when Buchi's answer to it did, both by Telegram's
+ * clock, for the median first-reply time in **Insights**. Holds no message text and no customer.
+ */
+export const replyTimes = pgTable(
+  'reply_times',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    shopId: uuid('shop_id')
+      .notNull()
+      .references(() => shops.id, { onDelete: 'cascade' }),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
+    repliedAt: timestamp('replied_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    index('reply_times_shop_received_idx').on(t.shopId, t.receivedAt),
     shopIsolation(t.shopId),
   ],
 );

@@ -7,10 +7,7 @@ import type { InsightsRepo } from './insights.repo';
 /** The window of the **Insights** screen: long enough to smooth one quiet week. */
 const INSIGHT_DAYS = 30;
 
-/**
- * The design doc's success metrics that Buchi has data for. The first-reply time is not recorded,
- * so the screen says so instead of showing an estimate.
- */
+/** The design doc's success metrics that Buchi has data for. */
 export class InsightsService {
   constructor(
     private readonly db: Database,
@@ -27,6 +24,7 @@ export class InsightsService {
       const deliveries = await this.daily.deliveries(tx, period);
       return {
         days: INSIGHT_DAYS,
+        firstReply: await this.repo.firstReply(tx, since),
         autoApprovedPayments: await this.repo.autoApprovedPayments(tx, since),
         fraudBlocked: await this.daily.fraudBlocked(tx, period),
         farQuotesDriverFound: await this.repo.farQuotesDriverFound(tx, since),

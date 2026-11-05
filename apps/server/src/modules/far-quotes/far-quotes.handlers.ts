@@ -39,8 +39,11 @@ export function createFarQuoteHandlers(deps: FarQuoteDeps): Composer<BuchiContex
     switch (action) {
       case 'approve':
       case 'pickup': {
-        const shopIds = ctx.actor.role === 'owner' ? ctx.actor.shopIds : [];
-        const answer = await quotes.ownerAnswered(shopIds, id, action === 'approve');
+        const owner = {
+          telegramUserId: ctx.actor.telegramUserId,
+          shopIds: ctx.actor.role === 'owner' ? ctx.actor.shopIds : [],
+        };
+        const answer = await quotes.ownerAnswered(owner, id, action === 'approve');
         await ctx.answerCallbackQuery({ text: ownerAnswers[answer] });
         if (answer !== 'not_found') await ctx.editMessageReplyMarkup();
         return;

@@ -1,39 +1,38 @@
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
+import { noteZone } from './area-notes.domain';
 import type { AreaNoteRow, AreaNotesRepo } from './area-notes.repo';
-import { nearbyZones } from './zones.domain';
+import type { Coordinates } from './location.domain';
 
-/** Road reports older than this describe roads that have probably changed. */
-const NOTE_WINDOW_MS = 7 * 24 * 60 * 60_000;
-const MAX_NOTES = 5;
-
-/** A report about an area to keep, such as a driver's note about a closed road. */
-export interface NewAreaNote {
-  /** The H3 resolution-7 zone the note is about. */
-  zone: string;
-  note: string;
-  synthetic: boolean;
-  /** When it was reported, for seeded notes. New reports take the current time. */
-  createdAt?: Date;
-}
-
-/** Recent reports about areas, which the operations agent reads as evidence for far prices. */
-export class AreaNotesService {
+/**
+ * Notes about areas, such as a driver's report of a closed road. Only the zone is stored, never
+ * the point, so a note cannot reveal a customer's door.
+ */
+export class AreaNoteService {
   constructor(
     private readonly db: Database,
     private readonly repo: AreaNotesRepo,
     private readonly now: () => Date,
   ) {}
 
-  async add(shopId: string, note: NewAreaNote): Promise<void> {
-    await withShop(this.db, shopId, (tx) => this.repo.insert(tx, { shopId, ...note }));
+  async addDriverReport(
+    shopId: string,
+    report: { near: Coordinates; note: string; validHours: number },
+  ): Promise<void> {
+    const expiresAt = new Date(this.now().getTime() + report.validHours * 60 * 60_000);
+    await withShop(this.db, shopId, (tx) =>
+      this.repo.insert(tx, {
+        shopId,
+        zone: noteZone(report.near),
+        note: report.note,
+        source: 'driver',
+        expiresAt,
+      }),
+    );
   }
 
-  /** The latest notes from the last week about the zone and the zones around it. */
-  recent(shopId: string, zone: string): Promise<AreaNoteRow[]> {
-    const since = new Date(this.now().getTime() - NOTE_WINDOW_MS);
-    return withShop(this.db, shopId, (tx) =>
-      this.repo.recent(tx, nearbyZones(zone), since, MAX_NOTES),
-    );
+  /** The current notes about the area around a point, newest first. */
+  near(shopId: string, point: Coordinates): Promise<AreaNoteRow[]> {
+    return withShop(this.db, shopId, (tx) => this.repo.current(tx, noteZone(point), this.now()));
   }
 }

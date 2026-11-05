@@ -1,4 +1,4 @@
-import { cellToLatLng, cellToParent, gridDisk, latLngToCell } from 'h3-js';
+import { cellToLatLng, cellToParent, latLngToCell } from 'h3-js';
 import type { Coordinates } from './location.domain';
 
 /** H3 resolution 7 cells cover about 5 km², small enough for one neighbourhood's traffic. */
@@ -21,11 +21,6 @@ export function parentZone(zone: string): string {
 export function zoneCenter(zone: string): Coordinates {
   const [latitude, longitude] = cellToLatLng(zone);
   return { latitude, longitude };
-}
-
-/** The zone and the six zones around it, for reports about roads just across a zone's edge. */
-export function nearbyZones(zone: string): string[] {
-  return gridDisk(zone, 1);
 }
 
 /** Where a time factor is learned and looked up: the zone, its parent, then the whole city. */

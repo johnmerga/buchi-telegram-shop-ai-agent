@@ -6,7 +6,6 @@ import {
   offerText,
   onTheWay,
   readyForPickup,
-  unansweredAlert,
 } from './dispatch-messages.domain';
 
 const orderId = '3f2a9c00-0000-4000-8000-000000000001';
@@ -101,18 +100,6 @@ describe('readyForPickup', () => {
   it('links the shop pin when the shop has one', () => {
     expect(readyForPickup(orderId, { name: 'Selam', pin })).toContain('📍 https://www.google.com');
     expect(readyForPickup(orderId, { name: 'Selam', pin: null })).not.toContain('📍');
-  });
-});
-
-describe('unansweredAlert', () => {
-  it('names every order of the job and the suggested bonus', () => {
-    const text = unansweredAlert({
-      orderIds: [orderId, 'aa000000-0000-4000-8000-000000000002'],
-      price: '125.00',
-      bonus: '30.00',
-    });
-    expect(text).toContain('#3F2A9C, #AA0000');
-    expect(text).toContain('Add a bonus of 30.00 ብር?');
   });
 });
 

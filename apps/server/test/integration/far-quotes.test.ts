@@ -28,7 +28,7 @@ import { CustomersRepo } from '../../src/modules/customers/customers.repo';
 import { CustomersService } from '../../src/modules/customers/customers.service';
 import { SessionsRepo } from '../../src/modules/customers/sessions.repo';
 import { AreaNotesRepo } from '../../src/modules/delivery/area-notes.repo';
-import { AreaNotesService } from '../../src/modules/delivery/area-notes.service';
+import { AreaNoteService } from '../../src/modules/delivery/area-notes.service';
 import { DeliverySettingsRepo } from '../../src/modules/delivery/delivery-settings.repo';
 import { DeliveryService } from '../../src/modules/delivery/delivery.service';
 import { straightLineMatrix } from '../../src/modules/delivery/distance.domain';
@@ -210,7 +210,7 @@ const farQuotes = new FarQuoteService(
   new FarQuoteEvidence(
     zoneFactors,
     acceptance,
-    new AreaNotesService(db, new AreaNotesRepo(), clock),
+    new AreaNoteService(db, new AreaNotesRepo(), clock),
     clock,
   ),
   new FarPriceEstimator(
@@ -226,6 +226,7 @@ const farQuotes = new FarQuoteService(
   alerts,
   messenger,
   logger,
+  clock,
 );
 const outcomes = new FarQuoteOutcomes(
   db,
@@ -250,7 +251,6 @@ const bot = createBot({
       dispatch,
       // The far-quote flow ends at assignment, before any trip button.
       trips: {} as never,
-      bonuses: new OfferBonusService(db, jobsRepo, jobOffersService, alerts),
       specialOffers,
     }),
     createFarQuoteHandlers({ quotes: farQuotes, outcomes }),
@@ -466,6 +466,15 @@ describe('a far-area quote', () => {
     await bot.handleUpdate(tap(abebe, hold.replace('job:hold:', 'job:accept:')));
     expect(answers().at(-1)).toBe('Sorry, this job is no longer open.');
     expect(await statusOf(orderId)).toBe('quoting');
+  });
+
+  it('never adds a bonus to a special offer, so only the cap rule raises it', async () => {
+    const [offer] = await offersOf(orderId);
+    const bonuses = new OfferBonusService(db, jobsRepo, jobOffersService);
+    await expect(bonuses.raise(shopId, offer?.id ?? '', Money.of('50'))).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    expect((await offersOf(orderId)).map((o) => o.status)).toEqual(['open']);
   });
 
   it('lets the first driver hold it and only then tells the customer the price', async () => {

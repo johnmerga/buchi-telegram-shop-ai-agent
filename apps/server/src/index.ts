@@ -1,8 +1,13 @@
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { GoogleGenAI } from '@google/genai';
 import { Api } from 'grammy';
 import { FarPriceEstimator } from './ai/agents/far-price/far-price-estimator';
+import { OperationsAgent } from './ai/agents/operations/operations-agent';
+import { operationsApprovals, operationsTools } from './ai/agents/operations/operations-tools';
+import { SituationBuilder } from './ai/agents/operations/situation-builder';
+import { OwnerApprovals } from './ai/approvals/owner-approvals.service';
 import { SalesAgent } from './ai/agents/sales/sales-agent';
 import { SalesContext } from './ai/agents/sales/sales-context';
 import { salesTools } from './ai/agents/sales/sales-tools';
@@ -18,6 +23,7 @@ import { createLogger } from './config/logger';
 import { connectDatabase } from './db/client';
 import { PRODUCT_EMBEDDING_DIMENSIONS } from './db/schema';
 import { createApp } from './http/app';
+import { createWebAppRouter } from './http/web-app';
 import { requireAuth } from './http/middleware/require-auth';
 import { requireShopOwner } from './http/middleware/require-shop-owner';
 import { createCatalogHandlers } from './modules/catalog/catalog.handlers';
@@ -35,7 +41,7 @@ import { Nominatim } from './integrations/nominatim';
 import { HttpRedirects } from './integrations/redirects';
 import { OpenRouteService } from './integrations/ors';
 import { AreaNotesRepo } from './modules/delivery/area-notes.repo';
-import { AreaNotesService } from './modules/delivery/area-notes.service';
+import { AreaNoteService } from './modules/delivery/area-notes.service';
 import { DeliverySettingsRepo } from './modules/delivery/delivery-settings.repo';
 import { createDeliveryRouter } from './modules/delivery/delivery.routes';
 import { DeliveryService } from './modules/delivery/delivery.service';
@@ -52,6 +58,9 @@ import { DispatchService } from './modules/drivers/dispatch.service';
 import { createDriverHandlers } from './modules/drivers/drivers.handlers';
 import { DriversRepo } from './modules/drivers/drivers.repo';
 import { createDriversRouter } from './modules/drivers/drivers.routes';
+import { createDriverAppRouter } from './modules/drivers/driver-app.routes';
+import { DriverBoardRepo } from './modules/drivers/driver-board.repo';
+import { DriverBoardService } from './modules/drivers/driver-board.service';
 import { DriverService } from './modules/drivers/drivers.service';
 import { JobOffers, OFFER_UNANSWERED_TIMER } from './modules/drivers/job-offers.service';
 import { OfferBonusService } from './modules/drivers/offer-bonus.service';
@@ -59,7 +68,6 @@ import { DeliveryOwnerAlerts } from './modules/drivers/owner-alerts.service';
 import { SaverRunService } from './modules/drivers/saver-runs.service';
 import { SpecialOffers, SPECIAL_OFFER_RAISE_TIMER } from './modules/drivers/special-offers.service';
 import { SpecialJobsRepo } from './modules/drivers/special-jobs.repo';
-import { RECEIPT_TIMER, TripService } from './modules/drivers/trips.service';
 import { AcceptanceFactorService } from './modules/far-quotes/acceptance-factors.service';
 import { FarQuoteEvidence } from './modules/far-quotes/far-quote-evidence.service';
 import { FarQuoteOutcomes } from './modules/far-quotes/far-quote-outcomes.service';
@@ -67,6 +75,14 @@ import { createFarQuoteHandlers } from './modules/far-quotes/far-quotes.handlers
 import { FarQuotesRepo } from './modules/far-quotes/far-quotes.repo';
 import { FarQuoteService } from './modules/far-quotes/far-quotes.service';
 import { NightlyLearningService } from './modules/jobs/nightly-learning.service';
+import { TripDetails } from './modules/drivers/trip-details.service';
+import { DELIVERY_LATE_TIMER, RECEIPT_TIMER, TripService } from './modules/drivers/trips.service';
+import { CustomerMessages } from './modules/operations/customer-messages.service';
+import { CustomerProblems } from './modules/operations/customer-problems.service';
+import { DeliveryProblemsRepo } from './modules/operations/delivery-problems.repo';
+import { createOperationsHandlers } from './modules/operations/operations.handlers';
+import { OperationsTriggers } from './modules/operations/operations-triggers.service';
+import { DeliveryRescheduler, RESCHEDULE_TIMER } from './modules/operations/rescheduling.service';
 import { createJobsRouter } from './modules/jobs/jobs.routes';
 import { JobService, type Job } from './modules/jobs/jobs.service';
 import { TimersRepo } from './modules/jobs/timers.repo';
@@ -80,7 +96,11 @@ import { SessionsRepo } from './modules/customers/sessions.repo';
 import { CheckoutService } from './modules/orders/checkout.service';
 import { orderTimerKinds } from './modules/orders/orders.deadlines.domain';
 import { PaymentDeadlineService } from './modules/orders/orders.deadlines.service';
+import { OrderBoardRepo } from './modules/orders/order-board.repo';
+import { OrderBoardService } from './modules/orders/order-board.service';
+import { OrderTrackingService } from './modules/orders/order-tracking.service';
 import { OrdersRepo } from './modules/orders/orders.repo';
+import { createOrdersRouter } from './modules/orders/orders.routes';
 import { OrderService } from './modules/orders/orders.service';
 import { createReorderHandlers } from './modules/orders/orders.reorder.handlers';
 import { createPurchaseHandlers } from './modules/orders/purchase.handlers';
@@ -94,10 +114,12 @@ import { createPaymentHandlers } from './modules/payments/payments.handlers';
 import { ReceiptReader } from './modules/payments/receipt-reader.service';
 import { RiskSignalsRepo } from './modules/payments/risk-signals.repo';
 import { RiskService } from './modules/payments/risk.service';
+import { createApprovalHandlers } from './modules/owner/approvals.handlers';
 import { createConversationHandlers } from './modules/owner/conversations.handlers';
 import { ConversationsRepo } from './modules/owner/conversations.repo';
 import { ConversationService, HAND_BACK_TIMER } from './modules/owner/conversations.service';
 import { OrderAlerts } from './modules/owner/order-alerts.service';
+import { OwnerAlerts } from './modules/owner/owner-alerts.service';
 import { OwnerNotifier } from './modules/owner/owner-notifier.service';
 import { createDemandHandlers } from './modules/demand/demand.handlers';
 import { DemandRepo } from './modules/demand/demand.repo';
@@ -107,6 +129,8 @@ import { NegotiationsRepo } from './modules/sales/negotiations.repo';
 import { PriceEvidenceService } from './modules/sales/price-evidence.service';
 import { createSalesHandlers } from './modules/sales/sales.handlers';
 import { createShopsRouter } from './modules/shops/shops.routes';
+import { LiveEvents } from './modules/live/live-events.service';
+import { createLiveRouter } from './modules/live/live.routes';
 import { ShopsService } from './modules/shops/shops.service';
 import { TelegramChannels } from './telegram/channels';
 import { EventBus } from './shared/events';
@@ -119,12 +143,15 @@ import { TelegramCustomerChat } from './telegram/customer-chat';
 import { TelegramFiles } from './telegram/files';
 import { TelegramMessenger } from './telegram/messenger';
 import { TelegramIngress } from './telegram/ingress';
+import { MiniAppLinks } from './telegram/mini-app-links';
 import { TelegramOrderNotifier } from './telegram/order-notifier';
 import { TelegramUpdatesRepo } from './telegram/updates.repo';
 import { createTelegramWebhookRouter } from './telegram/webhook.routes';
 import { UpdateWorker } from './telegram/worker';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
+/** The same path from `src/` under tsx and from `dist/` after the build. */
+const WEB_DIST_DIR = fileURLToPath(new URL('../../web/dist', import.meta.url));
 /** Bank receipt pages are optional evidence, so a slow page must not hold up a customer's reply. */
 const RECEIPT_PAGE_TIMEOUT_MS = 8_000;
 
@@ -279,6 +306,15 @@ const dispatch = new DispatchService(
   () => new Date(),
 );
 events.subscribe('order.transitioned', (event) => dispatch.orderTransitioned(event));
+const live = new LiveEvents();
+events.subscribe('order.created', ({ shopId, orderId }) => {
+  live.publish(shopId, { type: 'order.created', orderId });
+  return Promise.resolve();
+});
+events.subscribe('order.transitioned', ({ shopId, orderId, from, to }) => {
+  live.publish(shopId, { type: 'order.transitioned', orderId, from, to });
+  return Promise.resolve();
+});
 const trips = new TripService(
   database.db,
   deliveryJobs,
@@ -287,14 +323,14 @@ const trips = new TripService(
   customers,
   messenger,
   deliveryAlerts,
-  conversations,
-  notifier,
+  events,
   timers,
   zoneFactors,
   logger,
   () => new Date(),
 );
-const bonuses = new OfferBonusService(database.db, deliveryJobs, jobOffers, deliveryAlerts);
+const bonuses = new OfferBonusService(database.db, deliveryJobs, jobOffers);
+const tripDetails = new TripDetails(database.db, deliveryJobs, driversRepo);
 const saverRuns = new SaverRunService(
   orders,
   shops,
@@ -304,7 +340,6 @@ const saverRuns = new SaverRunService(
   dispatch,
   logger,
 );
-timers.register(OFFER_UNANSWERED_TIMER, (timer) => bonuses.offerUnanswered(timer));
 timers.register(RECEIPT_TIMER, (timer) => trips.receiptTimeout(timer));
 timers.register(SAVER_RUN_TIMER, (timer) => saverRuns.runScheduled(timer));
 
@@ -329,7 +364,7 @@ const verification = new PaymentVerification(
   customers,
   paymentNotifier,
 );
-const demand = new DemandService(database.db, new DemandRepo());
+const demand = new DemandService(database.db, new DemandRepo(), events);
 const photoSearch = new PhotoSearchService(
   database.db,
   catalogRepo,
@@ -356,24 +391,64 @@ const paymentReview = new PaymentReview(
   paymentNotifier,
 );
 
-const customerChat = new TelegramCustomerChat(telegramApi);
+const customerChat = new TelegramCustomerChat(
+  telegramApi,
+  env.WEB_APP_URL === undefined ? undefined : new MiniAppLinks(env.WEB_APP_URL),
+);
 const customerMemory = new CustomerMemoryService(database.db, new CustomerFactsRepo());
-const guard = new PolicyGuard(database.db, new DecisionsRepo());
+const decisions = new DecisionsRepo();
+const guard = new PolicyGuard(database.db, decisions);
+const ownerAlerts = new OwnerAlerts(shops, messenger, logger);
+const areaNotes = new AreaNoteService(database.db, new AreaNotesRepo(), () => new Date());
+const customerMessages = new CustomerMessages(orders, customers, conversations, messenger);
+const rescheduler = new DeliveryRescheduler(
+  database.db,
+  orders,
+  customers,
+  trips,
+  conversations,
+  customerMessages,
+  messenger,
+  timers,
+  logger,
+  () => new Date(),
+);
+timers.register(RESCHEDULE_TIMER, (timer) => rescheduler.rescheduleIfSilent(timer));
+const operationsToolDeps = {
+  customerMessages,
+  trips: tripDetails,
+  messenger,
+  now: () => new Date(),
+  rescheduler,
+  orders,
+  areaNotes,
+  guard,
+  catalog,
+  ownerAlerts,
+  customers,
+  demand,
+  bonuses,
+  conversations,
+};
+const opsTools = operationsTools(operationsToolDeps);
 const registry = new ToolRegistry(
-  salesTools({
-    catalog,
-    customers,
-    orders,
-    checkout,
-    chat: customerChat,
-    evidence: new PriceEvidenceService(customers, orders, negotiations, () => new Date()),
-    demand,
-    negotiations,
-    guard,
-    landmarks,
-    memory: customerMemory,
-    conversations,
-  }),
+  [
+    ...salesTools({
+      catalog,
+      customers,
+      orders,
+      checkout,
+      chat: customerChat,
+      evidence: new PriceEvidenceService(customers, orders, negotiations, () => new Date()),
+      demand,
+      negotiations,
+      guard,
+      landmarks,
+      memory: customerMemory,
+      conversations,
+    }),
+    ...opsTools,
+  ],
   guard,
   logger,
 );
@@ -396,12 +471,7 @@ const farQuotes = new FarQuoteService(
   orders,
   customers,
   delivery,
-  new FarQuoteEvidence(
-    zoneFactors,
-    acceptance,
-    new AreaNotesService(database.db, new AreaNotesRepo(), () => new Date()),
-    () => new Date(),
-  ),
+  new FarQuoteEvidence(zoneFactors, acceptance, areaNotes, () => new Date()),
   new FarPriceEstimator(
     (tools) =>
       new AgentRuntime(model, new ToolRegistry(tools, guard, logger), database.db, traces, () =>
@@ -415,6 +485,7 @@ const farQuotes = new FarQuoteService(
   deliveryAlerts,
   messenger,
   logger,
+  () => new Date(),
 );
 const farQuoteOutcomes = new FarQuoteOutcomes(
   database.db,
@@ -447,6 +518,51 @@ const jobs = new JobService(
     ['nightly-learning', () => nightlyLearning.run()],
   ]),
 );
+const approvals = new OwnerApprovals(
+  database.db,
+  decisions,
+  operationsApprovals(opsTools, operationsToolDeps),
+  ownerAlerts,
+  logger,
+  () => new Date(),
+);
+const operationsAgent = new OperationsAgent(
+  runtime,
+  approvals,
+  ownerAlerts,
+  logger,
+  () => new Date(),
+);
+const situations = new SituationBuilder(
+  orders,
+  catalog,
+  conversations,
+  areaNotes,
+  () => new Date(),
+);
+const operations = new OperationsTriggers(
+  operationsAgent,
+  situations,
+  orders,
+  tripDetails,
+  conversations,
+  () => new Date(),
+);
+const problems = new CustomerProblems(
+  database.db,
+  new DeliveryProblemsRepo(),
+  orders,
+  customers,
+  catalog,
+  messenger,
+  conversations,
+  situations,
+  operationsAgent,
+);
+timers.register(OFFER_UNANSWERED_TIMER, (timer) => operations.offerUnanswered(timer));
+timers.register(DELIVERY_LATE_TIMER, (timer) => operations.deliveryLate(timer));
+events.subscribe('waitlist.joined', (event) => operations.waitlistJoined(event));
+events.subscribe('delivery.problem_reported', (event) => problems.problemReported(event));
 
 const bot = createBot({
   token: env.TELEGRAM_BOT_TOKEN,
@@ -455,8 +571,9 @@ const bot = createBot({
   driverShopIds: (telegramUserId) => drivers.shopIds(telegramUserId),
   handlers: [
     createDriverHandlers(drivers),
-    createDispatchHandlers({ dispatch, trips, bonuses, specialOffers }),
+    createDispatchHandlers({ dispatch, trips, specialOffers }),
     createFarQuoteHandlers({ quotes: farQuotes, outcomes: farQuoteOutcomes }),
+    createApprovalHandlers(approvals),
     createConversationHandlers({ conversations, customers }),
     createPurchaseHandlers({
       catalog,
@@ -476,6 +593,7 @@ const bot = createBot({
     createReorderHandlers(checkout),
     createCatalogHandlers(catalog),
     createDemandHandlers({ demand, customers }),
+    createOperationsHandlers({ triggers: operations, problems, customers }),
     // Last, so every button and code path answers before the model does.
     createSalesHandlers({ agent: salesAgent, customers }),
   ],
@@ -490,7 +608,7 @@ const auth = new AuthService({
   now: () => new Date(),
 });
 
-const ownerAuth = requireAuth((token) => auth.verifyToken(token));
+const signedIn = requireAuth((token) => auth.verifyToken(token));
 const shopOwner = requireShopOwner((telegramUserId) => shops.ownedShopIds(telegramUserId));
 
 const app = createApp({
@@ -498,16 +616,39 @@ const app = createApp({
   routers: [
     createTelegramWebhookRouter({ secret: env.TELEGRAM_WEBHOOK_SECRET, ingress }),
     createJobsRouter(jobs, env.JOB_SECRET),
-    createAuthRouter(auth),
-    createShopsRouter({ shops, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
-    createCatalogRouter({ catalog, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
+    createAuthRouter(auth, botInfo.username),
+    createShopsRouter({ shops, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createCatalogRouter({ catalog, requireAuth: signedIn, requireShopOwner: shopOwner }),
     createDeliveryRouter({
       delivery,
       saverSchedule,
-      requireAuth: ownerAuth,
+      requireAuth: signedIn,
       requireShopOwner: shopOwner,
     }),
-    createDriversRouter({ drivers, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
+    createDriversRouter({ drivers, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createOrdersRouter({
+      board: new OrderBoardService(database.db, new OrderBoardRepo()),
+      tracking: new OrderTrackingService(orders, shops),
+      requireAuth: signedIn,
+      requireShopOwner: shopOwner,
+    }),
+    createLiveRouter({ live, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createDriverAppRouter({
+      board: new DriverBoardService(
+        database.db,
+        new DriverBoardRepo(),
+        deliveryJobs,
+        driversRepo,
+        shops,
+        orders,
+        customers,
+      ),
+      dispatch,
+      trips,
+      requireAuth: signedIn,
+    }),
+    // Last, so the web app's fallback pages never shadow an API route.
+    createWebAppRouter(WEB_DIST_DIR),
   ],
 });
 const server = app.listen(env.PORT, () => {

@@ -1,16 +1,6 @@
 CREATE TYPE "public"."time_band" AS ENUM('peak', 'off_peak');--> statement-breakpoint
 CREATE TYPE "public"."far_quote_source" AS ENUM('agent', 'statistics');--> statement-breakpoint
 CREATE TYPE "public"."far_quote_status" AS ENUM('estimating', 'awaiting_owner', 'offered', 'held', 'accepted', 'declined', 'expired', 'pickup');--> statement-breakpoint
-CREATE TABLE "area_notes" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"shop_id" uuid NOT NULL,
-	"zone" text NOT NULL,
-	"note" text NOT NULL,
-	"synthetic" boolean DEFAULT false NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-ALTER TABLE "area_notes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "trip_legs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"zone" text NOT NULL,
@@ -75,17 +65,14 @@ ALTER TABLE "delivery_jobs" ADD COLUMN "special" boolean DEFAULT false NOT NULL;
 ALTER TABLE "job_stops" ADD COLUMN "routing_seconds" integer;--> statement-breakpoint
 ALTER TABLE "job_stops" ADD COLUMN "expected_seconds" integer;--> statement-breakpoint
 ALTER TABLE "orders" ADD COLUMN "delivery_zone" text;--> statement-breakpoint
-ALTER TABLE "area_notes" ADD CONSTRAINT "area_notes_shop_id_shops_id_fk" FOREIGN KEY ("shop_id") REFERENCES "public"."shops"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "far_quotes" ADD CONSTRAINT "far_quotes_shop_id_shops_id_fk" FOREIGN KEY ("shop_id") REFERENCES "public"."shops"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "far_quotes" ADD CONSTRAINT "far_quotes_decision_id_agent_decisions_id_fk" FOREIGN KEY ("decision_id") REFERENCES "public"."agent_decisions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "far_quotes" ADD CONSTRAINT "far_quotes_order_id_shop_id_orders_id_shop_id_fk" FOREIGN KEY ("order_id","shop_id") REFERENCES "public"."orders"("id","shop_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "zone_acceptance_factors" ADD CONSTRAINT "zone_acceptance_factors_shop_id_shops_id_fk" FOREIGN KEY ("shop_id") REFERENCES "public"."shops"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "area_notes_zone_idx" ON "area_notes" USING btree ("shop_id","zone");--> statement-breakpoint
 CREATE INDEX "trip_legs_started_at_idx" ON "trip_legs" USING btree ("started_at");--> statement-breakpoint
 UPDATE "customers" SET "delivery_pin_at" = now() WHERE "delivery_latitude" IS NOT NULL;--> statement-breakpoint
 ALTER TABLE "customers" ADD CONSTRAINT "customers_delivery_pin_complete" CHECK (("customers"."delivery_latitude" is null) = ("customers"."delivery_longitude" is null) and ("customers"."delivery_latitude" is null) = ("customers"."delivery_pin_at" is null));--> statement-breakpoint
 ALTER TABLE "job_offers" ADD CONSTRAINT "job_offers_taken_by" CHECK (("job_offers"."status" in ('taken', 'held')) = ("job_offers"."taken_by_driver_id" is not null));--> statement-breakpoint
 ALTER TABLE "orders" ADD CONSTRAINT "orders_delivery_pin" CHECK (("orders"."delivery_latitude" is null) = ("orders"."delivery_longitude" is null) and ("orders"."delivery_type" = 'pickup') = ("orders"."delivery_latitude" is null and "orders"."delivery_zone" is null));--> statement-breakpoint
-CREATE POLICY "shop_isolation" ON "area_notes" AS PERMISSIVE FOR ALL TO "app_user" USING ("area_notes"."shop_id" = nullif(current_setting('app.shop_id', true), '')::uuid) WITH CHECK ("area_notes"."shop_id" = nullif(current_setting('app.shop_id', true), '')::uuid);--> statement-breakpoint
 CREATE POLICY "shop_isolation" ON "far_quotes" AS PERMISSIVE FOR ALL TO "app_user" USING ("far_quotes"."shop_id" = nullif(current_setting('app.shop_id', true), '')::uuid) WITH CHECK ("far_quotes"."shop_id" = nullif(current_setting('app.shop_id', true), '')::uuid);--> statement-breakpoint
 CREATE POLICY "shop_isolation" ON "zone_acceptance_factors" AS PERMISSIVE FOR ALL TO "app_user" USING ("zone_acceptance_factors"."shop_id" = nullif(current_setting('app.shop_id', true), '')::uuid) WITH CHECK ("zone_acceptance_factors"."shop_id" = nullif(current_setting('app.shop_id', true), '')::uuid);

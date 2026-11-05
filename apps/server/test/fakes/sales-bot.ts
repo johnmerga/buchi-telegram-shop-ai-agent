@@ -130,7 +130,7 @@ export function createSalesBot(db: Database, model: LanguageModel, geocoder: Geo
   );
   const landmarks = new LandmarkService(db, new LandmarksRepo(), geocoder, logger);
   const memory = new CustomerMemoryService(db, new CustomerFactsRepo());
-  const demand = new DemandService(db, new DemandRepo());
+  const demand = new DemandService(db, new DemandRepo(), new EventBus(logger));
   const chat = new TelegramCustomerChat(api);
   const guard = new PolicyGuard(db, new DecisionsRepo());
   const registry = new ToolRegistry(

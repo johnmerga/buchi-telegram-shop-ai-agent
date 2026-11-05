@@ -13,7 +13,7 @@ import type { NewOrder, OrderDelivery, OrderService } from './orders.service';
 export type PlaceOrderResult =
   | { status: 'needs_phone' }
   | { status: 'needs_location' }
-  | { status: 'placed'; instructions: string };
+  | { status: 'placed'; orderId: string; instructions: string };
 
 /** The stock is held while drivers price a far-area delivery. */
 export type FarQuoteRequest =
@@ -143,11 +143,12 @@ export class CheckoutService {
     if (expired.status !== 'expired') {
       throw new AppError('CONFLICT', 'Only an expired order can be ordered again');
     }
-    return this.reserve(expired.shopId, {
+    const placed = await this.reserve(expired.shopId, {
       customerId: expired.customerId,
       items: expired.items.map(({ variantId, quantity }) => ({ variantId, quantity })),
       delivery: deliveryOf(expired),
     });
+    return placed.instructions;
   }
 
   private async nextStep(
@@ -179,25 +180,28 @@ export class CheckoutService {
     variantId: string,
     delivery: OrderDelivery,
   ): Promise<PlaceOrderResult> {
-    const instructions = await this.reserve(shopId, {
+    const placed = await this.reserve(shopId, {
       customerId: customer.id,
       items: [{ variantId, quantity: 1 }],
       delivery,
     });
     await this.customers.rememberChosenVariant(customer.telegramUserId, null);
     if (delivery.type !== 'pickup') await this.customers.setDeliveryPin(shopId, customer.id, null);
-    return { status: 'placed', instructions };
+    return { status: 'placed', ...placed };
   }
 
   /** Creates the order with the standard payment window and returns its payment instructions. */
-  private async reserve(shopId: string, order: Omit<NewOrder, 'paymentDeadline'>): Promise<string> {
+  private async reserve(
+    shopId: string,
+    order: Omit<NewOrder, 'paymentDeadline'>,
+  ): Promise<{ orderId: string; instructions: string }> {
     const deadline = new Date(this.now().getTime() + PAYMENT_WINDOW_MS);
     const created = await this.orders.create(
       shopId,
       { ...order, paymentDeadline: deadline },
       'customer',
     );
-    return this.instructions(created, deadline);
+    return { orderId: created.id, instructions: await this.instructions(created, deadline) };
   }
 
   private async instructions(order: OrderRow, deadline: Date): Promise<string> {

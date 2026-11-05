@@ -117,14 +117,9 @@ export function readyForPickup(
 }
 
 export const receivedThanks = 'አመሰግናለሁ / Thank you for confirming!';
-export const problemReply = 'ይቅርታ / Sorry! The shop will contact you here shortly.';
 
-export function problemAlert(orderId: string): string {
-  return [
-    `⚠️ Reports a problem with delivered order ${orderReference(orderId)}.`,
-    'Reply to this message to answer.',
-  ].join(' ');
-}
+export const driverProblemPrompt =
+  '✍️ ምን ተፈጠረ? / What happened? Write it here, and Buchi will tell the customer and the shop.';
 
 /** Only the distance: the driver's coordinates never reach an owner's chat or the logs. */
 export function offPinAlert(orderId: string, metersFromPin: number): string {
@@ -132,22 +127,6 @@ export function offPinAlert(orderId: string, metersFromPin: number): string {
     `⚠️ ${orderReference(orderId)} was marked delivered ${String(metersFromPin)} m from the customer's pin.`,
     'Please check with the driver.',
   ].join(' ');
-}
-
-export function unansweredAlert(offer: {
-  orderIds: string[];
-  price: MoneyString;
-  bonus: MoneyString;
-}): string {
-  const references = offer.orderIds.map(orderReference).join(', ');
-  return [
-    `⏰ No driver has accepted the delivery of ${references} for 10 minutes.`,
-    `Payout: ${formatBirr(offer.price)}. Add a bonus of ${formatBirr(offer.bonus)}?`,
-  ].join('\n');
-}
-
-export function bonusButtonText(bonus: MoneyString): string {
-  return `➕ Add ${formatBirr(bonus)}`;
 }
 
 export function availabilityText(available: boolean): string {

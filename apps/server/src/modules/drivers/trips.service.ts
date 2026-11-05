@@ -6,24 +6,25 @@ import type { CustomersService } from '../customers/customers.service';
 import { straightLineMeters } from '../delivery/distance.domain';
 import type { Coordinates } from '../delivery/location.domain';
 import type { ZoneFactorService } from '../delivery/zone-factors.service';
+import type { EventBus } from '../../shared/events';
 import type { OrderService } from '../orders/orders.service';
-import type { ConversationService } from '../owner/conversations.service';
 import type { Button } from '../owner/owner.domain';
-import type { Messenger, OwnerNotifier } from '../owner/owner-notifier.service';
+import type { Messenger } from '../owner/owner-notifier.service';
 import type { DeliveryJobsRepo, StopRow } from './delivery-jobs.repo';
 import {
   deliveredQuestion,
   deliverPrompt,
   offPinAlert,
   onTheWay,
-  problemAlert,
 } from './dispatch-messages.domain';
-import { minutesBetween, needsReview, point, RECEIPT_WINDOW_MS } from './dispatch.domain';
+import { lateAt, minutesBetween, needsReview, point, RECEIPT_WINDOW_MS } from './dispatch.domain';
 import type { DriverRow, DriversRepo } from './drivers.repo';
 import { jobCallbackData, receiptCallbackData, type ReceiptAnswer } from './drivers.schemas';
 import type { DeliveryOwnerAlerts } from './owner-alerts.service';
 
 export const RECEIPT_TIMER = 'drivers.receipt_timeout';
+/** Fires once per trip, when a picked-up trip should have ended. The target is the job. */
+export const DELIVERY_LATE_TIMER = 'drivers.delivery_late';
 
 interface TimerScheduler {
   schedule(
@@ -50,8 +51,7 @@ export class TripService {
     private readonly customers: Pick<CustomersService, 'get'>,
     private readonly messenger: Pick<Messenger, 'send'>,
     private readonly alerts: Pick<DeliveryOwnerAlerts, 'send'>,
-    private readonly conversations: Pick<ConversationService, 'open'>,
-    private readonly notifier: Pick<OwnerNotifier, 'notify'>,
+    private readonly events: Pick<EventBus, 'publish'>,
     private readonly timers: TimerScheduler,
     private readonly legs: Pick<ZoneFactorService, 'recordLeg'>,
     private readonly logger: Logger,
@@ -61,8 +61,12 @@ export class TripService {
   /** Puts every order of the job on its way, and tells each customer who brings it. */
   async pickedUp(telegramUserId: number, jobId: string): Promise<boolean> {
     const found = await this.forDriver(telegramUserId, async (tx, driver) => {
-      const job = await this.jobs.pickUp(tx, jobId, driver.id, this.now());
-      return job && { driver, stops: await this.jobs.stops(tx, job.id) };
+      const pickedUpAt = this.now();
+      const job = await this.jobs.pickUp(tx, jobId, driver.id, pickedUpAt);
+      if (!job) return undefined;
+      const lateCheck = lateAt(pickedUpAt, job.estimatedMinutes);
+      await this.timers.schedule(tx, DELIVERY_LATE_TIMER, job.id, job.shopId, lateCheck);
+      return { driver, stops: await this.jobs.stops(tx, job.id) };
     });
     if (!found) return false;
     const { shopId, result } = found;
@@ -79,7 +83,10 @@ export class TripService {
       await this.tell(
         telegramUserId,
         deliverPrompt({ position: stop.position, customerName: customer.name }),
-        [{ text: '✅ Delivered / ደርሷል', data: jobCallbackData('delivered', stop.id) }],
+        [
+          { text: '✅ Delivered / ደርሷል', data: jobCallbackData('delivered', stop.id) },
+          { text: '⚠️ Problem / ችግር', data: jobCallbackData('problem', stop.jobId) },
+        ],
       );
     }
     return true;
@@ -157,7 +164,7 @@ export class TripService {
     return { status: 'delivered', orderId: order.id, jobDone: delivered.jobDone };
   }
 
-  /** Only the first answer counts. A problem goes to the owners with a **Take over** button. */
+  /** Only the first answer counts. A problem goes on to the operations agent as an event. */
   async confirmReceipt(
     telegramUserId: number,
     orderId: string,
@@ -176,12 +183,7 @@ export class TripService {
     );
     if (!recorded) return 'already_answered';
     if (answer === 'problem') {
-      const customer = await this.customers.get(shopId, order.customerId);
-      const conversation = await this.conversations.open(shopId, {
-        telegramUserId,
-        name: customer.name,
-      });
-      await this.notifier.notify(conversation, { text: problemAlert(orderId) });
+      await this.events.publish('delivery.problem_reported', { shopId, orderId });
     }
     return 'recorded';
   }
@@ -210,6 +212,26 @@ export class TripService {
       routingSeconds,
       expectedSeconds,
       actualSeconds,
+    });
+  }
+
+  /**
+   * Takes an undelivered order off its trip and ends the trip if nothing is left to deliver.
+   * Returns the driver's chat, or `undefined` when the order was not on the way.
+   */
+  async dropStop(shopId: string, orderId: string): Promise<{ driverChatId: number } | undefined> {
+    return withShop(this.db, shopId, async (tx) => {
+      const stop = await this.jobs.removeStop(tx, orderId);
+      const job = stop && (await this.jobs.findJob(tx, stop.jobId));
+      if (!job?.driverId) return undefined;
+      if ((await this.jobs.undeliveredStops(tx, job.id)) === 0) {
+        const now = this.now();
+        const actualMinutes = minutesBetween(job.pickedUpAt ?? now, now);
+        await this.jobs.finish(tx, job.id, { deliveredAt: now, actualMinutes });
+      }
+      const driver = await this.drivers.find(tx, job.driverId);
+      const chatId = driver?.telegramUserId ?? null;
+      return chatId === null ? undefined : { driverChatId: chatId };
     });
   }
 

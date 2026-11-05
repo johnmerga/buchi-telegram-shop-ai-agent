@@ -1,4 +1,4 @@
-import { formatBirr } from '@buchi/shared';
+import { coordinatesSchema, formatBirr } from '@buchi/shared';
 import { Composer, InlineKeyboard, type Context } from 'grammy';
 import type { User } from 'grammy/types';
 import { AppError } from '../../shared/errors';
@@ -176,6 +176,18 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
     await offerOptions(ctx, session, checkPin({ latitude, longitude }));
   });
 
+  /** The pin from the map picker Mini App, which Telegram delivers as a service message. */
+  purchase.on('message:web_app_data', async (ctx, next) => {
+    const session = await pendingOrder(ctx.from.id);
+    if (!session) return next();
+    const pin = coordinatesSchema.safeParse(parseJson(ctx.msg.web_app_data.data));
+    if (!pin.success) {
+      await chat.askForPin(ctx.from.id, pinRequest('no_coordinates'));
+      return;
+    }
+    await offerOptions(ctx, session, checkPin(pin.data));
+  });
+
   purchase.on('message:text', async (ctx, next) => {
     const session = await pendingOrder(ctx.from.id);
     if (!session) return next();
@@ -225,6 +237,14 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
   });
 
   return purchase;
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }
 
 const startAgain = 'እባክዎ በቻናሉ ላይ ያለውን ቁልፍ እንደገና ይጫኑ / Tap the button on the channel post again.';

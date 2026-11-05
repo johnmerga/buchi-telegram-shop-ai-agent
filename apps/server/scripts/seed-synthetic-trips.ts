@@ -1,6 +1,6 @@
 /**
  * Seeds 200 synthetic far trips, labeled synthetic, for a shop that has its location and delivery
- * settings, then learns the zone factors from them. The zone map and the far-price evidence then
+ * settings, and one demo area note, then learns the zone factors from them. The zone map and the far-price evidence then
  * work from the first day of the demo. Run it once per shop.
  *
  *   pnpm --filter @buchi/server seed:synthetic-trips <shop-id>
@@ -10,7 +10,7 @@ import { loadDatabaseUrl } from '../src/config/env';
 import { connectDatabase } from '../src/db/client';
 import { withShop } from '../src/db/with-shop';
 import { AreaNotesRepo } from '../src/modules/delivery/area-notes.repo';
-import { AreaNotesService } from '../src/modules/delivery/area-notes.service';
+import { AreaNoteService } from '../src/modules/delivery/area-notes.service';
 import { DeliverySettingsRepo } from '../src/modules/delivery/delivery-settings.repo';
 import { ZoneFactorsRepo } from '../src/modules/delivery/zone-factors.repo';
 import { ZoneFactorService } from '../src/modules/delivery/zone-factors.service';
@@ -20,7 +20,6 @@ import { syntheticTrips } from '../src/modules/far-quotes/synthetic-trips.domain
 import { ShopsRepo } from '../src/modules/shops/shops.repo';
 
 const TRIPS = 200;
-const DAY_MS = 24 * 60 * 60_000;
 
 const shopId = z.uuid().parse(process.argv[2]);
 const { db, close } = connectDatabase(loadDatabaseUrl(process.env));
@@ -52,11 +51,10 @@ try {
   );
   const south = trips.find((trip) => trip.destination.latitude < origin.latitude - 0.08);
   if (south) {
-    await new AreaNotesService(db, new AreaNotesRepo(), now).add(shopId, {
-      zone: south.leg.zone,
-      note: 'Roadworks on the ring road near Kality, expect 20 extra minutes.',
-      synthetic: true,
-      createdAt: new Date(now().getTime() - DAY_MS),
+    await new AreaNoteService(db, new AreaNotesRepo(), now).addDriverReport(shopId, {
+      near: south.destination,
+      note: 'Demo note: roadworks on the ring road near Kality, expect 20 extra minutes.',
+      validHours: 72,
     });
   }
   const time = await zoneFactors.learn();

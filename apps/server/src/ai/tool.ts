@@ -2,8 +2,16 @@ import type { AgentName, AutonomyLevel } from '@buchi/shared';
 import type { FunctionDeclaration } from '@google/genai';
 import { z } from 'zod';
 
-/** Who an agent acts for. Code resolves it from the Telegram user ID, never from message text. */
-export type ToolActor = { kind: 'telegram_user'; telegramUserId: number } | { kind: 'system' };
+/**
+ * Who an agent acts for. Code resolves it from the Telegram user ID, never from message text. An
+ * operations run acts on one situation, and may touch only the records that its situation names.
+ * An owner approves a held action, which then runs for them.
+ */
+export type ToolActor =
+  | { kind: 'telegram_user'; telegramUserId: number }
+  | { kind: 'situation'; recordIds: readonly string[] }
+  | { kind: 'owner'; telegramUserId: number }
+  | { kind: 'system' };
 
 /** One agent run for one shop. */
 export interface RunContext {

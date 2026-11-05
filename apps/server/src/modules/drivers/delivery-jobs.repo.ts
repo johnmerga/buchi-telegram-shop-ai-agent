@@ -283,6 +283,36 @@ export class DeliveryJobsRepo {
     return (await this.findJob(tx, stop.jobId))?.pickedUpAt ?? undefined;
   }
 
+  /** The driver's latest job between accepting and the last delivery. */
+  async activeJobOf(tx: Transaction, driverId: string): Promise<JobRow | undefined> {
+    const [row] = await tx
+      .select()
+      .from(deliveryJobs)
+      .where(
+        and(
+          eq(deliveryJobs.driverId, driverId),
+          inArray(deliveryJobs.status, ['assigned', 'picked_up']),
+        ),
+      )
+      .orderBy(desc(deliveryJobs.acceptedAt))
+      .limit(1);
+    return row;
+  }
+
+  async stopOf(tx: Transaction, orderId: string): Promise<StopRow | undefined> {
+    const [row] = await tx.select().from(jobStops).where(eq(jobStops.orderId, orderId));
+    return row;
+  }
+
+  /** Takes an undelivered order off its job, so a later job can carry it. */
+  async removeStop(tx: Transaction, orderId: string): Promise<StopRow | undefined> {
+    const [row] = await tx
+      .delete(jobStops)
+      .where(and(eq(jobStops.orderId, orderId), isNull(jobStops.deliveredAt)))
+      .returning();
+    return row;
+  }
+
   private jobsOnTheWay(tx: Transaction, driverId: string) {
     return tx
       .select({ id: deliveryJobs.id })

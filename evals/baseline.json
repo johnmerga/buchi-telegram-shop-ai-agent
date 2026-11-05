@@ -4,6 +4,10 @@
     "priceOutsideRange": 0,
     "fixedPriceDiscount": 0
   },
+  "operations-situations": {
+    "actionMatch": 1,
+    "autonomyMatch": 1
+  },
   "far-price-statistics": {
     "statisticsError": 0.0769836364243599,
     "statisticsBeatsFormula": 1,

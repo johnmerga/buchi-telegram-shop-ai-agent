@@ -37,4 +37,4 @@ jobs:
       - run: pnpm test
       # Replays recorded model responses, so it needs no API key and no network.
       - run: pnpm evals
-      - run: pnpm --filter @buchi/server build
+      - run: pnpm -r build

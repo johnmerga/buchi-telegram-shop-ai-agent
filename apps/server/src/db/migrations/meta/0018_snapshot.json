@@ -1,5 +1,5 @@
 {
-  "id": "366e7edf-0121-4c17-80bb-c01cbfa3d882",
+  "id": "5f95e49d-0ca9-4083-bd0a-d40627536909",
   "prevId": "0ebd5a9c-0e34-4747-b9dc-a5f229547c0f",
   "version": "7",
   "dialect": "postgresql",
@@ -91,6 +91,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "decided_by": {
+          "name": "decided_by",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -105,12 +117,8 @@
           "name": "agent_decisions_shop_id_shops_id_fk",
           "tableFrom": "agent_decisions",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -122,9 +130,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"agent_decisions\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"agent_decisions\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -133,6 +139,10 @@
         "agent_decisions_owner_status_iff_needs_owner": {
           "name": "agent_decisions_owner_status_iff_needs_owner",
           "value": "(\"agent_decisions\".\"result\" = 'needs_owner') = (\"agent_decisions\".\"owner_status\" is not null)"
+        },
+        "agent_decisions_decided_iff_answered": {
+          "name": "agent_decisions_decided_iff_answered",
+          "value": "(\"agent_decisions\".\"owner_status\" in ('approved', 'declined')) = (\"agent_decisions\".\"decided_at\" is not null and \"agent_decisions\".\"decided_by\" is not null)"
         },
         "agent_decisions_counteroffer_iff_rejected": {
           "name": "agent_decisions_counteroffer_iff_rejected",
@@ -241,12 +251,8 @@
           "name": "agent_traces_shop_id_shops_id_fk",
           "tableFrom": "agent_traces",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -258,9 +264,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"agent_traces\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"agent_traces\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -324,12 +328,8 @@
           "name": "channel_posts_shop_id_shops_id_fk",
           "tableFrom": "channel_posts",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -337,14 +337,8 @@
           "name": "channel_posts_product_id_shop_id_products_id_shop_id_fk",
           "tableFrom": "channel_posts",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["product_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -356,9 +350,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"channel_posts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"channel_posts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -421,12 +413,8 @@
           "name": "product_variants_shop_id_shops_id_fk",
           "tableFrom": "product_variants",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -434,14 +422,8 @@
           "name": "product_variants_product_id_shop_id_products_id_shop_id_fk",
           "tableFrom": "product_variants",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["product_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -451,19 +433,12 @@
         "product_variants_id_shop_unique": {
           "name": "product_variants_id_shop_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "shop_id"
-          ]
+          "columns": ["id", "shop_id"]
         },
         "product_variants_option_unique": {
           "name": "product_variants_option_unique",
           "nullsNotDistinct": true,
-          "columns": [
-            "product_id",
-            "size",
-            "color"
-          ]
+          "columns": ["product_id", "size", "color"]
         }
       },
       "policies": {
@@ -471,9 +446,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"product_variants\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"product_variants\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -569,12 +542,8 @@
           "name": "products_shop_id_shops_id_fk",
           "tableFrom": "products",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -584,10 +553,7 @@
         "products_id_shop_unique": {
           "name": "products_id_shop_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "shop_id"
-          ]
+          "columns": ["id", "shop_id"]
         }
       },
       "policies": {
@@ -595,9 +561,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"products\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"products\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -674,12 +638,8 @@
           "name": "conversations_shop_id_shops_id_fk",
           "tableFrom": "conversations",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -689,18 +649,12 @@
         "conversations_shop_customer_unique": {
           "name": "conversations_shop_customer_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "shop_id",
-            "customer_telegram_user_id"
-          ]
+          "columns": ["shop_id", "customer_telegram_user_id"]
         },
         "conversations_id_shop_unique": {
           "name": "conversations_id_shop_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "shop_id"
-          ]
+          "columns": ["id", "shop_id"]
         }
       },
       "policies": {
@@ -708,9 +662,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"conversations\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"conversations\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -760,14 +712,8 @@
           "name": "relayed_messages_conversation_id_shop_id_conversations_id_shop_id_fk",
           "tableFrom": "relayed_messages",
           "tableTo": "conversations",
-          "columnsFrom": [
-            "conversation_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["conversation_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -775,10 +721,7 @@
       "compositePrimaryKeys": {
         "relayed_messages_owner_chat_id_message_id_pk": {
           "name": "relayed_messages_owner_chat_id_message_id_pk",
-          "columns": [
-            "owner_chat_id",
-            "message_id"
-          ]
+          "columns": ["owner_chat_id", "message_id"]
         }
       },
       "uniqueConstraints": {},
@@ -787,9 +730,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"relayed_messages\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"relayed_messages\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -852,12 +793,8 @@
           "name": "customer_facts_shop_id_shops_id_fk",
           "tableFrom": "customer_facts",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -865,14 +802,8 @@
           "name": "customer_facts_customer_id_shop_id_customers_id_shop_id_fk",
           "tableFrom": "customer_facts",
           "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["customer_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -882,10 +813,7 @@
         "customer_facts_customer_key_unique": {
           "name": "customer_facts_customer_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "customer_id",
-            "key"
-          ]
+          "columns": ["customer_id", "key"]
         }
       },
       "policies": {
@@ -893,9 +821,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"customer_facts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"customer_facts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -950,12 +876,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "delivery_pin_at": {
-          "name": "delivery_pin_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -970,12 +890,8 @@
           "name": "customers_shop_id_shops_id_fk",
           "tableFrom": "customers",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -985,18 +901,12 @@
         "customers_shop_telegram_unique": {
           "name": "customers_shop_telegram_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "shop_id",
-            "telegram_user_id"
-          ]
+          "columns": ["shop_id", "telegram_user_id"]
         },
         "customers_id_shop_unique": {
           "name": "customers_id_shop_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "shop_id"
-          ]
+          "columns": ["id", "shop_id"]
         }
       },
       "policies": {
@@ -1004,9 +914,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"customers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"customers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -1014,7 +922,7 @@
       "checkConstraints": {
         "customers_delivery_pin_complete": {
           "name": "customers_delivery_pin_complete",
-          "value": "(\"customers\".\"delivery_latitude\" is null) = (\"customers\".\"delivery_longitude\" is null) and (\"customers\".\"delivery_latitude\" is null) = (\"customers\".\"delivery_pin_at\" is null)"
+          "value": "(\"customers\".\"delivery_latitude\" is null) = (\"customers\".\"delivery_longitude\" is null)"
         }
       },
       "isRLSEnabled": false
@@ -1048,12 +956,18 @@
           "primaryKey": false,
           "notNull": true
         },
-        "synthetic": {
-          "name": "synthetic",
-          "type": "boolean",
+        "source": {
+          "name": "source",
+          "type": "area_note_source",
+          "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true,
-          "default": false
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -1078,6 +992,12 @@
               "isExpression": false,
               "asc": true,
               "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
             }
           ],
           "isUnique": false,
@@ -1091,12 +1011,8 @@
           "name": "area_notes_shop_id_shops_id_fk",
           "tableFrom": "area_notes",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1108,9 +1024,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"area_notes\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"area_notes\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -1203,12 +1117,8 @@
           "name": "delivery_settings_shop_id_shops_id_fk",
           "tableFrom": "delivery_settings",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1220,9 +1130,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"delivery_settings\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"delivery_settings\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -1301,12 +1209,8 @@
           "name": "landmarks_shop_id_shops_id_fk",
           "tableFrom": "landmarks",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1316,11 +1220,7 @@
         "landmarks_shop_name_area_unique": {
           "name": "landmarks_shop_name_area_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "shop_id",
-            "name",
-            "area"
-          ]
+          "columns": ["shop_id", "name", "area"]
         }
       },
       "policies": {
@@ -1328,151 +1228,11 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"landmarks\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"landmarks\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
       },
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.trip_legs": {
-      "name": "trip_legs",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "zone": {
-          "name": "zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "band": {
-          "name": "band",
-          "type": "time_band",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "routing_seconds": {
-          "name": "routing_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expected_seconds": {
-          "name": "expected_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actual_seconds": {
-          "name": "actual_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "synthetic": {
-          "name": "synthetic",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        }
-      },
-      "indexes": {
-        "trip_legs_started_at_idx": {
-          "name": "trip_legs_started_at_idx",
-          "columns": [
-            {
-              "expression": "started_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "trip_legs_positive_seconds": {
-          "name": "trip_legs_positive_seconds",
-          "value": "\"trip_legs\".\"routing_seconds\" > 0 and \"trip_legs\".\"actual_seconds\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.zone_time_factors": {
-      "name": "zone_time_factors",
-      "schema": "",
-      "columns": {
-        "zone": {
-          "name": "zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "band": {
-          "name": "band",
-          "type": "time_band",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "factor": {
-          "name": "factor",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "trips": {
-          "name": "trips",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "zone_time_factors_zone_band_pk": {
-          "name": "zone_time_factors_zone_band_pk",
-          "columns": [
-            "zone",
-            "band"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
@@ -1526,12 +1286,8 @@
           "name": "demand_signals_shop_id_shops_id_fk",
           "tableFrom": "demand_signals",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1539,14 +1295,8 @@
           "name": "demand_signals_customer_id_shop_id_customers_id_shop_id_fk",
           "tableFrom": "demand_signals",
           "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["customer_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1558,9 +1308,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"demand_signals\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"demand_signals\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -1617,12 +1365,8 @@
           "name": "waitlist_shop_id_shops_id_fk",
           "tableFrom": "waitlist",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1630,14 +1374,8 @@
           "name": "waitlist_customer_id_shop_id_customers_id_shop_id_fk",
           "tableFrom": "waitlist",
           "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["customer_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1645,14 +1383,8 @@
           "name": "waitlist_variant_id_shop_id_product_variants_id_shop_id_fk",
           "tableFrom": "waitlist",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["variant_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1662,10 +1394,7 @@
         "waitlist_variant_customer_unique": {
           "name": "waitlist_variant_customer_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "variant_id",
-            "customer_id"
-          ]
+          "columns": ["variant_id", "customer_id"]
         }
       },
       "policies": {
@@ -1673,9 +1402,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"waitlist\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"waitlist\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -1713,13 +1440,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'offered'"
-        },
-        "special": {
-          "name": "special",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "payout": {
           "name": "payout",
@@ -1783,12 +1503,8 @@
           "name": "delivery_jobs_shop_id_shops_id_fk",
           "tableFrom": "delivery_jobs",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1796,14 +1512,8 @@
           "name": "delivery_jobs_driver_id_shop_id_drivers_id_shop_id_fk",
           "tableFrom": "delivery_jobs",
           "tableTo": "drivers",
-          "columnsFrom": [
-            "driver_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["driver_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1813,10 +1523,7 @@
         "delivery_jobs_id_shop_unique": {
           "name": "delivery_jobs_id_shop_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "shop_id"
-          ]
+          "columns": ["id", "shop_id"]
         }
       },
       "policies": {
@@ -1824,9 +1531,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"delivery_jobs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"delivery_jobs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -1919,12 +1624,8 @@
           "name": "drivers_shop_id_shops_id_fk",
           "tableFrom": "drivers",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1934,33 +1635,22 @@
         "drivers_invite_token_hash_unique": {
           "name": "drivers_invite_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "invite_token_hash"
-          ]
+          "columns": ["invite_token_hash"]
         },
         "drivers_shop_username_unique": {
           "name": "drivers_shop_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "shop_id",
-            "username"
-          ]
+          "columns": ["shop_id", "username"]
         },
         "drivers_shop_telegram_unique": {
           "name": "drivers_shop_telegram_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "shop_id",
-            "telegram_user_id"
-          ]
+          "columns": ["shop_id", "telegram_user_id"]
         },
         "drivers_id_shop_unique": {
           "name": "drivers_id_shop_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "shop_id"
-          ]
+          "columns": ["id", "shop_id"]
         }
       },
       "policies": {
@@ -1968,9 +1658,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"drivers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"drivers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -2047,12 +1735,8 @@
           "name": "job_offers_shop_id_shops_id_fk",
           "tableFrom": "job_offers",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2060,14 +1744,8 @@
           "name": "job_offers_job_id_shop_id_delivery_jobs_id_shop_id_fk",
           "tableFrom": "job_offers",
           "tableTo": "delivery_jobs",
-          "columnsFrom": [
-            "job_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["job_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2075,14 +1753,8 @@
           "name": "job_offers_taken_by_driver_id_shop_id_drivers_id_shop_id_fk",
           "tableFrom": "job_offers",
           "tableTo": "drivers",
-          "columnsFrom": [
-            "taken_by_driver_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["taken_by_driver_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2092,18 +1764,12 @@
         "job_offers_id_shop_unique": {
           "name": "job_offers_id_shop_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "shop_id"
-          ]
+          "columns": ["id", "shop_id"]
         },
         "job_offers_job_step_unique": {
           "name": "job_offers_job_step_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "job_id",
-            "raise_step"
-          ]
+          "columns": ["job_id", "raise_step"]
         }
       },
       "policies": {
@@ -2111,9 +1777,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"job_offers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"job_offers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -2121,7 +1785,7 @@
       "checkConstraints": {
         "job_offers_taken_by": {
           "name": "job_offers_taken_by",
-          "value": "(\"job_offers\".\"status\" in ('taken', 'held')) = (\"job_offers\".\"taken_by_driver_id\" is not null)"
+          "value": "(\"job_offers\".\"status\" = 'taken') = (\"job_offers\".\"taken_by_driver_id\" is not null)"
         }
       },
       "isRLSEnabled": false
@@ -2160,18 +1824,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "routing_seconds": {
-          "name": "routing_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "expected_seconds": {
-          "name": "expected_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
         },
         "location_requested_at": {
           "name": "location_requested_at",
@@ -2218,12 +1870,8 @@
           "name": "job_stops_shop_id_shops_id_fk",
           "tableFrom": "job_stops",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2231,14 +1879,8 @@
           "name": "job_stops_job_id_shop_id_delivery_jobs_id_shop_id_fk",
           "tableFrom": "job_stops",
           "tableTo": "delivery_jobs",
-          "columnsFrom": [
-            "job_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["job_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2246,14 +1888,8 @@
           "name": "job_stops_order_id_shop_id_orders_id_shop_id_fk",
           "tableFrom": "job_stops",
           "tableTo": "orders",
-          "columnsFrom": [
-            "order_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["order_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2263,17 +1899,12 @@
         "job_stops_order_id_unique": {
           "name": "job_stops_order_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "order_id"
-          ]
+          "columns": ["order_id"]
         },
         "job_stops_job_position_unique": {
           "name": "job_stops_job_position_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "job_id",
-            "position"
-          ]
+          "columns": ["job_id", "position"]
         }
       },
       "policies": {
@@ -2281,9 +1912,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"job_stops\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"job_stops\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -2349,12 +1978,8 @@
           "name": "offer_messages_shop_id_shops_id_fk",
           "tableFrom": "offer_messages",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2362,14 +1987,8 @@
           "name": "offer_messages_offer_id_shop_id_job_offers_id_shop_id_fk",
           "tableFrom": "offer_messages",
           "tableTo": "job_offers",
-          "columnsFrom": [
-            "offer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["offer_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2381,9 +2000,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"offer_messages\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"offer_messages\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -2391,8 +2008,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.far_quotes": {
-      "name": "far_quotes",
+    "public.delivery_problems": {
+      "name": "delivery_problems",
       "schema": "",
       "columns": {
         "id": {
@@ -2412,90 +2029,20 @@
           "name": "order_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "zone": {
-          "name": "zone",
+        "kind": {
+          "name": "kind",
+          "type": "delivery_problem_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "wanted_size": {
+          "name": "wanted_size",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
-        },
-        "route_meters": {
-          "name": "route_meters",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "routing_seconds": {
-          "name": "routing_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expected_seconds": {
-          "name": "expected_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "formula_payout": {
-          "name": "formula_payout",
-          "type": "numeric(12, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cap": {
-          "name": "cap",
-          "type": "numeric(12, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "far_quote_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'estimating'"
-        },
-        "proposed_price": {
-          "name": "proposed_price",
-          "type": "numeric(12, 2)",
-          "primaryKey": false,
           "notNull": false
-        },
-        "source": {
-          "name": "source",
-          "type": "far_quote_source",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "decision_id": {
-          "name": "decision_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "held_price": {
-          "name": "held_price",
-          "type": "numeric(12, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "raises": {
-          "name": "raises",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "synthetic": {
-          "name": "synthetic",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -2503,67 +2050,35 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "far_quotes_shop_id_shops_id_fk": {
-          "name": "far_quotes_shop_id_shops_id_fk",
-          "tableFrom": "far_quotes",
+        "delivery_problems_shop_id_shops_id_fk": {
+          "name": "delivery_problems_shop_id_shops_id_fk",
+          "tableFrom": "delivery_problems",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "far_quotes_decision_id_agent_decisions_id_fk": {
-          "name": "far_quotes_decision_id_agent_decisions_id_fk",
-          "tableFrom": "far_quotes",
-          "tableTo": "agent_decisions",
-          "columnsFrom": [
-            "decision_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "far_quotes_order_id_shop_id_orders_id_shop_id_fk": {
-          "name": "far_quotes_order_id_shop_id_orders_id_shop_id_fk",
-          "tableFrom": "far_quotes",
+        "delivery_problems_order_id_shop_id_orders_id_shop_id_fk": {
+          "name": "delivery_problems_order_id_shop_id_orders_id_shop_id_fk",
+          "tableFrom": "delivery_problems",
           "tableTo": "orders",
-          "columnsFrom": [
-            "order_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["order_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "far_quotes_order_id_unique": {
-          "name": "far_quotes_order_id_unique",
+        "delivery_problems_order_id_unique": {
+          "name": "delivery_problems_order_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "order_id"
-          ]
+          "columns": ["order_id"]
         }
       },
       "policies": {
@@ -2571,97 +2086,9 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
-          "using": "\"far_quotes\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"far_quotes\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
-        }
-      },
-      "checkConstraints": {
-        "far_quotes_order_unless_synthetic": {
-          "name": "far_quotes_order_unless_synthetic",
-          "value": "\"far_quotes\".\"synthetic\" or \"far_quotes\".\"order_id\" is not null"
-        },
-        "far_quotes_priced": {
-          "name": "far_quotes_priced",
-          "value": "(\"far_quotes\".\"status\" = 'estimating') = (\"far_quotes\".\"proposed_price\" is null) and (\"far_quotes\".\"proposed_price\" is null) = (\"far_quotes\".\"source\" is null)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.zone_acceptance_factors": {
-      "name": "zone_acceptance_factors",
-      "schema": "",
-      "columns": {
-        "shop_id": {
-          "name": "shop_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "zone": {
-          "name": "zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "factor": {
-          "name": "factor",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "trips": {
-          "name": "trips",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "zone_acceptance_factors_shop_id_shops_id_fk": {
-          "name": "zone_acceptance_factors_shop_id_shops_id_fk",
-          "tableFrom": "zone_acceptance_factors",
-          "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "zone_acceptance_factors_shop_id_zone_pk": {
-          "name": "zone_acceptance_factors_shop_id_zone_pk",
-          "columns": [
-            "shop_id",
-            "zone"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {
-        "shop_isolation": {
-          "name": "shop_isolation",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "app_user"
-          ],
-          "using": "\"zone_acceptance_factors\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"zone_acceptance_factors\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+          "to": ["app_user"],
+          "using": "\"delivery_problems\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"delivery_problems\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
       },
       "checkConstraints": {},
@@ -2731,12 +2158,8 @@
           "name": "order_events_shop_id_shops_id_fk",
           "tableFrom": "order_events",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2744,14 +2167,8 @@
           "name": "order_events_order_id_shop_id_orders_id_shop_id_fk",
           "tableFrom": "order_events",
           "tableTo": "orders",
-          "columnsFrom": [
-            "order_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["order_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2763,14 +2180,120 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"order_events\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"order_events\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
       },
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.order_exchanges": {
+      "name": "order_exchanges",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "shop_id": {
+          "name": "shop_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_variant_id": {
+          "name": "from_variant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_variant_id": {
+          "name": "to_variant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "order_exchanges_shop_id_shops_id_fk": {
+          "name": "order_exchanges_shop_id_shops_id_fk",
+          "tableFrom": "order_exchanges",
+          "tableTo": "shops",
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "order_exchanges_order_id_shop_id_orders_id_shop_id_fk": {
+          "name": "order_exchanges_order_id_shop_id_orders_id_shop_id_fk",
+          "tableFrom": "order_exchanges",
+          "tableTo": "orders",
+          "columnsFrom": ["order_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "order_exchanges_from_variant_id_shop_id_product_variants_id_shop_id_fk": {
+          "name": "order_exchanges_from_variant_id_shop_id_product_variants_id_shop_id_fk",
+          "tableFrom": "order_exchanges",
+          "tableTo": "product_variants",
+          "columnsFrom": ["from_variant_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "order_exchanges_to_variant_id_shop_id_product_variants_id_shop_id_fk": {
+          "name": "order_exchanges_to_variant_id_shop_id_product_variants_id_shop_id_fk",
+          "tableFrom": "order_exchanges",
+          "tableTo": "product_variants",
+          "columnsFrom": ["to_variant_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "order_exchanges_order_id_unique": {
+          "name": "order_exchanges_order_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["order_id"]
+        }
+      },
+      "policies": {
+        "shop_isolation": {
+          "name": "shop_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": ["app_user"],
+          "using": "\"order_exchanges\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"order_exchanges\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {
+        "order_exchanges_other_size": {
+          "name": "order_exchanges_other_size",
+          "value": "\"order_exchanges\".\"from_variant_id\" <> \"order_exchanges\".\"to_variant_id\""
+        }
+      },
       "isRLSEnabled": false
     },
     "public.order_items": {
@@ -2821,12 +2344,8 @@
           "name": "order_items_shop_id_shops_id_fk",
           "tableFrom": "order_items",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2834,14 +2353,8 @@
           "name": "order_items_order_id_shop_id_orders_id_shop_id_fk",
           "tableFrom": "order_items",
           "tableTo": "orders",
-          "columnsFrom": [
-            "order_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["order_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2849,14 +2362,8 @@
           "name": "order_items_variant_id_shop_id_product_variants_id_shop_id_fk",
           "tableFrom": "order_items",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["variant_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2868,9 +2375,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"order_items\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"order_items\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -2951,17 +2456,18 @@
           "primaryKey": false,
           "notNull": false
         },
-        "delivery_zone": {
-          "name": "delivery_zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "payment_deadline": {
           "name": "payment_deadline",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "deadline_extensions": {
+          "name": "deadline_extensions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "created_at": {
           "name": "created_at",
@@ -2984,12 +2490,8 @@
           "name": "orders_shop_id_shops_id_fk",
           "tableFrom": "orders",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2997,14 +2499,8 @@
           "name": "orders_customer_id_shop_id_customers_id_shop_id_fk",
           "tableFrom": "orders",
           "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["customer_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3014,10 +2510,7 @@
         "orders_id_shop_unique": {
           "name": "orders_id_shop_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "shop_id"
-          ]
+          "columns": ["id", "shop_id"]
         }
       },
       "policies": {
@@ -3025,9 +2518,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"orders\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"orders\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -3039,7 +2530,7 @@
         },
         "orders_delivery_pin": {
           "name": "orders_delivery_pin",
-          "value": "(\"orders\".\"delivery_latitude\" is null) = (\"orders\".\"delivery_longitude\" is null) and (\"orders\".\"delivery_type\" = 'pickup') = (\"orders\".\"delivery_latitude\" is null and \"orders\".\"delivery_zone\" is null)"
+          "value": "(\"orders\".\"delivery_latitude\" is null) = (\"orders\".\"delivery_longitude\" is null) and (\"orders\".\"delivery_type\" = 'pickup') = (\"orders\".\"delivery_latitude\" is null)"
         }
       },
       "isRLSEnabled": false
@@ -3162,12 +2653,8 @@
           "name": "payment_proofs_shop_id_shops_id_fk",
           "tableFrom": "payment_proofs",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3175,14 +2662,8 @@
           "name": "payment_proofs_order_id_shop_id_orders_id_shop_id_fk",
           "tableFrom": "payment_proofs",
           "tableTo": "orders",
-          "columnsFrom": [
-            "order_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["order_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3194,9 +2675,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"payment_proofs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"payment_proofs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -3248,12 +2727,8 @@
           "name": "payment_refs_order_id_orders_id_fk",
           "tableFrom": "payment_refs",
           "tableTo": "orders",
-          "columnsFrom": [
-            "order_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["order_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3263,10 +2738,7 @@
         "payment_refs_provider_tx_ref_unique": {
           "name": "payment_refs_provider_tx_ref_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "provider",
-            "tx_ref"
-          ]
+          "columns": ["provider", "tx_ref"]
         }
       },
       "policies": {},
@@ -3333,12 +2805,8 @@
           "name": "risk_signals_shop_id_shops_id_fk",
           "tableFrom": "risk_signals",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3405,12 +2873,8 @@
           "name": "negotiations_shop_id_shops_id_fk",
           "tableFrom": "negotiations",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3418,14 +2882,8 @@
           "name": "negotiations_customer_id_shop_id_customers_id_shop_id_fk",
           "tableFrom": "negotiations",
           "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["customer_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3433,14 +2891,8 @@
           "name": "negotiations_product_id_shop_id_products_id_shop_id_fk",
           "tableFrom": "negotiations",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
+          "columnsFrom": ["product_id", "shop_id"],
+          "columnsTo": ["id", "shop_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3450,10 +2902,7 @@
         "negotiations_customer_product_unique": {
           "name": "negotiations_customer_product_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "customer_id",
-            "product_id"
-          ]
+          "columns": ["customer_id", "product_id"]
         }
       },
       "policies": {
@@ -3461,9 +2910,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"negotiations\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"negotiations\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -3518,12 +2965,8 @@
           "name": "customer_sessions_shop_id_shops_id_fk",
           "tableFrom": "customer_sessions",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3531,12 +2974,8 @@
           "name": "customer_sessions_product_id_products_id_fk",
           "tableFrom": "customer_sessions",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -3544,12 +2983,8 @@
           "name": "customer_sessions_pending_variant_id_product_variants_id_fk",
           "tableFrom": "customer_sessions",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "pending_variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["pending_variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -3603,12 +3038,8 @@
           "name": "payment_accounts_shop_id_shops_id_fk",
           "tableFrom": "payment_accounts",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3620,9 +3051,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"payment_accounts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"payment_accounts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -3660,12 +3089,8 @@
           "name": "shop_members_shop_id_shops_id_fk",
           "tableFrom": "shop_members",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3673,10 +3098,7 @@
       "compositePrimaryKeys": {
         "shop_members_shop_id_telegram_user_id_pk": {
           "name": "shop_members_shop_id_telegram_user_id_pk",
-          "columns": [
-            "shop_id",
-            "telegram_user_id"
-          ]
+          "columns": ["shop_id", "telegram_user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -3685,9 +3107,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"shop_members\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"shop_members\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -3751,9 +3171,7 @@
         "shops_channel_chat_id_unique": {
           "name": "shops_channel_chat_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "channel_chat_id"
-          ]
+          "columns": ["channel_chat_id"]
         }
       },
       "policies": {
@@ -3761,9 +3179,7 @@
           "name": "shop_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": [
-            "app_user"
-          ],
+          "to": ["app_user"],
           "using": "\"shops\".\"id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"shops\".\"id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
@@ -3944,12 +3360,8 @@
           "name": "timers_shop_id_shops_id_fk",
           "tableFrom": "timers",
           "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3965,144 +3377,72 @@
     "public.agent_decision_result": {
       "name": "agent_decision_result",
       "schema": "public",
-      "values": [
-        "accepted",
-        "rejected",
-        "needs_owner"
-      ]
+      "values": ["accepted", "rejected", "needs_owner"]
     },
     "public.agent_name": {
       "name": "agent_name",
       "schema": "public",
-      "values": [
-        "sales",
-        "operations",
-        "owner_assistant"
-      ]
+      "values": ["sales", "operations", "owner_assistant"]
     },
     "public.agent_trace_outcome": {
       "name": "agent_trace_outcome",
       "schema": "public",
-      "values": [
-        "reply",
-        "tool_calls",
-        "escalated",
-        "failed"
-      ]
+      "values": ["reply", "tool_calls", "escalated", "failed"]
     },
     "public.model_tier": {
       "name": "model_tier",
       "schema": "public",
-      "values": [
-        "fast",
-        "smart"
-      ]
+      "values": ["fast", "smart"]
     },
     "public.owner_confirmation_status": {
       "name": "owner_confirmation_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "approved",
-        "declined"
-      ]
+      "values": ["pending", "approved", "declined"]
     },
     "public.pricing_mode": {
       "name": "pricing_mode",
       "schema": "public",
-      "values": [
-        "fixed",
-        "negotiable"
-      ]
+      "values": ["fixed", "negotiable"]
     },
     "public.conversation_mode": {
       "name": "conversation_mode",
       "schema": "public",
-      "values": [
-        "agent",
-        "human"
-      ]
+      "values": ["agent", "human"]
     },
-    "public.time_band": {
-      "name": "time_band",
+    "public.area_note_source": {
+      "name": "area_note_source",
       "schema": "public",
-      "values": [
-        "peak",
-        "off_peak"
-      ]
+      "values": ["driver", "owner"]
     },
     "public.delivery_job_status": {
       "name": "delivery_job_status",
       "schema": "public",
-      "values": [
-        "offered",
-        "assigned",
-        "picked_up",
-        "delivered"
-      ]
+      "values": ["offered", "assigned", "picked_up", "delivered"]
     },
     "public.delivery_receipt": {
       "name": "delivery_receipt",
       "schema": "public",
-      "values": [
-        "received",
-        "problem",
-        "assumed"
-      ]
+      "values": ["received", "problem", "assumed"]
     },
     "public.job_offer_status": {
       "name": "job_offer_status",
       "schema": "public",
-      "values": [
-        "open",
-        "held",
-        "taken",
-        "expired"
-      ]
+      "values": ["open", "held", "taken", "expired"]
     },
-    "public.far_quote_source": {
-      "name": "far_quote_source",
+    "public.delivery_problem_kind": {
+      "name": "delivery_problem_kind",
       "schema": "public",
-      "values": [
-        "agent",
-        "statistics"
-      ]
-    },
-    "public.far_quote_status": {
-      "name": "far_quote_status",
-      "schema": "public",
-      "values": [
-        "estimating",
-        "awaiting_owner",
-        "offered",
-        "held",
-        "accepted",
-        "declined",
-        "expired",
-        "pickup"
-      ]
+      "values": ["wrong_size", "damaged", "other"]
     },
     "public.delivery_type": {
       "name": "delivery_type",
       "schema": "public",
-      "values": [
-        "free",
-        "express",
-        "saver",
-        "far",
-        "pickup"
-      ]
+      "values": ["free", "express", "saver", "far", "pickup"]
     },
     "public.order_actor": {
       "name": "order_actor",
       "schema": "public",
-      "values": [
-        "customer",
-        "owner",
-        "driver",
-        "agent",
-        "system"
-      ]
+      "values": ["customer", "owner", "driver", "agent", "system"]
     },
     "public.order_status": {
       "name": "order_status",
@@ -4125,69 +3465,37 @@
     "public.bank_check": {
       "name": "bank_check",
       "schema": "public",
-      "values": [
-        "CONFIRMED",
-        "NOT_FOUND",
-        "MISMATCH",
-        "UNAVAILABLE"
-      ]
+      "values": ["CONFIRMED", "NOT_FOUND", "MISMATCH", "UNAVAILABLE"]
     },
     "public.owner_payment_decision": {
       "name": "owner_payment_decision",
       "schema": "public",
-      "values": [
-        "approved",
-        "rejected"
-      ]
+      "values": ["approved", "rejected"]
     },
     "public.payment_decision": {
       "name": "payment_decision",
       "schema": "public",
-      "values": [
-        "approve",
-        "reject",
-        "review",
-        "ask_difference",
-        "ask_clearer"
-      ]
+      "values": ["approve", "reject", "review", "ask_difference", "ask_clearer"]
     },
     "public.risk_signal_kind": {
       "name": "risk_signal_kind",
       "schema": "public",
-      "values": [
-        "receipt_rejected",
-        "bank_mismatch",
-        "owner_rejected"
-      ]
+      "values": ["receipt_rejected", "bank_mismatch", "owner_rejected"]
     },
     "public.payment_provider": {
       "name": "payment_provider",
       "schema": "public",
-      "values": [
-        "telebirr",
-        "cbe_birr",
-        "cbe_bank"
-      ]
+      "values": ["telebirr", "cbe_birr", "cbe_bank"]
     },
     "public.telegram_update_status": {
       "name": "telegram_update_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "processing",
-        "done",
-        "failed"
-      ]
+      "values": ["pending", "processing", "done", "failed"]
     },
     "public.timer_status": {
       "name": "timer_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "running",
-        "done",
-        "failed"
-      ]
+      "values": ["pending", "running", "done", "failed"]
     }
   },
   "schemas": {},

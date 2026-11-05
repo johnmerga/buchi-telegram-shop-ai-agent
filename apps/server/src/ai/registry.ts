@@ -3,7 +3,7 @@ import type { FunctionCall, FunctionDeclaration } from '@google/genai';
 import type { Logger } from 'pino';
 import { AppError } from '../shared/errors';
 import type { PolicyGuard } from './guard/policy-guard.service';
-import type { RunContext, Tool, ToolResult } from './tool';
+import type { RunContext, Tool, ToolActor, ToolResult } from './tool';
 
 /**
  * Every tool an agent can use. Each agent sees and runs only its own tools, so a customer message
@@ -41,6 +41,9 @@ export class ToolRegistry {
 
     const parsed = tool.parse(call.args ?? {});
     if (!parsed.success) return { status: 'error', error: `Invalid arguments:\n${parsed.error}` };
+    if (!withinSituation(parsed.input, context.actor)) {
+      return { status: 'error', error: 'You can act only on the records of this situation.' };
+    }
 
     const callContext = { ...context, tool: tool.name };
     try {
@@ -54,4 +57,17 @@ export class ToolRegistry {
       return { status: 'error', error: 'The tool failed for an internal reason.' };
     }
   }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A message in the situation, such as a customer's text, may try to steer the agent to another
+ * order. Every ID in a situation run's arguments must be one that code put in the situation.
+ */
+function withinSituation(input: Record<string, unknown>, actor: ToolActor): boolean {
+  if (actor.kind !== 'situation') return true;
+  return Object.values(input).every(
+    (value) => typeof value !== 'string' || !UUID.test(value) || actor.recordIds.includes(value),
+  );
 }

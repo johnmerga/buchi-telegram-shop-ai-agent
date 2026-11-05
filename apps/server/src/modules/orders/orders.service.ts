@@ -1,5 +1,6 @@
 import { Money, type DeliveryType, type OrderStatus } from '@buchi/shared';
 import type { Database, Transaction } from '../../db/client';
+import { isUniqueViolation } from '../../db/errors';
 import { withShop } from '../../db/with-shop';
 import { AppError } from '../../shared/errors';
 import type { EventBus } from '../../shared/events';
@@ -16,6 +17,7 @@ import {
 } from './orders.domain';
 import type {
   OrderActor,
+  OrderEventRow,
   OrderItemRow,
   OrderRow,
   OrdersRepo,
@@ -179,6 +181,99 @@ export class OrderService {
 
     await this.events.publish('order.transitioned', { shopId, orderId, ...change });
     return true;
+  }
+
+  /** Expires an unpaid order only once its deadline has passed, which an extension may have moved. */
+  async expireIfOverdue(shopId: string, orderId: string, now: Date): Promise<boolean> {
+    const change = await withShop(this.db, shopId, async (tx) => {
+      const order = await this.lock(tx, orderId);
+      const overdue = order.paymentDeadline !== null && order.paymentDeadline <= now;
+      if (order.status !== 'awaiting_payment' || !overdue) return null;
+      return this.apply(tx, order, 'expired', 'system', 'Payment deadline passed');
+    });
+    if (!change) return false;
+
+    await this.events.publish('order.transitioned', { shopId, orderId, ...change });
+    return true;
+  }
+
+  /**
+   * Moves an unpaid order's deadline and schedules its expiry at the new time. The expiry timer of
+   * the old deadline finds the order not yet overdue and leaves it alone.
+   */
+  extendDeadline(shopId: string, orderId: string, minutes: number): Promise<Date> {
+    return withShop(this.db, shopId, async (tx) => {
+      const order = await this.lock(tx, orderId);
+      if (order.status !== 'awaiting_payment' || order.paymentDeadline === null) {
+        throw new AppError('CONFLICT', 'Only an order that waits for payment has a deadline');
+      }
+      const deadline = new Date(order.paymentDeadline.getTime() + minutes * 60_000);
+      await this.repo.extendDeadline(tx, orderId, deadline);
+      await this.timers.schedule(tx, orderTimerKinds.expire, orderId, shopId, deadline);
+      return deadline;
+    });
+  }
+
+  /** Takes an order off its trip, to wait for the next Saver run with the other paid orders. */
+  async reschedule(shopId: string, orderId: string, reason: string): Promise<void> {
+    const change = await withShop(this.db, shopId, async (tx) => {
+      const order = await this.lock(tx, orderId);
+      const moved = await this.apply(tx, order, 'rescheduled', 'agent', reason);
+      // Saver, so that dispatch leaves the paid order for the run instead of offering it now.
+      await this.repo.setDeliveryType(tx, orderId, 'saver');
+      return moved;
+    });
+
+    await this.events.publish('order.transitioned', { shopId, orderId, ...change });
+  }
+
+  /**
+   * Reserves one unit of another size of a delivered item, so the shop can swap it. Throws a
+   * conflict when the size is sold out, the sizes belong to different products, or the order
+   * already has an exchange.
+   */
+  async startExchange(
+    shopId: string,
+    exchange: { orderId: string; fromVariantId: string; toVariantId: string },
+  ): Promise<void> {
+    const { orderId, fromVariantId, toVariantId } = exchange;
+    try {
+      await withShop(this.db, shopId, async (tx) => {
+        const order = await this.lock(tx, orderId);
+        const items = await this.repo.items(tx, orderId);
+        if (order.status !== 'delivered' || !items.some((i) => i.variantId === fromVariantId)) {
+          throw new AppError('CONFLICT', 'Only a size on a delivered order can be exchanged');
+        }
+        const variants = await this.repo.sellableVariants(tx, [fromVariantId, toVariantId]);
+        const [from, to] = [fromVariantId, toVariantId].map((id) =>
+          variants.find((v) => v.variantId === id),
+        );
+        if (!from || !to || from.productId !== to.productId || from === to) {
+          throw new AppError('CONFLICT', 'An exchange is for another size of the same product');
+        }
+        if (!(await this.repo.reserve(tx, toVariantId, 1))) {
+          throw new AppError('CONFLICT', `Size ${to.size} is out of stock`);
+        }
+        await this.repo.insertExchange(tx, { shopId, ...exchange });
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new AppError('CONFLICT', 'This order already has an exchange');
+      }
+      throw err;
+    }
+  }
+
+  /** The order's status history, oldest first. */
+  timeline(shopId: string, orderId: string): Promise<OrderEventRow[]> {
+    return withShop(this.db, shopId, (tx) => this.repo.events(tx, orderId));
+  }
+
+  /** Units of a variant that customers paid for since `since`, for restock suggestions. */
+  unitsSold(shopId: string, variantId: string, since: Date): Promise<number> {
+    return withShop(this.db, shopId, (tx) =>
+      this.repo.unitsSold(tx, variantId, since, paidStatuses),
+    );
   }
 
   get(shopId: string, orderId: string): Promise<OrderWithItems> {

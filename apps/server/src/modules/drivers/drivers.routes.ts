@@ -14,6 +14,10 @@ export function createDriversRouter(deps: {
   const { drivers, requireAuth, requireShopOwner } = deps;
   const router = Router();
 
+  router.get('/shops/:shopId/drivers', requireAuth, requireShopOwner, async (req, res) => {
+    res.json(await drivers.list(parseInput(shopParams, req.params).shopId));
+  });
+
   /** Returns a one-time invite link for the owner to send to the driver. */
   router.post('/shops/:shopId/drivers', requireAuth, requireShopOwner, async (req, res) => {
     const { shopId } = parseInput(shopParams, req.params);

@@ -1,4 +1,4 @@
-import { Money, type DeliverySettings } from '@buchi/shared';
+import { Money, type DeliverySettings, type DeliverySettingsView } from '@buchi/shared';
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import type { ShopsService } from '../shops/shops.service';
@@ -35,6 +35,14 @@ export class DeliveryService {
 
   async saveSettings(shopId: string, settings: DeliverySettings): Promise<void> {
     await withShop(this.db, shopId, (tx) => this.settings.save(tx, shopId, settings));
+  }
+
+  /** What the owner saved, for the settings screen. */
+  savedSettings(shopId: string): Promise<DeliverySettingsView> {
+    return withShop(this.db, shopId, async (tx) => ({
+      settings: (await this.settings.find(tx)) ?? null,
+      saverRunTimes: (await this.settings.saverRunTimes(tx)) ?? [],
+    }));
   }
 
   /** A shop delivers once it has both its location and its delivery settings. */

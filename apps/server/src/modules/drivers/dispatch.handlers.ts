@@ -1,24 +1,21 @@
-import { formatBirr } from '@buchi/shared';
 import { Composer, Keyboard } from 'grammy';
 import type { BuchiContext } from '../../telegram/actor';
 import {
   acceptedNotice,
   deliveredReply,
+  driverProblemPrompt,
   heldNotice,
-  problemReply,
   receivedThanks,
   shareLocationPrompt,
 } from './dispatch-messages.domain';
 import type { AcceptResult, DispatchService } from './dispatch.service';
 import { jobCallbackSchema, receiptCallbackSchema } from './drivers.schemas';
-import type { OfferBonusService } from './offer-bonus.service';
 import type { HoldResult, SpecialOffers } from './special-offers.service';
 import type { TripService } from './trips.service';
 
 interface DispatchDeps {
   dispatch: Pick<DispatchService, 'accept'>;
   trips: TripService;
-  bonuses: Pick<OfferBonusService, 'raise'>;
   specialOffers: Pick<SpecialOffers, 'hold'>;
 }
 
@@ -35,12 +32,13 @@ const holdAnswers: Record<HoldResult, string> = {
 };
 
 /**
- * Job buttons for drivers (**Accept** on an offer or a special offer, **Picked up**, **Delivered** and the location that
- * confirms it), the owners' **Add bonus**, and the customer's answer after a delivery. Buttons on
- * these messages act on an order, so they run before the takeover guard that relays customer chats.
+ * Job buttons for drivers (**Accept** on an offer or a special offer, **Picked up**, **Delivered**
+ * and the location that confirms it, and **Problem**), and the customer's answer after a delivery.
+ * Buttons on these messages act on an order, so they run before the takeover guard that relays
+ * customer chats.
  */
 export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContext> {
-  const { dispatch, trips, bonuses, specialOffers } = deps;
+  const { dispatch, trips, specialOffers } = deps;
   const handlers = new Composer<BuchiContext>();
 
   handlers.callbackQuery(/^job:/, async (ctx) => {
@@ -88,18 +86,10 @@ export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContex
         });
         return;
       }
-      case 'bonus': {
-        const shopIds = ctx.actor.role === 'owner' ? ctx.actor.shopIds : [];
-        const result = await bonuses.raise(shopIds, id);
-        await ctx.answerCallbackQuery({
-          text:
-            result.status === 'raised'
-              ? `Offered again at ${formatBirr(result.price)}.`
-              : result.status === 'closed'
-                ? 'A driver already took this job.'
-                : "Only this shop's owners can do this.",
-        });
-        if (result.status !== 'not_found') await ctx.editMessageReplyMarkup();
+      case 'problem': {
+        // The driver's next message reaches the operations agent while the trip is active.
+        await ctx.answerCallbackQuery();
+        await ctx.reply(driverProblemPrompt);
         return;
       }
     }
@@ -126,8 +116,9 @@ export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContex
     }
     await ctx.answerCallbackQuery();
     await ctx.editMessageReplyMarkup();
-    if (result === 'recorded') {
-      await ctx.reply(parsed.data.action === 'received' ? receivedThanks : problemReply);
+    // A problem report continues with the questions the operations module asks.
+    if (result === 'recorded' && parsed.data.action === 'received') {
+      await ctx.reply(receivedThanks);
     }
   });
 

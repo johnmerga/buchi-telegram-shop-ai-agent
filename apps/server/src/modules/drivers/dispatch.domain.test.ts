@@ -1,16 +1,9 @@
-import { Money } from '@buchi/shared';
 import { describe, expect, it } from 'vitest';
-import { mapsLink, minutesBetween, needsReview, point, suggestedBonus } from './dispatch.domain';
+import { lateAt, mapsLink, minutesBetween, needsReview, point } from './dispatch.domain';
 
-describe('suggestedBonus', () => {
-  it('suggests a fifth of the payout, rounded up to whole tens of birr', () => {
-    expect(suggestedBonus(Money.of('160')).toString()).toBe('40.00');
-    expect(suggestedBonus(Money.of('251')).toString()).toBe('60.00');
-  });
-
-  it('suggests at least 20 birr for a small payout', () => {
-    expect(suggestedBonus(Money.of('60')).toString()).toBe('20.00');
-    expect(suggestedBonus(Money.zero).toString()).toBe('20.00');
+describe('lateAt', () => {
+  it('allows 15 minutes beyond the estimate before a trip counts as late', () => {
+    expect(lateAt(new Date('2026-11-05T09:00:00Z'), 25)).toEqual(new Date('2026-11-05T09:40:00Z'));
   });
 });
 

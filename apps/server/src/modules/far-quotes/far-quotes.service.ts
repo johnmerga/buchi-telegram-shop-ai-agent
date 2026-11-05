@@ -38,6 +38,7 @@ export class FarQuoteService {
     private readonly alerts: Pick<DeliveryOwnerAlerts, 'send'>,
     private readonly messenger: Pick<Messenger, 'send'>,
     private readonly logger: Logger,
+    private readonly now: () => Date,
   ) {}
 
   /**
@@ -103,15 +104,20 @@ export class FarQuoteService {
    * drivers without raises; **Offer pickup** cancels the quote and offers the customer pickup.
    */
   async ownerAnswered(
-    ownerShopIds: string[],
+    owner: { telegramUserId: number; shopIds: string[] },
     quoteId: string,
     approved: boolean,
   ): Promise<OwnerAnswer> {
-    for (const shopId of ownerShopIds) {
+    for (const shopId of owner.shopIds) {
       const quote = await withShop(this.db, shopId, (tx) => this.repo.find(tx, quoteId));
       if (!quote) continue;
       if (quote.status !== 'awaiting_owner' || quote.decisionId === null) return 'closed';
-      if (!(await this.guard.answerOwner(shopId, quote.decisionId, approved))) return 'closed';
+      const answered = await this.guard.answerOwner(shopId, quote.decisionId, {
+        status: approved ? 'approved' : 'declined',
+        decidedBy: owner.telegramUserId,
+        decidedAt: this.now(),
+      });
+      if (!answered) return 'closed';
       const moved = await this.move(shopId, quoteId, ['awaiting_owner'], {
         status: approved ? 'offered' : 'pickup',
       });

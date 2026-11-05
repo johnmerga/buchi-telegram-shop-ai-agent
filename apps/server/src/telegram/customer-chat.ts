@@ -1,4 +1,4 @@
-import type { Api } from 'grammy';
+import { InlineKeyboard, type Api } from 'grammy';
 import { productCard } from '../modules/catalog/catalog.domain';
 import type { PhotoSearchAnswer } from '../modules/catalog/photo-search.service';
 import type { ProductWithVariants } from '../modules/catalog/catalog.service';
@@ -6,6 +6,7 @@ import type { Coordinates } from '../modules/delivery/location.domain';
 import { notifyCallbackData } from '../modules/demand/demand.schemas';
 import type { CheckoutStep } from '../modules/orders/checkout.service';
 import { inlineKeyboard, locationKeyboard, phoneKeyboard } from './keyboards';
+import type { MiniAppLinks } from './mini-app-links';
 
 /** A place the sales agent found for a landmark, for the customer to confirm. */
 export interface PlaceCandidate {
@@ -22,7 +23,10 @@ export const CONFIRM_PLACE_DATA = 'place:yes';
  * so a model never writes a price, an account number, or a keyboard.
  */
 export class TelegramCustomerChat {
-  constructor(private readonly api: Api) {}
+  constructor(
+    private readonly api: Api,
+    private readonly miniApp?: MiniAppLinks,
+  ) {}
 
   async productCard(chatId: number, product: ProductWithVariants): Promise<void> {
     const { text, buttons } = productCard(product);
@@ -47,9 +51,21 @@ export class TelegramCustomerChat {
           '📍 የት እናድርስ? / Where should we deliver? Share your location, or paste a Google Maps link.',
         );
         return;
-      case 'placed':
-        await this.api.sendMessage(chatId, step.instructions);
+      case 'placed': {
+        const tracking = this.miniApp?.orderTracking(step.orderId);
+        await this.api.sendMessage(
+          chatId,
+          step.instructions,
+          tracking
+            ? {
+                reply_markup: InlineKeyboard.from([
+                  [InlineKeyboard.webApp('📦 ትዕዛዜ / Track order', tracking)],
+                ]),
+              }
+            : {},
+        );
         return;
+      }
       case 'quoting':
         await this.api.sendMessage(
           chatId,
@@ -58,8 +74,9 @@ export class TelegramCustomerChat {
     }
   }
 
-  async askForPin(chatId: number, text: string): Promise<void> {
-    await this.api.sendMessage(chatId, text, { reply_markup: locationKeyboard() });
+  async askForPin(chatId: number, text: string, suggested?: Coordinates): Promise<void> {
+    const keyboard = locationKeyboard(this.miniApp?.pinPicker(suggested));
+    await this.api.sendMessage(chatId, text, { reply_markup: keyboard });
   }
 
   /** The venue message carries the landmark, so the confirm button needs no stored state. */
@@ -70,7 +87,11 @@ export class TelegramCustomerChat {
         { text: '✅ አዎ፣ ይህ ቦታ / Yes, this place', data: CONFIRM_PLACE_DATA },
       ]),
     });
-    await this.askForPin(chatId, 'ትክክል ካልሆነ / Not right? Share the exact pin instead.');
+    await this.askForPin(
+      chatId,
+      'ትክክል ካልሆነ / Not right? Share the exact pin instead.',
+      place.coordinates,
+    );
   }
 
   async photoSearch(chatId: number, result: PhotoSearchAnswer): Promise<void> {

@@ -8,7 +8,7 @@ import { AgentRuntime } from '@buchi/server/ai/runtime';
 import { TracesRepo } from '@buchi/server/ai/traces.repo';
 import type { Database } from '@buchi/server/db/client';
 import { AreaNotesRepo } from '@buchi/server/modules/delivery/area-notes.repo';
-import { AreaNotesService } from '@buchi/server/modules/delivery/area-notes.service';
+import { AreaNoteService } from '@buchi/server/modules/delivery/area-notes.service';
 import { ZoneFactorsRepo } from '@buchi/server/modules/delivery/zone-factors.repo';
 import { ZoneFactorService } from '@buchi/server/modules/delivery/zone-factors.service';
 import { AcceptanceFactorService } from '@buchi/server/modules/far-quotes/acceptance-factors.service';
@@ -58,7 +58,7 @@ export function farPriceAgentSuite(db: Database): Suite {
   const evidence = new FarQuoteEvidence(
     new ZoneFactorService(new ZoneFactorsRepo(db), clock),
     acceptance,
-    new AreaNotesService(db, new AreaNotesRepo(), clock),
+    new AreaNoteService(db, new AreaNotesRepo(), clock),
     clock,
   );
   const guard = new PolicyGuard(db, new DecisionsRepo());

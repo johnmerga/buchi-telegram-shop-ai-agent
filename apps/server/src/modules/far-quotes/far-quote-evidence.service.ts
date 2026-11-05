@@ -1,4 +1,4 @@
-import type { AreaNotesService } from '../delivery/area-notes.service';
+import type { AreaNoteService } from '../delivery/area-notes.service';
 import type { FarTrip } from '../delivery/delivery.service';
 import type { Coordinates } from '../delivery/location.domain';
 import type { ZoneFactorService } from '../delivery/zone-factors.service';
@@ -15,7 +15,7 @@ export class FarQuoteEvidence {
   constructor(
     private readonly timeFactors: Pick<ZoneFactorService, 'timeFactorDetail'>,
     private readonly acceptance: Pick<AcceptanceFactorService, 'lookup' | 'pastTrips'>,
-    private readonly notes: Pick<AreaNotesService, 'recent'>,
+    private readonly notes: Pick<AreaNoteService, 'near'>,
     private readonly now: () => Date,
   ) {}
 
@@ -25,7 +25,7 @@ export class FarQuoteEvidence {
       this.timeFactors.timeFactorDetail(destination),
       this.acceptance.lookup(shopId, zone),
       this.acceptance.pastTrips(shopId),
-      this.notes.recent(shopId, zone),
+      this.notes.near(shopId, destination),
     ]);
     const routingSeconds = trip.legs.reduce((sum, leg) => sum + leg.routingSeconds, 0);
     // Each lookup ends at its broadest zone: the whole city for time, the whole shop for prices.

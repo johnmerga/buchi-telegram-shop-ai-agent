@@ -454,6 +454,10 @@ Exit criteria: Express, Saver, and far-area deliveries run end to end with drive
   with the conditional update; **Picked up** and **Delivered** with the 300 m location check; job
   alerts in the chat.
 - **Acceptance:** an integration test with ten parallel accepts produces one winner.
+- **Built as:** `modules/drivers/` (invites, availability, dispatch, offers, trips, owner bonus, Saver
+  runs). Invite tokens are stored hashed and work once. Dispatch subscribes to the order's `paid`
+  transition and recomputes the payout with the delivery formula. Only the distance to the pin is
+  stored at delivery, never the driver's coordinates. Phase 6 replaces the code-computed bonus.
 
 ### 5.4 Saver runs
 
@@ -461,6 +465,9 @@ Exit criteria: Express, Saver, and far-area deliveries run end to end with drive
   Saver run job that uses the OpenRouteService Matrix API.
 - **Acceptance:** unit tests show 2-opt never makes a route longer, and groups respect the six-stop
   limit.
+- **Built as:** each shop has its own chain of Saver-run timers at the owner's run times;
+  `/jobs/saver-run` runs every waiting shop now. Jobs record route and separate-trip payouts and
+  job-level estimated and actual minutes; Task 5.5 may need them per stop.
 
 ### 5.5 Learned delivery factors
 

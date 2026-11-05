@@ -423,7 +423,7 @@ Render instance awake.
 | Job | Schedule (Africa/Addis_Ababa) | Action |
 | --- | --- | --- |
 | Tick | Every minute | Runs due timers: price raises, quote and hold expiry, a payment reminder one hour after the order, and order expiry after the deadline. |
-| Saver run | Owner-set times | Groups Saver orders into routes and offers them to drivers. |
+| Saver run | Owner-set times, as per-shop timers | Groups Saver orders into routes and offers them to drivers. |
 | Evening summary | 6:00 PM (ከምሽቱ 12 ሰዓት) | Sends orders, revenue, delivery cost, fraud blocked, and open reviews. Appends a row to Google Sheets. |
 | Morning brief | 8:00 AM (ከጠዋቱ 2 ሰዓት) | Sends low-stock alerts, open reviews, and waitlist demand. |
 | Weekly suggestions | Monday 9:00 AM | Runs the owner assistant's weekly analysis. |
@@ -627,6 +627,7 @@ risk_signals       platform-wide: hashed payer, signal type, time
 drivers            shop, Telegram user ID, username, availability
 delivery_jobs      orders or route, driver, payout, status, estimated and actual
                    minutes
+job_stops          job, order, stop order, delivered distance to pin
 job_offers         job, price, raise step, status: open, held, taken, or expired
 zone_factors       H3 cell, time band, trip count, time factor, and an acceptance
                    factor for each shop

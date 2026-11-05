@@ -289,8 +289,8 @@ trace is stored, and the evaluation runner replays a recorded conversation.
 
 - **Doc:** Gemini usage and evaluation.
 - **Deliverables:** `ai/gemini.ts` behind an interface (text, structured JSON output, vision,
-  embeddings, function calling); model routing by task type; `ai/quota.ts` with a per-minute token
-  bucket, a daily budget, and priorities; retries with backoff; a fake client for tests.
+  embeddings, function calling); model routing by task type; `ai/quota.ts` with a sliding one-minute
+  window, a daily budget that resets at midnight Pacific time (as Gemini's does), and priorities; retries with backoff; a fake client for tests.
 - **Acceptance:** when the budget is spent, low-priority calls fail fast with `QUOTA_EXHAUSTED`
   while payment checks still run.
 

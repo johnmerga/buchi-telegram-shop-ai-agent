@@ -4,6 +4,7 @@ export const errorStatus = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  QUOTA_EXHAUSTED: 503,
 } as const;
 
 export type ErrorCode = keyof typeof errorStatus;

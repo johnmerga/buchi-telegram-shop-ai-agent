@@ -25,4 +25,12 @@ export class CustomersRepo {
   async setPhone(tx: Transaction, customerId: string, phone: string): Promise<void> {
     await tx.update(customers).set({ phone }).where(eq(customers.id, customerId));
   }
+
+  async telegramUserId(tx: Transaction, customerId: string): Promise<number | undefined> {
+    const [row] = await tx
+      .select({ telegramUserId: customers.telegramUserId })
+      .from(customers)
+      .where(eq(customers.id, customerId));
+    return row?.telegramUserId;
+  }
 }

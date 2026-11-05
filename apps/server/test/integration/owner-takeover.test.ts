@@ -64,9 +64,9 @@ const shops = new ShopsService(db, new ShopsRepo(db), telegram);
 const catalog = new CatalogService(db, new CatalogRepo(), shops, telegram, botInfo.username);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const events = new EventBus(logger);
-const orders = new OrderService(db, new OrdersRepo(), events);
-const checkout = new CheckoutService(customers, orders, shops, clock);
 const timers = new TimerService(new TimersRepo(db), logger);
+const orders = new OrderService(db, new OrdersRepo(), events, timers);
+const checkout = new CheckoutService(customers, orders, shops, clock);
 
 interface SentMessage {
   method: string;

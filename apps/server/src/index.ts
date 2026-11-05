@@ -20,8 +20,11 @@ import { CustomersRepo } from './modules/customers/customers.repo';
 import { CustomersService } from './modules/customers/customers.service';
 import { SessionsRepo } from './modules/customers/sessions.repo';
 import { CheckoutService } from './modules/orders/checkout.service';
+import { orderTimerKinds } from './modules/orders/orders.deadlines.domain';
+import { PaymentDeadlineService } from './modules/orders/orders.deadlines.service';
 import { OrdersRepo } from './modules/orders/orders.repo';
 import { OrderService } from './modules/orders/orders.service';
+import { createReorderHandlers } from './modules/orders/orders.reorder.handlers';
 import { createPurchaseHandlers } from './modules/orders/purchase.handlers';
 import { createConversationHandlers } from './modules/owner/conversations.handlers';
 import { ConversationsRepo } from './modules/owner/conversations.repo';
@@ -35,6 +38,7 @@ import { EventBus } from './shared/events';
 import { createBot } from './telegram/bot';
 import { TelegramMessenger } from './telegram/messenger';
 import { TelegramIngress } from './telegram/ingress';
+import { TelegramOrderNotifier } from './telegram/order-notifier';
 import { TelegramUpdatesRepo } from './telegram/updates.repo';
 import { createTelegramWebhookRouter } from './telegram/webhook.routes';
 import { UpdateWorker } from './telegram/worker';
@@ -67,8 +71,16 @@ const customers = new CustomersService(
   new CustomersRepo(),
   new SessionsRepo(database.db),
 );
-const orders = new OrderService(database.db, new OrdersRepo(), events);
+const orders = new OrderService(database.db, new OrdersRepo(), events, timers);
 const checkout = new CheckoutService(customers, orders, shops, () => new Date());
+const deadlines = new PaymentDeadlineService(
+  orders,
+  customers,
+  new TelegramOrderNotifier(telegramApi),
+  () => new Date(),
+);
+timers.register(orderTimerKinds.paymentReminder, (timer) => deadlines.remind(timer));
+timers.register(orderTimerKinds.expire, (timer) => deadlines.expire(timer));
 
 const messenger = new TelegramMessenger(telegramApi);
 const conversationsRepo = new ConversationsRepo();
@@ -92,6 +104,7 @@ const bot = createBot({
   handlers: [
     createConversationHandlers({ conversations, customers }),
     createPurchaseHandlers({ catalog, customers, checkout, conversations }),
+    createReorderHandlers(checkout),
     createCatalogHandlers(catalog),
   ],
 });

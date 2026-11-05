@@ -7,7 +7,13 @@ import { handBackNotice, handBackTime, priceRequestAlert } from './owner.domain'
 export const HAND_BACK_TIMER = 'conversation.hand_back';
 
 interface TimerScheduler {
-  schedule(kind: string, targetId: string, shopId: string | null, dueAt: Date): Promise<unknown>;
+  schedule(
+    tx: Transaction,
+    kind: string,
+    targetId: string,
+    shopId: string | null,
+    dueAt: Date,
+  ): Promise<unknown>;
 }
 
 interface SwitchedToHuman {
@@ -55,10 +61,9 @@ export class ConversationService {
     customer: ConversationCustomer,
     productTitle: string,
   ): Promise<void> {
-    const switched = await withShop(this.db, shopId, async (tx) =>
+    const { conversation } = await withShop(this.db, shopId, async (tx) =>
       this.toHuman(tx, await this.upsert(tx, shopId, customer)),
     );
-    const conversation = await this.startTimerIfSwitched(switched);
     await this.notifier.notify(conversation, { text: priceRequestAlert(productTitle) });
   }
 
@@ -75,7 +80,7 @@ export class ConversationService {
       const conversation = await this.repo.find(tx, conversationId);
       return conversation && this.toHuman(tx, conversation);
     });
-    return switched && this.startTimerIfSwitched(switched);
+    return switched?.conversation;
   }
 
   handBack(ownerShopIds: string[], conversationId: string): Promise<Conversation | undefined> {
@@ -102,7 +107,7 @@ export class ConversationService {
       return found && this.toHuman(tx, found);
     });
     if (!switched) return false;
-    const conversation = await this.startTimerIfSwitched(switched);
+    const { conversation } = switched;
     await this.messenger.copy(conversation.customerTelegramUserId, reply.message, { buttons: [] });
     return true;
   }
@@ -115,18 +120,16 @@ export class ConversationService {
     if (timer.shopId === null) throw new Error('A hand-back timer needs a shop');
     const { shopId, targetId } = timer;
     const now = this.now();
-    const result = await withShop(this.db, shopId, async (tx) => {
-      const handedBack = await this.repo.setAgentIfDue(tx, targetId, now);
-      return handedBack ? { handedBack } : { pending: await this.repo.find(tx, targetId) };
+    const handedBack = await withShop(this.db, shopId, async (tx) => {
+      const done = await this.repo.setAgentIfDue(tx, targetId, now);
+      if (done) return done;
+      const pending = await this.repo.find(tx, targetId);
+      if (pending?.mode === 'human' && pending.handBackAt) {
+        await this.timers.schedule(tx, HAND_BACK_TIMER, pending.id, shopId, pending.handBackAt);
+      }
+      return undefined;
     });
-    if ('handedBack' in result) {
-      await this.notifier.notify(result.handedBack, { text: handBackNotice });
-      return;
-    }
-    const { pending } = result;
-    if (pending?.mode === 'human' && pending.handBackAt) {
-      await this.timers.schedule(HAND_BACK_TIMER, pending.id, shopId, pending.handBackAt);
-    }
+    if (handedBack) await this.notifier.notify(handedBack, { text: handBackNotice });
   }
 
   private upsert(
@@ -141,28 +144,23 @@ export class ConversationService {
     });
   }
 
+  /**
+   * Starts the hand-back timer in the same transaction, only on the switch to human mode. Later
+   * owner replies just move the deadline, which the running timer picks up.
+   */
   private async toHuman(tx: Transaction, conversation: Conversation): Promise<SwitchedToHuman> {
     const updated = await this.repo.setHuman(tx, conversation.id, handBackTime(this.now()));
-    return { conversation: updated, switched: conversation.mode === 'agent' };
-  }
-
-  /**
-   * Starts a hand-back timer, after the commit, only on the switch to human mode. Later owner
-   * replies just move the deadline, which the running timer picks up.
-   */
-  private async startTimerIfSwitched({
-    conversation,
-    switched,
-  }: SwitchedToHuman): Promise<Conversation> {
-    if (switched && conversation.handBackAt) {
+    const switched = conversation.mode === 'agent';
+    if (switched && updated.handBackAt) {
       await this.timers.schedule(
+        tx,
         HAND_BACK_TIMER,
-        conversation.id,
-        conversation.shopId,
-        conversation.handBackAt,
+        updated.id,
+        updated.shopId,
+        updated.handBackAt,
       );
     }
-    return conversation;
+    return { conversation: updated, switched };
   }
 
   /** Row-level security finds the conversation only in a shop that the owner owns. */

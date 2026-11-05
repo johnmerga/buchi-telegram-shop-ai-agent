@@ -1,5 +1,5 @@
 import { and, eq, inArray, lte, sql } from 'drizzle-orm';
-import type { Database } from '../../db/client';
+import type { Database, Transaction } from '../../db/client';
 import { timers } from '../../db/schema';
 
 export type Timer = typeof timers.$inferSelect;
@@ -7,16 +7,15 @@ export type Timer = typeof timers.$inferSelect;
 export class TimersRepo {
   constructor(private readonly db: Database) {}
 
+  /** Inserts in the caller's transaction, so a timer exists only if the change it guards commits. */
   async schedule(
+    tx: Transaction,
     kind: string,
     targetId: string,
     shopId: string | null,
     dueAt: Date,
   ): Promise<Timer> {
-    const [timer] = await this.db
-      .insert(timers)
-      .values({ kind, targetId, shopId, dueAt })
-      .returning();
+    const [timer] = await tx.insert(timers).values({ kind, targetId, shopId, dueAt }).returning();
     if (timer === undefined) {
       throw new Error('Insert into timers returned no row');
     }

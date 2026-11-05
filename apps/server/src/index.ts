@@ -57,6 +57,8 @@ import { DeliveryService } from './modules/delivery/delivery.service';
 import { LandmarksRepo } from './modules/delivery/landmarks.repo';
 import { LandmarkService } from './modules/delivery/landmarks.service';
 import { LocationService } from './modules/delivery/location.service';
+import { createPlacesRouter } from './modules/delivery/places.routes';
+import { PlaceSearchService } from './modules/delivery/places.service';
 import { RouteService } from './modules/delivery/route.service';
 import { SaverScheduleService, SAVER_RUN_TIMER } from './modules/delivery/saver-schedule.service';
 import { ZoneFactorsRepo } from './modules/delivery/zone-factors.repo';
@@ -290,15 +292,12 @@ const saverSchedule = new SaverScheduleService(
   () => new Date(),
 );
 const locations = new LocationService(new HttpRedirects(fetch), logger);
-const landmarks = new LandmarkService(
-  database.db,
-  new LandmarksRepo(),
-  new Nominatim(env.NOMINATIM_USER_AGENT, fetch, {
-    now: () => new Date(),
-    wait: (ms) => sleep(ms),
-  }),
-  logger,
-);
+// One client for both searches, so together they keep Nominatim's one request a second.
+const nominatim = new Nominatim(env.NOMINATIM_USER_AGENT, fetch, {
+  now: () => new Date(),
+  wait: (ms) => sleep(ms),
+});
+const landmarks = new LandmarkService(database.db, new LandmarksRepo(), nominatim, logger);
 const checkout = new CheckoutService(customers, orders, shops, delivery, () => new Date());
 const deadlines = new PaymentDeadlineService(
   orders,
@@ -789,6 +788,10 @@ const app = createApp({
     }),
     createDriversRouter({ drivers, requireAuth: signedIn, requireShopOwner: shopOwner }),
     createZonesRouter({ zoneFactors, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createPlacesRouter({
+      places: new PlaceSearchService(nominatim, logger),
+      requireAuth: signedIn,
+    }),
     createDeliveryMapRouter({
       deliveryMap: new DeliveryMapService(database.db, new DeliveryMapRepo(), shops),
       requireAuth: signedIn,

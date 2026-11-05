@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { pricingModeSchema } from './enums';
 import { Money, moneySchema } from './money';
 
 const productFields = {
@@ -34,3 +35,32 @@ export const variantInputSchema = z.object({
 export type VariantInput = z.infer<typeof variantInputSchema>;
 
 export const variantsInputSchema = z.array(variantInputSchema).min(1).max(50);
+
+/** A product as the owner's editor sees it, with its private lowest price. */
+export const productSchema = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  description: z.string(),
+  pricingMode: pricingModeSchema,
+  price: moneySchema,
+  lowestPrice: moneySchema.nullable(),
+  photoFileIds: z.array(z.string()),
+  active: z.boolean(),
+  createdAt: z.iso.datetime(),
+});
+export type Product = z.infer<typeof productSchema>;
+
+export const variantSchema = z.object({
+  id: z.uuid(),
+  size: z.string(),
+  color: z.string().nullable(),
+  stock: z.number().int(),
+  /** Units held by open orders. Stock cannot go below it. */
+  reserved: z.number().int(),
+});
+export type Variant = z.infer<typeof variantSchema>;
+
+export const productWithVariantsSchema = productSchema.extend({ variants: z.array(variantSchema) });
+export type ProductWithVariants = z.infer<typeof productWithVariantsSchema>;
+
+export const channelPostSchema = z.object({ postId: z.uuid() });

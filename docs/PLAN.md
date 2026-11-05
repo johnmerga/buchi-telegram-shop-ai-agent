@@ -573,6 +573,13 @@ loading, empty, and error states.
   Onboarding, Orders, Payment review, Inventory, Deliveries, Drivers, Conversations, AI decisions,
   Zones, Insights, Settings.
 - **Acceptance:** each role's bundle loads only its own code, and the map loads only on map screens.
+- **Built as:** the web app is served under `/app/<role>/` (owner, driver, customer) from the same
+  origin; live order updates stream from `GET /shops/:shopId/events`. The map picker returns the pin
+  with `Telegram.WebApp.sendData`, which arrives as `web_app_data` through the existing webhook. The
+  official `telegram-web-app.js` script provides the SDK. `WEB_APP_URL` (HTTPS) enables the Mini App
+  buttons, and the server build bundles `@buchi/shared`.
+- **Remaining owner screens:** payment review (list endpoint and screenshot proxy), deliveries map,
+  zones, conversations, AI decisions, insights, and **Run now**; tracked in Task 9.3.
 
 ---
 
@@ -582,6 +589,11 @@ loading, empty, and error states.
 
 - **Deliverables:** evening summary, morning brief, weekly suggestions trigger, and nightly
   learning with coordinate retention, all registered as job endpoints with **Run now** support.
+
+### 9.3 Remaining owner screens
+
+- **Deliverables:** read endpoints and screens for payment review, conversations with **Take over**
+  and **Hand back**, AI decisions, the deliveries map, zones, and insights; **Run now** buttons.
 
 ### 9.2 Google Sheets ledger
 

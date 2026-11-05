@@ -525,7 +525,7 @@ references, hashed payer signals, and zone time factors with no personal data.
 Inside Telegram, each Mini App receives signed launch data (`initData`) from Telegram. The backend
 verifies the HMAC-SHA-256 signature with a key derived from the bot token, rejects stale data, looks
 up the user's role by Telegram user ID, and issues a short session token. In a browser, owners sign
-in with the Telegram Login Widget. Both paths lead to the same role checks.
+in with the Telegram Login Widget, whose signature uses the SHA-256 of the bot token as its key. Both paths lead to the same role checks.
 
 ### Agent tools
 

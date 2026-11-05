@@ -119,6 +119,8 @@ describe('a driver whose customer is not answering', () => {
     expect(
       await shopRows((tx) => tx.select().from(jobStops).where(eq(jobStops.orderId, orderId))),
     ).toEqual([]);
+    // The test database is shared, so another file's Saver run must not pick this order up.
+    await services.orders.transition(shop.shopId, orderId, 'dispatched', 'system', 'Test cleanup');
   });
 
   it('keeps the order on the trip when the customer writes back in time', async () => {

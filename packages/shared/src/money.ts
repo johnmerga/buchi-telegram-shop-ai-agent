@@ -24,9 +24,29 @@ export class Money {
     return new Money(this.hundredths + other.hundredths);
   }
 
+  /** Amounts are never negative, so subtracting a larger amount is a programming error. */
+  subtract(other: Money): Money {
+    if (other.hundredths > this.hundredths) throw new RangeError('Money cannot be negative');
+    return new Money(this.hundredths - other.hundredths);
+  }
+
   times(quantity: number): Money {
     if (!Number.isInteger(quantity)) throw new RangeError('Quantity must be a whole number');
     return new Money(this.hundredths * BigInt(quantity));
+  }
+
+  /** Rounds up to the next cent, so a share of an amount is never smaller than the exact share. */
+  divideRoundingUp(divisor: number): Money {
+    if (!Number.isInteger(divisor) || divisor < 1) {
+      throw new RangeError('Divisor must be a positive whole number');
+    }
+    return new Money(ceilDiv(this.hundredths, BigInt(divisor)));
+  }
+
+  /** Rounds up to a multiple of `step`, such as the next 50 birr. */
+  roundUpTo(step: Money): Money {
+    if (step.hundredths === 0n) throw new RangeError('Step must be positive');
+    return new Money(ceilDiv(this.hundredths, step.hundredths) * step.hundredths);
   }
 
   compare(other: Money): -1 | 0 | 1 {
@@ -39,6 +59,10 @@ export class Money {
     const fraction = (this.hundredths % 100n).toString().padStart(2, '0');
     return `${birr.toString()}.${fraction}`;
   }
+}
+
+function ceilDiv(dividend: bigint, divisor: bigint): bigint {
+  return (dividend + divisor - 1n) / divisor;
 }
 
 /** Formats an amount the way Ethiopian shops write it, such as "3,500.00 ብር". */

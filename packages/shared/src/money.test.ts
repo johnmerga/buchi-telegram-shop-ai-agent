@@ -27,6 +27,29 @@ describe('Money', () => {
     expect(() => Money.of('1').times(1.5)).toThrow(RangeError);
   });
 
+  it('subtracts and refuses to go below zero', () => {
+    expect(Money.of('1000').subtract(Money.of('799.99')).toString()).toBe('200.01');
+    expect(Money.of('5').subtract(Money.of('5')).toString()).toBe('0.00');
+    expect(() => Money.of('5').subtract(Money.of('5.01'))).toThrow(RangeError);
+  });
+
+  it('divides by a whole number and rounds up to the cent', () => {
+    expect(Money.of('200').divideRoundingUp(4).toString()).toBe('50.00');
+    expect(Money.of('0.01').divideRoundingUp(4).toString()).toBe('0.01');
+    expect(Money.of('100.01').divideRoundingUp(4).toString()).toBe('25.01');
+    expect(Money.zero.divideRoundingUp(4).toString()).toBe('0.00');
+    expect(() => Money.of('1').divideRoundingUp(0)).toThrow(RangeError);
+    expect(() => Money.of('1').divideRoundingUp(1.5)).toThrow(RangeError);
+  });
+
+  it('rounds up to a multiple of a step', () => {
+    const fifty = Money.of('50');
+    expect(Money.of('850').roundUpTo(fifty).toString()).toBe('850.00');
+    expect(Money.of('850.01').roundUpTo(fifty).toString()).toBe('900.00');
+    expect(Money.of('0').roundUpTo(fifty).toString()).toBe('0.00');
+    expect(() => Money.of('1').roundUpTo(Money.zero)).toThrow(RangeError);
+  });
+
   it('compares amounts', () => {
     expect(Money.of('3000').compare(Money.of('3500.00'))).toBe(-1);
     expect(Money.of('3500').compare(Money.of('3500.00'))).toBe(0);

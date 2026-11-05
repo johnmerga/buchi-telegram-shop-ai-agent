@@ -17,6 +17,8 @@ export interface GenerateRequest {
 }
 
 export interface GenerateResult {
+  /** The model's turn as returned. Agents send it back unchanged, with its thought signatures. */
+  content: Content;
   text: string | undefined;
   functionCalls: FunctionCall[];
   usage: { inputTokens: number; outputTokens: number };

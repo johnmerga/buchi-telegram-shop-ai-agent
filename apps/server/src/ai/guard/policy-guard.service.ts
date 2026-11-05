@@ -1,0 +1,134 @@
+import type { Money } from '@buchi/shared';
+import type { Database } from '../../db/client';
+import { withShop } from '../../db/with-shop';
+import type { ToolCallContext, ToolResult } from '../tool';
+import { toToolResult, type Decision } from './decision';
+import type { DecisionsRepo } from './decisions.repo';
+import {
+  checkDeadlineExtension,
+  type DeadlineExtensionDecision,
+} from './deadline-extension.domain';
+import {
+  checkDeliveryPrice,
+  type DeliveryPriceDecision,
+  type DeliveryPriceLimits,
+} from './delivery-price.domain';
+import {
+  checkNegotiatedPrice,
+  type NegotiationState,
+  type PriceDecision,
+  type PriceLimits,
+} from './negotiated-price.domain';
+
+/** A value an agent chose, with its one-sentence reason and the IDs of the evidence it used. */
+export interface Proposal<Value> {
+  value: Value;
+  reason: string;
+  evidenceIds: string[];
+}
+
+/**
+ * The full decision for the tool handler, and the reduced result for the model. Handlers return
+ * `toolResult` to the model and act on `decision` themselves.
+ */
+export interface GuardOutcome<D> {
+  decision: D;
+  toolResult: ToolResult;
+}
+
+type LimitsRecord = Record<string, string | number | null>;
+
+const formatMoney = (amount: Money) => amount.toString();
+const asIs = (minutes: number) => minutes;
+
+/**
+ * The only path from an agent's proposed value to an action. Each check applies its pure checker,
+ * records the decision with the private limits, and gives the model a result without them.
+ */
+export class PolicyGuard {
+  constructor(
+    private readonly db: Database,
+    private readonly repo: DecisionsRepo,
+  ) {}
+
+  checkNegotiatedPrice(
+    context: ToolCallContext,
+    proposal: Proposal<Money>,
+    limits: PriceLimits,
+    state: NegotiationState,
+  ): Promise<GuardOutcome<PriceDecision>> {
+    const decision = checkNegotiatedPrice(proposal.value, limits, state);
+    return this.record(context, proposal, decision, formatMoney, {
+      asking: limits.asking.toString(),
+      lowest: limits.lowest.toString(),
+      lastOffer: state.lastOffer?.toString() ?? null,
+      concessionsMade: state.concessionsMade,
+    });
+  }
+
+  checkDeliveryPrice(
+    context: ToolCallContext,
+    proposal: Proposal<Money>,
+    limits: DeliveryPriceLimits,
+  ): Promise<GuardOutcome<DeliveryPriceDecision>> {
+    const decision = checkDeliveryPrice(proposal.value, limits);
+    return this.record(context, proposal, decision, formatMoney, {
+      formulaPayout: limits.formulaPayout.toString(),
+      cap: limits.cap.toString(),
+    });
+  }
+
+  checkDeadlineExtension(
+    context: ToolCallContext,
+    proposal: Proposal<number>,
+    extensionsMade: number,
+  ): Promise<GuardOutcome<DeadlineExtensionDecision>> {
+    const decision = checkDeadlineExtension(proposal.value, extensionsMade);
+    return this.record(context, proposal, decision, asIs, { extensionsMade });
+  }
+
+  /** Holds an `owner_confirms` action as a pending request until the owner approves it. */
+  async requestOwnerConfirmation(
+    context: ToolCallContext,
+    proposed: Record<string, unknown>,
+  ): Promise<ToolResult> {
+    await withShop(this.db, context.shopId, (tx) =>
+      this.repo.insert(tx, {
+        ...scopeOf(context),
+        proposed,
+        result: 'needs_owner',
+        reason: 'owner_confirms',
+        ownerStatus: 'pending',
+      }),
+    );
+    return { status: 'awaiting_owner' };
+  }
+
+  private async record<Value, D extends Decision<Value>>(
+    context: ToolCallContext,
+    proposal: Proposal<Value>,
+    decision: D,
+    serialize: (value: Value) => string | number,
+    limits: LimitsRecord,
+  ): Promise<GuardOutcome<D>> {
+    await withShop(this.db, context.shopId, (tx) =>
+      this.repo.insert(tx, {
+        ...scopeOf(context),
+        proposed: { value: serialize(proposal.value) },
+        limits,
+        result: decision.result,
+        reason: decision.reason,
+        counteroffer:
+          decision.result === 'rejected' ? { value: serialize(decision.counteroffer) } : null,
+        agentReason: proposal.reason,
+        evidenceIds: proposal.evidenceIds,
+        ownerStatus: decision.result === 'needs_owner' ? 'pending' : null,
+      }),
+    );
+    return { decision, toolResult: toToolResult(decision, serialize) };
+  }
+}
+
+function scopeOf({ shopId, runId, agent, tool }: ToolCallContext) {
+  return { shopId, runId, agent, tool };
+}

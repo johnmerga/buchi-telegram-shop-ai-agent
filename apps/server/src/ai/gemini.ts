@@ -50,6 +50,7 @@ export class GeminiModel implements LanguageModel {
       }),
     );
     return {
+      content: response.candidates?.[0]?.content ?? { role: 'model', parts: [] },
       text: response.text,
       functionCalls: response.functionCalls ?? [],
       usage: {

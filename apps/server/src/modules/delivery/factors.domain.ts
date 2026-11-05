@@ -35,6 +35,14 @@ export function recencyWeight(observedAt: Date, now: Date): number {
   return 0.5 ** (ageDays / HALF_LIFE_DAYS);
 }
 
+/** A made-up leg for the demo and the backtest. It is stored as synthetic. */
+export interface SyntheticLeg {
+  zone: string;
+  startedAt: Date;
+  routingSeconds: number;
+  actualSeconds: number;
+}
+
 /** One trip's ratio, such as actual minutes ÷ routing minutes, and when it happened. */
 export interface Observation {
   ratio: number;

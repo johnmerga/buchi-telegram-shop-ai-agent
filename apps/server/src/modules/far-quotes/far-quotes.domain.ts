@@ -1,7 +1,18 @@
-import { Money } from '@buchi/shared';
+import { Money, type MoneyString } from '@buchi/shared';
 import { straightLineMeters } from '../delivery/distance.domain';
 import type { TimeBand } from '../delivery/factors.domain';
-import { zoneCenter } from '../delivery/zones.domain';
+import { parentZone, zoneCenter } from '../delivery/zones.domain';
+
+/** The zone that holds every far trip of one shop. */
+const SHOP_ZONE = 'shop';
+
+/**
+ * Where an acceptance factor is learned and looked up: the trip's larger zone, then the shop as a
+ * whole. Far trips are rarer than deliveries, so the smallest zones would rarely have any.
+ */
+export function acceptanceFactorZones(zone: string): string[] {
+  return [parentZone(zone), SHOP_ZONE];
+}
 
 /** Drivers and customers see far-area prices in whole tens of birr. */
 const PRICE_STEP = Money.of('10');
@@ -94,4 +105,18 @@ export interface FarPriceEvidence {
   acceptanceFactor: LearnedFactorEvidence;
   similarTrips: (PastTrip & { daysAgo: number })[];
   areaNotes: { id: string; note: string; daysAgo: number }[];
+}
+
+/** A made-up far trip for the demo and the backtest. It is stored as synthetic. */
+export interface SyntheticFarTrip {
+  id: string;
+  zone: string;
+  routeMeters: number;
+  routingSeconds: number;
+  formulaPayout: MoneyString;
+  cap: MoneyString;
+  firstPrice: MoneyString;
+  heldPrice: MoneyString;
+  raises: number;
+  at: Date;
 }

@@ -1,29 +1,12 @@
-import { Money, type MoneyString } from '@buchi/shared';
+import { Money } from '@buchi/shared';
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import { learnFactors, lookupFactor, type FactorLookup } from '../delivery/factors.domain';
-import { parentZone } from '../delivery/zones.domain';
-import type { PastTrip } from './far-quotes.domain';
+import { acceptanceFactorZones, type PastTrip, type SyntheticFarTrip } from './far-quotes.domain';
 import type { FarQuoteRow, FarQuotesRepo } from './far-quotes.repo';
 
-/** The zone that holds every far trip of one shop. */
-const SHOP_ZONE = 'shop';
 /** Older trips weigh less than 1/4000 of a new one, so they no longer change a factor. */
 const LEARNING_WINDOW_MS = 365 * 24 * 60 * 60_000;
-
-/** A made-up far trip for the demo and the backtest. It is stored as synthetic. */
-export interface SyntheticFarTrip {
-  id: string;
-  zone: string;
-  routeMeters: number;
-  routingSeconds: number;
-  formulaPayout: MoneyString;
-  cap: MoneyString;
-  firstPrice: MoneyString;
-  heldPrice: MoneyString;
-  raises: number;
-  at: Date;
-}
 
 // A type alias, not an interface, so it fits the jobs' `Record<string, number>` summary type.
 export type AcceptanceLearningSummary = {
@@ -44,7 +27,7 @@ export class AcceptanceFactorService {
 
   /** The factor of the trip's larger zone, then the shop's, then 1. */
   lookup(shopId: string, zone: string): Promise<FactorLookup> {
-    const zones = [parentZone(zone), SHOP_ZONE];
+    const zones = acceptanceFactorZones(zone);
     return withShop(this.db, shopId, async (tx) => {
       const rows = await this.repo.factors(tx, zones);
       return lookupFactor(zones, new Map(rows.map((row) => [row.zone, row])));
@@ -94,7 +77,7 @@ export class AcceptanceFactorService {
         heldTrips(await this.repo.held(tx, this.since())).map((trip) => ({
           ratio: Number(trip.heldPrice.toString()) / Number(trip.formulaPayout.toString()),
           at: trip.at,
-          zones: [SHOP_ZONE, parentZone(trip.zone)],
+          zones: acceptanceFactorZones(trip.zone).reverse(),
         })),
         now,
       );

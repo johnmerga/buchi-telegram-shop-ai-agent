@@ -5,6 +5,8 @@ import type { Coordinates } from './location.domain';
 const ZONE_RESOLUTION = 7;
 /** Resolution 6 parents cover about 36 km², for areas with few trips. */
 const PARENT_RESOLUTION = 6;
+/** The zone that holds every trip, so a place without nearby trips still gets the city's traffic. */
+const CITY_ZONE = 'all';
 
 /** The learned-factor zone of a point. Only the zone is kept once the exact pin is deleted. */
 export function zoneOf(point: Coordinates): string {
@@ -24,4 +26,9 @@ export function zoneCenter(zone: string): Coordinates {
 /** The zone and the six zones around it, for reports about roads just across a zone's edge. */
 export function nearbyZones(zone: string): string[] {
   return gridDisk(zone, 1);
+}
+
+/** Where a time factor is learned and looked up: the zone, its parent, then the whole city. */
+export function timeFactorZones(zone: string): string[] {
+  return [zone, parentZone(zone), CITY_ZONE];
 }

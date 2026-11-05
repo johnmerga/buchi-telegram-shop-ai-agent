@@ -1,7 +1,7 @@
 import { getResolution, isValidCell } from 'h3-js';
 import { describe, expect, it } from 'vitest';
 import { straightLineMeters } from './distance.domain';
-import { nearbyZones, parentZone, zoneCenter, zoneOf } from './zones.domain';
+import { nearbyZones, parentZone, timeFactorZones, zoneCenter, zoneOf } from './zones.domain';
 
 const ednaMall = { latitude: 8.9970566, longitude: 38.7866129 };
 
@@ -15,6 +15,11 @@ describe('zones', () => {
 
   it('centers a zone within its 1.4 km edge of the pin', () => {
     expect(straightLineMeters(zoneCenter(zoneOf(ednaMall)), ednaMall)).toBeLessThan(1500);
+  });
+
+  it('looks for a time factor in the zone, its parent, and then the whole city', () => {
+    const zone = zoneOf(ednaMall);
+    expect(timeFactorZones(zone)).toEqual([zone, parentZone(zone), 'all']);
   });
 
   it('counts the zone itself and its six neighbours as nearby', () => {

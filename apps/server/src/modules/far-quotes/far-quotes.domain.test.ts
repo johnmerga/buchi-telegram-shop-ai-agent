@@ -1,7 +1,8 @@
 import { Money } from '@buchi/shared';
 import { describe, expect, it } from 'vitest';
-import { zoneOf } from '../delivery/zones.domain';
+import { parentZone, zoneOf } from '../delivery/zones.domain';
 import {
+  acceptanceFactorZones,
   assertOfferable,
   raisedPrice,
   scaled,
@@ -9,6 +10,13 @@ import {
   statisticalPrice,
   type PastTrip,
 } from './far-quotes.domain';
+
+describe('acceptanceFactorZones', () => {
+  it("looks for an acceptance factor in the trip's larger zone, then the whole shop", () => {
+    const zone = zoneOf({ latitude: 8.9, longitude: 38.77 });
+    expect(acceptanceFactorZones(zone)).toEqual([parentZone(zone), 'shop']);
+  });
+});
 
 describe('scaled', () => {
   it('multiplies by a factor to three decimals, rounding up to the next cent', () => {

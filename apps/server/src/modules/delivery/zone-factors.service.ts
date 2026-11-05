@@ -5,13 +5,12 @@ import {
   meanAbsoluteError,
   timeBand,
   type FactorLookup,
+  type SyntheticLeg,
   type TimeBand,
 } from './factors.domain';
 import type { TripLegRow, ZoneFactorsRepo } from './zone-factors.repo';
-import { parentZone, zoneOf } from './zones.domain';
+import { timeFactorZones, zoneOf } from './zones.domain';
 
-/** The zone that holds every trip, so a place without nearby trips still gets the city's traffic. */
-const CITY_ZONE = 'all';
 const DAY_MS = 24 * 60 * 60_000;
 /** Older trips weigh less than 1/4000 of a new one, so they no longer change a factor. */
 const LEARNING_WINDOW_MS = 365 * DAY_MS;
@@ -28,14 +27,6 @@ export interface DeliveredLeg {
   startedAt: Date;
   routingSeconds: number;
   expectedSeconds: number;
-  actualSeconds: number;
-}
-
-/** A made-up leg for the demo and the backtest. It is stored as synthetic. */
-export interface SyntheticLeg {
-  zone: string;
-  startedAt: Date;
-  routingSeconds: number;
   actualSeconds: number;
 }
 
@@ -62,7 +53,7 @@ export class ZoneFactorService {
 
   /** The factor for trips starting now, with where it came from, for the price evidence. */
   async timeFactorDetail(destination: Coordinates): Promise<TimeFactorDetail> {
-    const zones = lookupOrder(zoneOf(destination));
+    const zones = timeFactorZones(zoneOf(destination));
     const band = timeBand(this.now());
     const rows = await this.repo.timeFactors(zones, band);
     return { ...lookupFactor(zones, new Map(rows.map((row) => [row.zone, row]))), band };
@@ -99,7 +90,7 @@ export class ZoneFactorService {
           .map((leg) => ({
             ratio: leg.actualSeconds / leg.routingSeconds,
             at: leg.startedAt,
-            zones: [CITY_ZONE, parentZone(leg.zone), leg.zone],
+            zones: timeFactorZones(leg.zone).reverse(),
           })),
         now,
       ).map((factor) => ({ ...factor, band })),
@@ -126,13 +117,8 @@ export class ZoneFactorService {
   }
 }
 
-/** The zone, its parent, and the city: where a time factor is looked for, in order. */
-function lookupOrder(zone: string): string[] {
-  return [zone, parentZone(zone), CITY_ZONE];
-}
-
 function learnedFactor(leg: TripLegRow, factors: Map<string, { factor: number; trips: number }>) {
-  const zones = lookupOrder(leg.zone);
+  const zones = timeFactorZones(leg.zone);
   const inBand = new Map(
     zones.flatMap((zone) => {
       const found = factors.get(`${leg.band}:${zone}`);

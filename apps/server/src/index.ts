@@ -14,6 +14,13 @@ import { createCatalogRouter } from './modules/catalog/catalog.routes';
 import { CatalogService } from './modules/catalog/catalog.service';
 import { createAuthRouter } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
+import { HttpRedirects } from './integrations/redirects';
+import { OpenRouteService } from './integrations/ors';
+import { DeliverySettingsRepo } from './modules/delivery/delivery-settings.repo';
+import { createDeliveryRouter } from './modules/delivery/delivery.routes';
+import { DeliveryService } from './modules/delivery/delivery.service';
+import { LocationService } from './modules/delivery/location.service';
+import { RouteService } from './modules/delivery/route.service';
 import { createJobsRouter } from './modules/jobs/jobs.routes';
 import { JobService } from './modules/jobs/jobs.service';
 import { TimersRepo } from './modules/jobs/timers.repo';
@@ -92,7 +99,17 @@ const customers = new CustomersService(
   new SessionsRepo(database.db),
 );
 const orders = new OrderService(database.db, new OrdersRepo(), events, timers);
-const checkout = new CheckoutService(customers, orders, shops, () => new Date());
+const routes = new RouteService(
+  new OpenRouteService({ baseUrl: env.ORS_BASE_URL, apiKey: env.ORS_API_KEY }, fetch),
+  logger,
+  () => new Date(),
+);
+// TODO(5.5): use the learned zone time factors.
+const delivery = new DeliveryService(database.db, new DeliverySettingsRepo(), shops, routes, () =>
+  Promise.resolve(1),
+);
+const locations = new LocationService(new HttpRedirects(fetch), logger);
+const checkout = new CheckoutService(customers, orders, shops, delivery, () => new Date());
 const deadlines = new PaymentDeadlineService(
   orders,
   customers,
@@ -178,7 +195,7 @@ const bot = createBot({
   ownedShopIds: (telegramUserId) => shops.ownedShopIds(telegramUserId),
   handlers: [
     createConversationHandlers({ conversations, customers }),
-    createPurchaseHandlers({ catalog, customers, checkout, conversations }),
+    createPurchaseHandlers({ catalog, customers, checkout, conversations, locations }),
     createPaymentHandlers({ intake: imageIntake, review: paymentReview, customers }),
     createReorderHandlers(checkout),
     createCatalogHandlers(catalog),
@@ -206,6 +223,7 @@ const app = createApp({
     createAuthRouter(auth),
     createShopsRouter({ shops, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
     createCatalogRouter({ catalog, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
+    createDeliveryRouter({ delivery, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
   ],
 });
 const server = app.listen(env.PORT, () => {

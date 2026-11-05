@@ -10,6 +10,7 @@ describe('loadEnv', () => {
     AUTH_TOKEN_SECRET: 'y'.repeat(32),
     GEMINI_API_KEY: 'gemini-key',
     RISK_HASH_SECRET: 'z'.repeat(32),
+    ORS_API_KEY: 'ors-key',
   };
 
   it('applies defaults', () => {
@@ -24,6 +25,8 @@ describe('loadEnv', () => {
       GEMINI_EMBEDDING_DIMENSIONS: 768,
       GEMINI_REQUESTS_PER_MINUTE: 10,
       GEMINI_REQUESTS_PER_DAY: 250,
+      ORS_BASE_URL: 'https://api.heigit.org',
+      NOMINATIM_USER_AGENT: 'Buchi/1.0 (contact via GitHub johnmerga/buchi-telegram-shop-ai-agent)',
     });
   });
 

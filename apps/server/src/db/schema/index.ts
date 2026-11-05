@@ -2,6 +2,7 @@ export * from './agents';
 export * from './catalog';
 export * from './conversations';
 export * from './customers';
+export * from './delivery';
 export * from './orders';
 export * from './payments';
 export * from './sessions';

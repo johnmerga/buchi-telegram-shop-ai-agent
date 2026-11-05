@@ -1,4 +1,4 @@
-import { productInputSchema } from '@buchi/shared';
+import { Money, productInputSchema } from '@buchi/shared';
 import { eq } from 'drizzle-orm';
 import { pino } from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -74,7 +74,7 @@ const order = (variantId: string, quantity = 1) =>
     {
       customerId,
       items: [{ variantId, quantity }],
-      deliveryType: 'pickup',
+      delivery: { type: 'pickup' },
       paymentDeadline: deadline,
     },
     'customer',
@@ -102,6 +102,30 @@ describe('OrderService', () => {
     expect(history).toMatchObject([
       { fromStatus: null, toStatus: 'awaiting_payment', actor: 'customer' },
     ]);
+  });
+
+  it('adds the delivery fee to the total and keeps the delivery pin', async () => {
+    const variantId = await variantWithStock(1);
+    const destination = { latitude: 8.9970566, longitude: 38.7866129 };
+    const created = await orders.create(
+      shopId,
+      {
+        customerId,
+        items: [{ variantId, quantity: 1 }],
+        delivery: { type: 'express', fee: Money.of('160'), destination },
+        paymentDeadline: deadline,
+      },
+      'customer',
+    );
+
+    expect(created).toMatchObject({
+      deliveryType: 'express',
+      itemsTotal: '1500.50',
+      deliveryFee: '160.00',
+      total: '1660.50',
+      deliveryLatitude: destination.latitude,
+      deliveryLongitude: destination.longitude,
+    });
   });
 
   it('sells the last unit once when two customers order it at the same time', async () => {

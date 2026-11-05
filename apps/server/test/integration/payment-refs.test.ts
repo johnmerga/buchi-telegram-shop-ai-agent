@@ -55,7 +55,7 @@ async function newOrder(shopId: string): Promise<string> {
     {
       customerId: customer.id,
       items: [{ variantId: variant?.id ?? '', quantity: 1 }],
-      deliveryType: 'pickup',
+      delivery: { type: 'pickup' },
       paymentDeadline: new Date(Date.now() + 3_600_000),
     },
     'customer',

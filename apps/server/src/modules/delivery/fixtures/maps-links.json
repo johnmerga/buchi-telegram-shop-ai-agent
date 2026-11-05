@@ -1,0 +1,64 @@
+{
+  "withCoordinates": [
+    {
+      "name": "a place link prefers the place's own pin over the map center",
+      "text": "https://www.google.com/maps/place/Edna+Mall/@8.9969,38.7841,17z/data=!3m1!4b1!4m6!3m5!1s0x164b85cef5ab402d:0x8467b6eb41c8e52e!8m2!3d8.9970566!4d38.7866129!16s%2Fg%2F1tgk9v1q",
+      "latitude": 8.9970566,
+      "longitude": 38.7866129
+    },
+    {
+      "name": "a dropped pin",
+      "text": "https://www.google.com/maps/place/9%C2%B000'36.0%22N+38%C2%B045'36.0%22E/@9.01,38.76,17z/data=!3m1!4b1!4m4!3m3!8m2!3d9.01!4d38.76",
+      "latitude": 9.01,
+      "longitude": 38.76
+    },
+    {
+      "name": "a map view with only its center",
+      "text": "https://www.google.com/maps/@9.0227,38.7468,15z",
+      "latitude": 9.0227,
+      "longitude": 38.7468
+    },
+    {
+      "name": "a q parameter",
+      "text": "https://maps.google.com/?q=9.0108,38.7613",
+      "latitude": 9.0108,
+      "longitude": 38.7613
+    },
+    {
+      "name": "an encoded q parameter with a space",
+      "text": "https://www.google.com/maps?q=9.0108%2C%2038.7613",
+      "latitude": 9.0108,
+      "longitude": 38.7613
+    },
+    {
+      "name": "a search API link",
+      "text": "https://www.google.com/maps/search/?api=1&query=8.98,38.79",
+      "latitude": 8.98,
+      "longitude": 38.79
+    },
+    {
+      "name": "an ll parameter",
+      "text": "https://maps.google.com/maps?ll=9.03,38.74&z=16",
+      "latitude": 9.03,
+      "longitude": 38.74
+    },
+    {
+      "name": "a link inside a sentence on Ethiopia's Google domain",
+      "text": "እዚህ ነው https://www.google.com.et/maps/@9.0412,38.7525,16z thanks",
+      "latitude": 9.0412,
+      "longitude": 38.7525
+    }
+  ],
+  "withoutCoordinates": [
+    "https://www.google.com/maps/search/Edna+Mall+Bole",
+    "https://www.google.com/maps/place/Edna+Mall",
+    "https://maps.google.com/?q=Edna+Mall"
+  ],
+  "shortLinks": ["https://maps.app.goo.gl/x7Y2abcDEF", "Here it is: https://goo.gl/maps/AbCdEf123"],
+  "notLocations": [
+    "Do you have size 43?",
+    "https://example.com/maps/@9.01,38.76,15z",
+    "https://goo.gl/AbCdEf123",
+    "https://www.google.com/search?q=9.01,38.76"
+  ]
+}

@@ -31,6 +31,17 @@ export class CustomersRepo {
     return row;
   }
 
+  async setDeliveryPin(
+    tx: Transaction,
+    customerId: string,
+    pin: { latitude: number; longitude: number } | null,
+  ): Promise<void> {
+    await tx
+      .update(customers)
+      .set({ deliveryLatitude: pin?.latitude ?? null, deliveryLongitude: pin?.longitude ?? null })
+      .where(eq(customers.id, customerId));
+  }
+
   async telegramUserId(tx: Transaction, customerId: string): Promise<number | undefined> {
     const [row] = await tx
       .select({ telegramUserId: customers.telegramUserId })

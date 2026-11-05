@@ -2,6 +2,7 @@ import { deliveryTypes, orderStatuses } from '@buchi/shared';
 import { sql } from 'drizzle-orm';
 import {
   check,
+  doublePrecision,
   foreignKey,
   integer,
   numeric,
@@ -41,6 +42,8 @@ export const orders = pgTable(
     itemsTotal: money('items_total').notNull(),
     deliveryFee: money('delivery_fee').notNull().default('0'),
     total: money('total').notNull(),
+    deliveryLatitude: doublePrecision('delivery_latitude'),
+    deliveryLongitude: doublePrecision('delivery_longitude'),
     paymentDeadline: timestamp('payment_deadline', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -52,6 +55,10 @@ export const orders = pgTable(
     }),
     unique('orders_id_shop_unique').on(t.id, t.shopId),
     check('orders_total_adds_up', sql`${t.total} = ${t.itemsTotal} + ${t.deliveryFee}`),
+    check(
+      'orders_delivery_pin',
+      sql`(${t.deliveryLatitude} is null) = (${t.deliveryLongitude} is null) and (${t.deliveryType} = 'pickup') = (${t.deliveryLatitude} is null)`,
+    ),
     shopIsolation(t.shopId),
   ],
 );

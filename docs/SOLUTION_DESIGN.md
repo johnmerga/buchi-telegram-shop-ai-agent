@@ -604,7 +604,8 @@ The following table lists the stack:
 Postgres stores the following tables:
 
 ```text
-shops              settings, location, rates, price cap, payment accounts, channel
+shops              settings, location, payment accounts, channel
+delivery_settings  shop rates, free radius, ranges, far-area cap, Saver discount
 shop_members       shop, Telegram user ID, role
 products           title, pricing mode, price or asking price, lowest price, images,
                    description embedding

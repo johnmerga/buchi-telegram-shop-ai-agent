@@ -1,6 +1,7 @@
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import { AppError } from '../../shared/errors';
+import type { Coordinates } from '../delivery/location.domain';
 import type { CustomerRow, CustomersRepo } from './customers.repo';
 import type { CustomerSession, SessionsRepo } from './sessions.repo';
 
@@ -38,6 +39,11 @@ export class CustomersService {
     const customer = await withShop(this.db, shopId, (tx) => this.repo.find(tx, customerId));
     if (!customer) throw new AppError('NOT_FOUND', 'Customer not found');
     return customer;
+  }
+
+  /** Keeps the pin for the order being placed, and clears it once the order holds it. */
+  async setDeliveryPin(shopId: string, customerId: string, pin: Coordinates | null): Promise<void> {
+    await withShop(this.db, shopId, (tx) => this.repo.setDeliveryPin(tx, customerId, pin));
   }
 
   /** The customer's private chat with the bot has the same ID as their Telegram user. */

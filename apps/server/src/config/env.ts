@@ -21,6 +21,14 @@ const envSchema = z.object({
   GEMINI_REQUESTS_PER_DAY: z.coerce.number().int().positive().default(250),
   /** Keys the payer hashes in the shared risk signals. Changing it forgets every signal. */
   RISK_HASH_SECRET: z.string().min(32),
+  /** HeiGIT basic key for OpenRouteService, sent as the raw `Authorization` header. */
+  ORS_API_KEY: z.string().min(1),
+  ORS_BASE_URL: z.url().default('https://api.heigit.org'),
+  /** Nominatim's usage policy requires a user agent that identifies the application. */
+  NOMINATIM_USER_AGENT: z
+    .string()
+    .min(1)
+    .default('Buchi/1.0 (contact via GitHub johnmerga/buchi-telegram-shop-ai-agent)'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 

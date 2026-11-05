@@ -1,0 +1,18 @@
+[
+  {
+    "place_id": 44418434,
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "osm_type": "way",
+    "osm_id": 151357816,
+    "lat": "8.9970566",
+    "lon": "38.7866129",
+    "category": "shop",
+    "type": "mall",
+    "place_rank": 30,
+    "importance": 7.150148775458942e-5,
+    "addresstype": "shop",
+    "name": "Edna Mall",
+    "display_name": "Edna Mall, BL_03_646 Street, ግሂሊፍፋለግን ምንጭ, Bole, አዲስ አበባ, 7966, ኢትዮጵያ",
+    "boundingbox": ["8.9968324", "8.9973926", "38.7864310", "38.7868915"]
+  }
+]

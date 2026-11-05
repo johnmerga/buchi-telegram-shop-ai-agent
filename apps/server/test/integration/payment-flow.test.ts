@@ -34,6 +34,7 @@ import { EventBus } from '../../src/shared/events';
 import { createBot } from '../../src/telegram/bot';
 import { TelegramMessenger } from '../../src/telegram/messenger';
 import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
+import { pickupOnlyDelivery } from '../fakes/pickup-only-delivery';
 import { testDatabaseUrl } from './test-database';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
@@ -65,7 +66,13 @@ const catalog = new CatalogService(db, new CatalogRepo(), shops, noChannels, bot
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const timers = new TimerService(new TimersRepo(db), logger);
 const orders = new OrderService(db, new OrdersRepo(), new EventBus(logger), timers);
-const checkout = new CheckoutService(customers, orders, shops, () => new Date());
+const checkout = new CheckoutService(
+  customers,
+  orders,
+  shops,
+  pickupOnlyDelivery,
+  () => new Date(),
+);
 
 /** The model's answers, in order. Each test adds the turns it needs. */
 const script: ScriptedTurn[] = [];

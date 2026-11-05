@@ -48,7 +48,6 @@ export const productSchema = z.object({
   active: z.boolean(),
   createdAt: z.iso.datetime(),
 });
-export type Product = z.infer<typeof productSchema>;
 
 export const variantSchema = z.object({
   id: z.uuid(),
@@ -58,7 +57,6 @@ export const variantSchema = z.object({
   /** Units held by open orders. Stock cannot go below it. */
   reserved: z.number().int(),
 });
-export type Variant = z.infer<typeof variantSchema>;
 
 export const productWithVariantsSchema = productSchema.extend({ variants: z.array(variantSchema) });
 export type ProductWithVariants = z.infer<typeof productWithVariantsSchema>;

@@ -47,7 +47,6 @@ export type Shop = z.infer<typeof shopSchema>;
 export const shopDetailsSchema = shopSchema.extend({
   paymentAccounts: z.array(paymentAccountSchema),
 });
-export type ShopDetails = z.infer<typeof shopDetailsSchema>;
 
 export const createdShopSchema = z.object({ id: z.uuid() });
 export const connectedChannelSchema = z.object({ title: z.string() });

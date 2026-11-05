@@ -20,7 +20,7 @@ export function useLiveOrders(shopId: string): void {
       {
         onOpen: reload,
         onData: (data) => {
-          if (liveEventSchema.safeParse(JSON.parse(data)).success) reload();
+          if (liveEventSchema.safeParse(parseJson(data)).success) reload();
         },
       },
       abort.signal,
@@ -29,4 +29,12 @@ export function useLiveOrders(shopId: string): void {
       abort.abort();
     };
   }, [api, queryClient, shopId]);
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }

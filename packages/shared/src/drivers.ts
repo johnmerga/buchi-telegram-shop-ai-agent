@@ -71,7 +71,6 @@ export const driverEarningsSchema = z.object({
   deliveredTrips: z.number().int().min(0),
   payout: moneySchema,
 });
-export type DriverEarnings = z.infer<typeof driverEarningsSchema>;
 
 export const driverBoardSchema = z.object({
   offers: z.array(openOfferSchema),

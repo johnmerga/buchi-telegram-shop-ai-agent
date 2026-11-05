@@ -1,9 +1,10 @@
 import type { DeliveryType, MoneyString, OrderStatus } from '@buchi/shared';
-import { and, count, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, sql, sum } from 'drizzle-orm';
 import type { Database, Transaction } from '../../db/client';
 import {
   customers,
   orderEvents,
+  orderExchanges,
   orderItems,
   orders,
   products,
@@ -13,6 +14,7 @@ import {
 export type OrderRow = typeof orders.$inferSelect;
 export type OrderItemRow = typeof orderItems.$inferSelect;
 export type OrderActor = (typeof orderEvents.$inferInsert)['actor'];
+export type OrderEventRow = typeof orderEvents.$inferSelect;
 
 export interface SellableVariant {
   variantId: string;
@@ -31,7 +33,7 @@ export interface OrderSummary {
   total: MoneyString;
   customerTelegramUserId: number;
   customerName: string;
-  lines: { title: string; size: string; quantity: number }[];
+  lines: { variantId: string; title: string; size: string; quantity: number }[];
 }
 
 export class OrdersRepo {
@@ -144,7 +146,12 @@ export class OrdersRepo {
       .where(eq(orders.id, orderId));
     if (!order) return undefined;
     const lines = await tx
-      .select({ title: products.title, size: productVariants.size, quantity: orderItems.quantity })
+      .select({
+        variantId: orderItems.variantId,
+        title: products.title,
+        size: productVariants.size,
+        quantity: orderItems.quantity,
+      })
       .from(orderItems)
       .innerJoin(productVariants, eq(productVariants.id, orderItems.variantId))
       .innerJoin(products, eq(products.id, productVariants.productId))
@@ -231,6 +238,61 @@ export class OrdersRepo {
       .update(orders)
       .set({ status, updatedAt: sql`now()` })
       .where(eq(orders.id, orderId));
+  }
+
+  async setDeliveryType(tx: Transaction, orderId: string, type: DeliveryType): Promise<void> {
+    await tx
+      .update(orders)
+      .set({ deliveryType: type, updatedAt: sql`now()` })
+      .where(eq(orders.id, orderId));
+  }
+
+  /** Moves the deadline and counts the extension, which the policy guard limits. */
+  async extendDeadline(tx: Transaction, orderId: string, deadline: Date): Promise<void> {
+    await tx
+      .update(orders)
+      .set({
+        paymentDeadline: deadline,
+        deadlineExtensions: sql`${orders.deadlineExtensions} + 1`,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(orders.id, orderId));
+  }
+
+  events(tx: Transaction, orderId: string): Promise<OrderEventRow[]> {
+    return tx
+      .select()
+      .from(orderEvents)
+      .where(eq(orderEvents.orderId, orderId))
+      .orderBy(asc(orderEvents.createdAt));
+  }
+
+  /** Units of a variant on orders that were paid for and placed since `since`. */
+  async unitsSold(
+    tx: Transaction,
+    variantId: string,
+    since: Date,
+    statuses: readonly OrderStatus[],
+  ): Promise<number> {
+    const [row] = await tx
+      .select({ units: sum(orderItems.quantity).mapWith(Number) })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(
+        and(
+          eq(orderItems.variantId, variantId),
+          inArray(orders.status, [...statuses]),
+          gte(orders.createdAt, since),
+        ),
+      );
+    return row?.units ?? 0;
+  }
+
+  async insertExchange(
+    tx: Transaction,
+    exchange: { shopId: string; orderId: string; fromVariantId: string; toVariantId: string },
+  ): Promise<void> {
+    await tx.insert(orderExchanges).values(exchange);
   }
 
   async insertEvent(

@@ -31,7 +31,6 @@ import { DriversRepo } from '../../src/modules/drivers/drivers.repo';
 import { createDriversRouter } from '../../src/modules/drivers/drivers.routes';
 import { DriverService } from '../../src/modules/drivers/drivers.service';
 import { JobOffers, OFFER_UNANSWERED_TIMER } from '../../src/modules/drivers/job-offers.service';
-import { OfferBonusService } from '../../src/modules/drivers/offer-bonus.service';
 import { DeliveryOwnerAlerts } from '../../src/modules/drivers/owner-alerts.service';
 import { SaverRunService } from '../../src/modules/drivers/saver-runs.service';
 import { RECEIPT_TIMER, TripService } from '../../src/modules/drivers/trips.service';
@@ -184,13 +183,11 @@ const trips = new TripService(
   customers,
   messenger,
   alerts,
-  conversations,
-  notifier,
+  events,
   timerService,
   logger,
   clock,
 );
-const bonuses = new OfferBonusService(db, jobsRepo, offers, alerts);
 const saverRuns = new SaverRunService(
   orders,
   shops,
@@ -208,7 +205,7 @@ const bot = createBot({
   driverShopIds: (id) => drivers.shopIds(id),
   handlers: [
     createDriverHandlers(drivers),
-    createDispatchHandlers({ dispatch, trips, bonuses }),
+    createDispatchHandlers({ dispatch, trips }),
     createConversationHandlers({ conversations, customers }),
   ],
 });
@@ -559,18 +556,23 @@ describe('a delivery far from the pin', () => {
     expect((await jobOf(shop.shopId, orderId))?.stop.receipt).toBe('assumed');
   });
 
-  it('sends a problem report to the owners with a Take over button', async () => {
+  it('publishes a problem report once, for the operations module to follow up', async () => {
     const meron = userOf(990203, 'Meron');
     const orderId = await paidOrder(shop, meron, { type: 'express', pin: customerPin });
     await bot.handleUpdate(tap(abebe, `job:accept:${offerIdFor(abebe.id)}`));
     await bot.handleUpdate(tap(abebe, buttonsOf(lastTo(abebe.id))[0] ?? ''));
     await bot.handleUpdate(tap(abebe, buttonsOf(lastTo(abebe.id))[0] ?? ''));
     await bot.handleUpdate(location(abebe, customerPin));
+    const reports: { orderId: string }[] = [];
+    events.subscribe('delivery.problem_reported', (event) => {
+      reports.push(event);
+      return Promise.resolve();
+    });
 
     await bot.handleUpdate(tap(meron, `receipt:problem:${orderId}`));
-    expect(lastTo(meron.id)?.text).toContain('The shop will contact you');
-    expect(lastTo(owner)?.text).toContain('Reports a problem with delivered order');
-    expect(buttonsOf(lastTo(owner))[0]).toMatch(/^takeover:/);
+    await bot.handleUpdate(tap(meron, `receipt:problem:${orderId}`));
+    expect(reports).toEqual([{ shopId: shop.shopId, orderId }]);
+    expect((await jobOf(shop.shopId, orderId))?.stop.receipt).toBe('problem');
   });
 });
 
@@ -610,35 +612,6 @@ describe('parallel accepts', () => {
       .filter((c) => c.method === 'editMessageText' && c.text?.includes('Another driver took'));
     expect(taken).toHaveLength(9);
     expect(await statusOf(busyShop.shopId, orderId)).toBe('assigned');
-  });
-});
-
-describe('no driver accepting within 10 minutes', () => {
-  it('asks the owners for a bonus, and the bonus offers the job again at the higher payout', async () => {
-    const quietOwner = 990004;
-    const quietShop = await setUpShop(quietOwner);
-    const tesfa = userOf(990401, 'Tesfa', 'tesfa_moto');
-    await addDriver(quietShop.shopId, tesfa);
-    await paidOrder(quietShop, userOf(990206, 'Bethel'), { type: 'express', pin: customerPin });
-    const firstOffer = offerIdFor(tesfa.id);
-
-    const timer = await timerFor(OFFER_UNANSWERED_TIMER, firstOffer);
-    if (!timer) throw new Error('No offer timer');
-    await bonuses.offerUnanswered(timer);
-    const alert = lastTo(quietOwner);
-    // A fifth of 125, rounded up to tens: 30.
-    expect(alert?.text).toContain('Add a bonus of 30.00 ብር?');
-    expect(buttonsOf(alert)).toEqual([`job:bonus:${firstOffer}`]);
-
-    await bot.handleUpdate(tap(userOf(quietOwner, 'Owner'), `job:bonus:${firstOffer}`));
-    expect(answers().at(-1)).toBe('Offered again at 155.00 ብር.');
-    expect(lastTo(tesfa.id)?.text).toContain('155.00 ብር (bonus included)');
-
-    await bot.handleUpdate(tap(tesfa, `job:accept:${firstOffer}`));
-    expect(answers().at(-1)).toBe('Sorry, this job is no longer open.');
-    await bot.handleUpdate(tap(tesfa, `job:accept:${offerIdFor(tesfa.id)}`));
-    expect(answers().at(-1)).toBe('The job is yours.');
-    expect(lastTo(tesfa.id)?.text).toContain('Payout: 155.00 ብር');
   });
 });
 

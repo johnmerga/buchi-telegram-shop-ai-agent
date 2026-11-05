@@ -24,6 +24,7 @@ const allowed: [OrderStatus, OrderEvent, OrderStatus, string][] = [
   ['paid', 'ready_for_pickup', 'ready_for_pickup', 'none'],
   ['out_for_delivery', 'delivered', 'delivered', 'none'],
   ['ready_for_pickup', 'delivered', 'delivered', 'none'],
+  ['out_for_delivery', 'rescheduled', 'paid', 'none'],
   ['quoting', 'expired', 'expired', 'release'],
   ['awaiting_payment', 'expired', 'expired', 'release'],
   ['quoting', 'cancelled', 'cancelled', 'release'],

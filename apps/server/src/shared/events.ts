@@ -5,6 +5,10 @@ import type { Logger } from 'pino';
 export interface DomainEvents {
   'order.created': { shopId: string; orderId: string };
   'order.transitioned': { shopId: string; orderId: string; from: OrderStatus; to: OrderStatus };
+  /** A customer tapped **Problem** after a delivery. */
+  'delivery.problem_reported': { shopId: string; orderId: string };
+  /** A customer joined the waitlist of a sold-out size, which now has `waiting` people. */
+  'waitlist.joined': { shopId: string; variantId: string; waiting: number };
 }
 
 type Handler<K extends keyof DomainEvents> = (payload: DomainEvents[K]) => Promise<void>;

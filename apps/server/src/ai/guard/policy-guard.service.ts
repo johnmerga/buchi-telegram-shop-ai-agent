@@ -58,7 +58,7 @@ export class PolicyGuard {
     state: NegotiationState,
   ): Promise<GuardOutcome<PriceDecision>> {
     const decision = checkNegotiatedPrice(proposal.value, limits, state);
-    return this.record(context, proposal, decision, formatMoney, {
+    return this.record(context, proposal, {}, decision, formatMoney, {
       asking: limits.asking.toString(),
       lowest: limits.lowest.toString(),
       lastOffer: state.lastOffer?.toString() ?? null,
@@ -72,19 +72,22 @@ export class PolicyGuard {
     limits: DeliveryPriceLimits,
   ): Promise<GuardOutcome<DeliveryPriceDecision>> {
     const decision = checkDeliveryPrice(proposal.value, limits);
-    return this.record(context, proposal, decision, formatMoney, {
+    return this.record(context, proposal, {}, decision, formatMoney, {
       formulaPayout: limits.formulaPayout.toString(),
       cap: limits.cap.toString(),
     });
   }
 
+  /** The order is recorded with the minutes, so an owner's approval can extend that order. */
   checkDeadlineExtension(
     context: ToolCallContext,
     proposal: Proposal<number>,
-    extensionsMade: number,
+    order: { orderId: string; extensionsMade: number },
   ): Promise<GuardOutcome<DeadlineExtensionDecision>> {
-    const decision = checkDeadlineExtension(proposal.value, extensionsMade);
-    return this.record(context, proposal, decision, asIs, { extensionsMade });
+    const decision = checkDeadlineExtension(proposal.value, order.extensionsMade);
+    return this.record(context, proposal, { orderId: order.orderId }, decision, asIs, {
+      extensionsMade: order.extensionsMade,
+    });
   }
 
   /** Holds an `owner_confirms` action as a pending request until the owner approves it. */
@@ -104,9 +107,11 @@ export class PolicyGuard {
     return { status: 'awaiting_owner' };
   }
 
+  /** `subject` names what the value is for, such as the order of a deadline. */
   private async record<Value, D extends Decision<Value>>(
     context: ToolCallContext,
     proposal: Proposal<Value>,
+    subject: Record<string, string>,
     decision: D,
     serialize: (value: Value) => string | number,
     limits: LimitsRecord,
@@ -114,7 +119,7 @@ export class PolicyGuard {
     await withShop(this.db, context.shopId, (tx) =>
       this.repo.insert(tx, {
         ...scopeOf(context),
-        proposed: { value: serialize(proposal.value) },
+        proposed: { ...subject, value: serialize(proposal.value) },
         limits,
         result: decision.result,
         reason: decision.reason,

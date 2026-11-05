@@ -87,7 +87,7 @@ export function createSalesShop(db: Database, model: LanguageModel, now: () => D
     checkout,
     chat: silentChat,
     evidence: new PriceEvidenceService(customers, orders, negotiations, now),
-    demand: new DemandService(db, new DemandRepo()),
+    demand: new DemandService(db, new DemandRepo(), new EventBus(logger)),
     negotiations,
     guard,
     landmarks: new LandmarkService(

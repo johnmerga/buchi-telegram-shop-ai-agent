@@ -2,8 +2,10 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   doublePrecision,
+  index,
   integer,
   numeric,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -72,4 +74,27 @@ export const landmarks = pgTable(
     unique('landmarks_shop_name_area_unique').on(t.shopId, t.name, t.area),
     shopIsolation(t.shopId),
   ],
+);
+
+export const areaNoteSource = pgEnum('area_note_source', ['driver', 'owner']);
+
+/**
+ * Recent news about an area, such as a driver's report of a closed road. Far-area quotes and the
+ * operations agent read the notes of a zone until they expire.
+ */
+export const areaNotes = pgTable(
+  'area_notes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    shopId: uuid('shop_id')
+      .notNull()
+      .references(() => shops.id, { onDelete: 'cascade' }),
+    /** An H3 cell, coarse enough to name a neighbourhood rather than a customer's door. */
+    zone: text('zone').notNull(),
+    note: text('note').notNull(),
+    source: areaNoteSource('source').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('area_notes_zone_idx').on(t.shopId, t.zone, t.expiresAt), shopIsolation(t.shopId)],
 );

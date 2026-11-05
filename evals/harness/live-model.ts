@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import { GeminiModel } from '@buchi/server/ai/gemini';
 import type { LanguageModel } from '@buchi/server/ai/language-model';
 import { QuotaManager } from '@buchi/server/ai/quota';
+import { PRODUCT_EMBEDDING_DIMENSIONS } from '@buchi/server/db/schema';
 import { z } from 'zod';
 import { Pacer } from './pacer';
 
@@ -15,8 +16,6 @@ const geminiEnvSchema = z.object({
 
 /** The free-tier limit of the stricter model (Flash), shared by every call in a run. */
 const REQUESTS_PER_MINUTE = 10;
-/** Gemini's default embedding size, reduced the way product search will request it. */
-const EMBEDDING_DIMENSIONS = 768;
 const UNLIMITED = { requestsPerMinute: Infinity, requestsPerDay: Infinity };
 
 /** Gemini for record and live runs, paced to stay under the free tier's per-minute limit. */
@@ -51,7 +50,7 @@ export function connectGemini(env: NodeJS.ProcessEnv): LanguageModel {
         smart: config.GEMINI_MODEL_SMART,
         embedding: config.GEMINI_MODEL_EMBED,
       },
-      embeddingDimensions: EMBEDDING_DIMENSIONS,
+      embeddingDimensions: PRODUCT_EMBEDDING_DIMENSIONS,
     },
     // The pacer already keeps the run under the rate limit, and the quota manager's priority
     // shares only matter when production traffic competes for the same process.

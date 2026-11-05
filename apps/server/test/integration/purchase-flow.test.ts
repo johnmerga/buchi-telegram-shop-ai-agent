@@ -1,4 +1,5 @@
 import { productInputSchema } from '@buchi/shared';
+import { Api } from 'grammy';
 import type { Update } from 'grammy/types';
 import { pino } from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -25,6 +26,10 @@ import { ShopsService } from '../../src/modules/shops/shops.service';
 import { EventBus } from '../../src/shared/events';
 import { createBot } from '../../src/telegram/bot';
 import { testDatabaseUrl } from './test-database';
+import { noEmbeddings } from '../fakes/no-embeddings';
+import { NegotiationService } from '../../src/modules/sales/negotiation.service';
+import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
+import { TelegramCustomerChat } from '../../src/telegram/customer-chat';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -51,7 +56,14 @@ const telegram = {
   publish: () => Promise.resolve(10),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), telegram);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, telegram, botInfo.username);
+const catalog = new CatalogService(
+  db,
+  new CatalogRepo(),
+  shops,
+  telegram,
+  botInfo.username,
+  noEmbeddings,
+);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const logger = pino({ level: 'silent' });
 const orders = new OrderService(
@@ -59,6 +71,7 @@ const orders = new OrderService(
   new OrdersRepo(),
   new EventBus(logger),
   new TimerService(new TimersRepo(db), logger),
+  new NegotiationService(db, new NegotiationsRepo()),
 );
 /** The road trip that the fake routing service returns for every destination. */
 const road = { meters: 5000, seconds: 900 };
@@ -85,6 +98,19 @@ const redirects = {
 /** Every text the bot sends, and the inline buttons of the last message, instead of Telegram. */
 const sent: string[] = [];
 let buttons: string[] = [];
+const captureSent = (api: Api) => {
+  api.config.use((_prev, method, payload) => {
+    if ('text' in payload && typeof payload.text === 'string') {
+      sent.push(payload.text);
+      buttons = inlineButtons(payload);
+    }
+    if ('caption' in payload && typeof payload.caption === 'string') sent.push(payload.caption);
+    const result = method === 'sendMessage' || method === 'sendPhoto' ? { message_id: 1 } : true;
+    return Promise.resolve({ ok: true, result } as never);
+  });
+};
+const chatApi = new Api('test');
+captureSent(chatApi);
 const bot = createBot({
   token: 'test',
   botInfo,
@@ -95,20 +121,13 @@ const bot = createBot({
       catalog,
       customers,
       checkout,
-      conversations: { requestPrice: () => Promise.resolve() },
       locations: new LocationService(redirects, logger),
+      landmarks: { confirm: () => Promise.resolve() },
+      chat: new TelegramCustomerChat(chatApi),
     }),
   ],
 });
-bot.api.config.use((_prev, method, payload) => {
-  if ('text' in payload && typeof payload.text === 'string') {
-    sent.push(payload.text);
-    buttons = inlineButtons(payload);
-  }
-  if ('caption' in payload && typeof payload.caption === 'string') sent.push(payload.caption);
-  const result = method === 'sendMessage' || method === 'sendPhoto' ? { message_id: 1 } : true;
-  return Promise.resolve({ ok: true, result } as never);
-});
+captureSent(bot.api);
 
 function inlineButtons(payload: object): string[] {
   const markup = z

@@ -51,6 +51,9 @@ import { EventBus } from '../../src/shared/events';
 import { createBot } from '../../src/telegram/bot';
 import { TelegramMessenger } from '../../src/telegram/messenger';
 import { launchFields, signInitData } from '../sign-init-data';
+import { noEmbeddings } from '../fakes/no-embeddings';
+import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
+import { NegotiationService } from '../../src/modules/sales/negotiation.service';
 import { testDatabaseUrl } from './test-database';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
@@ -111,11 +114,18 @@ const catalog = new CatalogService(
   shops,
   { publish: () => Promise.reject(new Error('unused')) },
   botInfo.username,
+  noEmbeddings,
 );
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const timerService = new TimerService(new TimersRepo(db), logger);
 const events = new EventBus(logger);
-const orders = new OrderService(db, new OrdersRepo(), events, timerService);
+const orders = new OrderService(
+  db,
+  new OrdersRepo(),
+  events,
+  timerService,
+  new NegotiationService(db, new NegotiationsRepo()),
+);
 /** Every road trip from the shop is 5 km and 15 minutes. Matrices come from straight lines. */
 const routes = new RouteService(
   {

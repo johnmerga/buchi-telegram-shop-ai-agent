@@ -32,6 +32,10 @@ import { createBot } from '../../src/telegram/bot';
 import { TelegramMessenger } from '../../src/telegram/messenger';
 import { pickupOnlyDelivery } from '../fakes/pickup-only-delivery';
 import { testDatabaseUrl } from './test-database';
+import { noEmbeddings } from '../fakes/no-embeddings';
+import { NegotiationService } from '../../src/modules/sales/negotiation.service';
+import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
+import { TelegramCustomerChat } from '../../src/telegram/customer-chat';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -62,11 +66,24 @@ const telegram = {
   publish: () => Promise.resolve(10),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), telegram);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, telegram, botInfo.username);
+const catalog = new CatalogService(
+  db,
+  new CatalogRepo(),
+  shops,
+  telegram,
+  botInfo.username,
+  noEmbeddings,
+);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const events = new EventBus(logger);
 const timers = new TimerService(new TimersRepo(db), logger);
-const orders = new OrderService(db, new OrdersRepo(), events, timers);
+const orders = new OrderService(
+  db,
+  new OrdersRepo(),
+  events,
+  timers,
+  new NegotiationService(db, new NegotiationsRepo()),
+);
 const checkout = new CheckoutService(customers, orders, shops, pickupOnlyDelivery, clock);
 
 interface SentMessage {
@@ -128,8 +145,9 @@ const bot = createBot({
       catalog,
       customers,
       checkout,
-      conversations,
       locations: { fromText: () => Promise.resolve({ status: 'not_a_location' }) },
+      landmarks: { confirm: () => Promise.resolve() },
+      chat: new TelegramCustomerChat(messengerApi),
     }),
   ],
 });
@@ -190,12 +208,14 @@ async function startPayload(shopId: string, productId: string): Promise<string> 
   return buyLink(botInfo.username, postId).split('start=')[1] ?? '';
 }
 
-/** Starts a negotiable chat, which puts the customer in human mode, and returns its conversation. */
+/** Opens a product, then hands the chat to the owners as the sales agent does on request. */
 async function humanChatWith(customer: User) {
   await bot.handleUpdate(start(customer, negotiableLink));
-  const conversation = await conversations.humanConversation(shopA, customer.id);
-  if (!conversation) throw new Error('The price request did not start human mode');
-  return conversation;
+  return conversations.requestHuman(
+    shopA,
+    { telegramUserId: customer.id, name: customer.first_name },
+    'The customer asked for a person.',
+  );
 }
 
 beforeAll(async () => {
@@ -251,13 +271,20 @@ describe('owner alerts', () => {
     expect(to(ownerB)).toEqual([]);
   });
 
-  it('asks the owners for the price of a negotiable product and stops Buchi', async () => {
+  it('keeps Buchi answering a negotiable product, so the sales agent agrees the price', async () => {
+    const yonas = userOf(424209, 'Yonas');
+    await bot.handleUpdate(start(yonas, negotiableLink));
+
+    expect(lastTo(yonas.id)?.text).toContain('Ask me the price');
+    expect(await conversations.humanConversation(shopA, yonas.id)).toBeUndefined();
+  });
+
+  it('asks every owner to answer when the chat is handed over, and stops Buchi', async () => {
     const abebe = userOf(424202, 'Abebe');
     await humanChatWith(abebe);
 
-    expect(lastTo(abebe.id)?.text).toContain('The shop will send you the price here');
     for (const owner of [ownerA1, ownerA2]) {
-      expect(lastTo(owner)?.text).toContain('Asks the price of Leather Boots');
+      expect(lastTo(owner)?.text).toContain('Needs you: The customer asked for a person.');
       expect(buttonDataOf(lastTo(owner))).toContain('handback:');
     }
   });
@@ -347,7 +374,7 @@ describe('automatic hand-back', () => {
       telegramUserId: kebede.id,
       name: 'Kebede',
     });
-    await customers.startSession(kebede.id, shopA);
+    await customers.startSession(kebede.id, shopA, null);
 
     now = at(0);
     await bot.handleUpdate(tap(owner, `takeover:${conversation.id}`));

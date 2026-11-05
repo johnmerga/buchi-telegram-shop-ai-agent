@@ -1,6 +1,7 @@
 {
   "negotiated-price": {
     "outcomeMatch": 1,
-    "priceOutsideRange": 0
+    "priceOutsideRange": 0,
+    "fixedPriceDiscount": 0
   }
 }

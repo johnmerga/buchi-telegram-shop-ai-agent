@@ -18,6 +18,9 @@ import { ShopsRepo } from '../../src/modules/shops/shops.repo';
 import { ShopsService } from '../../src/modules/shops/shops.service';
 import { EventBus, type DomainEvents } from '../../src/shared/events';
 import { testDatabaseUrl } from './test-database';
+import { noEmbeddings } from '../fakes/no-embeddings';
+import { NegotiationService } from '../../src/modules/sales/negotiation.service';
+import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -27,7 +30,7 @@ const noTelegram = {
   publish: () => Promise.reject(new Error('unused')),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), noTelegram);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, noTelegram, 'bot');
+const catalog = new CatalogService(db, new CatalogRepo(), shops, noTelegram, 'bot', noEmbeddings);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const logger = pino({ level: 'silent' });
 const bus = new EventBus(logger);
@@ -37,7 +40,13 @@ bus.subscribe('order.transitioned', (event) => {
   return Promise.resolve();
 });
 const timers = new TimerService(new TimersRepo(db), logger);
-const orders = new OrderService(db, new OrdersRepo(), bus, timers);
+const orders = new OrderService(
+  db,
+  new OrdersRepo(),
+  bus,
+  timers,
+  new NegotiationService(db, new NegotiationsRepo()),
+);
 
 let shopId = '';
 let customerId = '';

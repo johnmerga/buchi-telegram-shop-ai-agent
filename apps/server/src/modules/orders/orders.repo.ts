@@ -1,5 +1,5 @@
 import type { DeliveryType, MoneyString, OrderStatus } from '@buchi/shared';
-import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import type { Database, Transaction } from '../../db/client';
 import {
   customers,
@@ -16,10 +16,12 @@ export type OrderActor = (typeof orderEvents.$inferInsert)['actor'];
 
 export interface SellableVariant {
   variantId: string;
+  productId: string;
   productTitle: string;
   size: string;
   pricingMode: (typeof products.$inferSelect)['pricingMode'];
   price: MoneyString;
+  lowestPrice: MoneyString | null;
   active: boolean;
 }
 
@@ -33,19 +35,26 @@ export interface OrderSummary {
 }
 
 export class OrdersRepo {
+  /**
+   * Locks the products for sharing, so an owner cannot change a price range between the check of
+   * an agreed price and the order that uses it.
+   */
   sellableVariants(tx: Transaction, variantIds: string[]): Promise<SellableVariant[]> {
     return tx
       .select({
         variantId: productVariants.id,
+        productId: products.id,
         productTitle: products.title,
         size: productVariants.size,
         pricingMode: products.pricingMode,
         price: products.price,
+        lowestPrice: products.lowestPrice,
         active: products.active,
       })
       .from(productVariants)
       .innerJoin(products, eq(products.id, productVariants.productId))
-      .where(inArray(productVariants.id, variantIds));
+      .where(inArray(productVariants.id, variantIds))
+      .for('share', { of: products });
   }
 
   /** Reserves stock only if enough is unreserved, in one statement, so parallel orders cannot oversell. */
@@ -190,6 +199,27 @@ export class OrdersRepo {
       .orderBy(desc(orders.createdAt))
       .limit(1);
     return row?.order;
+  }
+
+  recentForCustomer(tx: Transaction, customerId: string, limit: number): Promise<OrderRow[]> {
+    return tx
+      .select()
+      .from(orders)
+      .where(eq(orders.customerId, customerId))
+      .orderBy(desc(orders.createdAt))
+      .limit(limit);
+  }
+
+  async countWithStatus(
+    tx: Transaction,
+    customerId: string,
+    statuses: readonly OrderStatus[],
+  ): Promise<number> {
+    const [row] = await tx
+      .select({ orders: count() })
+      .from(orders)
+      .where(and(eq(orders.customerId, customerId), inArray(orders.status, [...statuses])));
+    return row?.orders ?? 0;
   }
 
   items(tx: Transaction, orderId: string): Promise<OrderItemRow[]> {

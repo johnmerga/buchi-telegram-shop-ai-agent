@@ -1,6 +1,12 @@
-import { orderStatusSchema, type OrderStatus } from '@buchi/shared';
+import { Money, orderStatusSchema, type OrderStatus } from '@buchi/shared';
 import { describe, expect, it } from 'vitest';
-import { nextState, orderReference, paymentInstructions, type OrderEvent } from './orders.domain';
+import {
+  nextState,
+  orderReference,
+  paymentInstructions,
+  unitPriceOf,
+  type OrderEvent,
+} from './orders.domain';
 
 /** Every allowed move, written out independently of the table in the code under test. */
 const allowed: [OrderStatus, OrderEvent, OrderStatus, string][] = [
@@ -101,5 +107,36 @@ describe('paymentInstructions', () => {
     expect(delivery).toContain('Express delivery: 130.00 ብር');
     expect(delivery).toContain('Total: 4,630.00 ብር');
     expect(delivery).not.toContain('Pickup');
+  });
+});
+
+describe('unitPriceOf', () => {
+  const boots = { pricingMode: 'negotiable' as const, price: '1000.00', lowestPrice: '800.00' };
+
+  it('sells a fixed-price product at its price, whatever was agreed', () => {
+    const fixed = { pricingMode: 'fixed' as const, price: '4500.00', lowestPrice: null };
+    expect(unitPriceOf(fixed, Money.of('100'))).toEqual({
+      status: 'priced',
+      price: Money.of('4500'),
+    });
+  });
+
+  it('sells a negotiable product at the agreed price within the range', () => {
+    expect(unitPriceOf(boots, Money.of('800'))).toEqual({
+      status: 'priced',
+      price: Money.of('800'),
+    });
+  });
+
+  it.each([
+    ['no agreed price', undefined],
+    ['an agreed price below the lowest', Money.of('799.99')],
+    ['an agreed price above the asking price', Money.of('1000.01')],
+  ])('asks for an agreement with %s', (_case, agreed) => {
+    expect(unitPriceOf(boots, agreed)).toEqual({ status: 'needs_agreement' });
+  });
+
+  it('refuses a negotiable product without a lowest price', () => {
+    expect(() => unitPriceOf({ ...boots, lowestPrice: null }, Money.of('900'))).toThrow();
   });
 });

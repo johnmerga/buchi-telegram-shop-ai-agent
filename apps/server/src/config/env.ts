@@ -15,7 +15,6 @@ const envSchema = z.object({
   GEMINI_MODEL_FAST: z.string().min(1).default('gemini-2.5-flash-lite'),
   GEMINI_MODEL_SMART: z.string().min(1).default('gemini-2.5-flash'),
   GEMINI_MODEL_EMBED: z.string().min(1).default('gemini-embedding-001'),
-  GEMINI_EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(768),
   /** Requests per minute and per Pacific day. Defaults stay under the free tier's limits. */
   GEMINI_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
   GEMINI_REQUESTS_PER_DAY: z.coerce.number().int().positive().default(250),

@@ -1,10 +1,9 @@
-import { ApiError } from '@google/genai';
 import type { Logger } from 'pino';
-import { z } from 'zod';
+import type { z } from 'zod';
 import type { LanguageModel, ModelTier, Priority } from '../../ai/language-model';
 import type { Prompt } from '../../ai/prompts/prompt';
 import { imageClassificationPrompt, receiptExtractionPrompt } from '../../ai/prompts/receipts';
-import { AppError } from '../../shared/errors';
+import { failureOf, jsonSchemaOf, parseJson } from '../../ai/structured-output';
 import {
   imageClassificationSchema,
   receiptExtractionSchema,
@@ -82,26 +81,4 @@ export class ReceiptReader {
     this.logger.warn({ step: reading.step, failure: 'invalid_output' }, 'image reading failed');
     return undefined;
   }
-}
-
-function jsonSchemaOf(schema: z.ZodType): Record<string, unknown> {
-  const jsonSchema = z.toJSONSchema(schema);
-  // Gemini accepts a subset of JSON Schema, and the dialect URI is not part of it.
-  delete jsonSchema.$schema;
-  return jsonSchema;
-}
-
-function parseJson(text: string | undefined): unknown {
-  try {
-    return JSON.parse(text ?? '');
-  } catch {
-    return undefined;
-  }
-}
-
-/** A short code for the log. Gemini errors can echo the request, which holds the image. */
-function failureOf(err: unknown): string {
-  if (err instanceof AppError) return err.code;
-  if (err instanceof ApiError) return `gemini_${String(err.status)}`;
-  return 'model_error';
 }

@@ -6,8 +6,21 @@ import type { EventBus } from '../../shared/events';
 import type { Coordinates } from '../delivery/location.domain';
 import type { TimerService } from '../jobs/timers.service';
 import { paymentTimers } from './orders.deadlines.domain';
-import { nextState, type OrderEvent, type StockEffect } from './orders.domain';
-import type { OrderActor, OrderItemRow, OrderRow, OrdersRepo, OrderSummary } from './orders.repo';
+import {
+  nextState,
+  paidStatuses,
+  unitPriceOf,
+  type OrderEvent,
+  type StockEffect,
+} from './orders.domain';
+import type {
+  OrderActor,
+  OrderItemRow,
+  OrderRow,
+  OrdersRepo,
+  OrderSummary,
+  SellableVariant,
+} from './orders.repo';
 
 /** How the order reaches the customer. Every delivery has a fee, even a free one, and a pin. */
 export type OrderDelivery =
@@ -25,6 +38,16 @@ export interface OrderWithItems extends OrderRow {
   items: OrderItemRow[];
 }
 
+/**
+ * Prices that the sales agent agreed with a customer for negotiable products. They are read in
+ * the order's own transaction, so the price an order uses is checked against the range it has then.
+ */
+export interface AgreedPrices {
+  find(tx: Transaction, customerId: string, productId: string): Promise<Money | undefined>;
+  /** Returns the agreed price and removes it, so it holds only for the order that uses it. */
+  take(tx: Transaction, customerId: string, productId: string): Promise<Money | undefined>;
+}
+
 /** The only code that changes an order's status or the stock it reserves. */
 export class OrderService {
   constructor(
@@ -32,6 +55,7 @@ export class OrderService {
     private readonly repo: OrdersRepo,
     private readonly events: EventBus,
     private readonly timers: Pick<TimerService, 'schedule'>,
+    private readonly agreedPrices: AgreedPrices,
   ) {}
 
   async create(shopId: string, order: NewOrder, actor: OrderActor): Promise<OrderRow> {
@@ -42,19 +66,7 @@ export class OrderService {
         tx,
         order.items.map((item) => item.variantId),
       );
-      const lines = order.items.map((item) => {
-        const variant = variants.find((v) => v.variantId === item.variantId);
-        if (!variant?.active) throw new AppError('NOT_FOUND', 'This product is not for sale');
-        // Negotiable products get their price from the sales agent, which Task 4.2 adds.
-        if (variant.pricingMode !== 'fixed') {
-          throw new AppError('CONFLICT', `${variant.productTitle} needs an agreed price`);
-        }
-        return {
-          ...item,
-          unitPrice: variant.price,
-          label: `${variant.productTitle} ${variant.size}`,
-        };
-      });
+      const lines = await this.priceLines(tx, order, variants);
 
       // A fixed order of reservations keeps two orders for the same items from deadlocking.
       for (const line of [...lines].sort((a, b) => a.variantId.localeCompare(b.variantId))) {
@@ -101,6 +113,33 @@ export class OrderService {
 
     await this.events.publish('order.created', { shopId, orderId: created.id });
     return created;
+  }
+
+  /**
+   * The price this customer pays now for one unit of a variant, or `undefined` while a negotiable
+   * product has no agreed price yet.
+   */
+  unitPrice(shopId: string, customerId: string, variantId: string): Promise<Money | undefined> {
+    return withShop(this.db, shopId, async (tx) => {
+      const [variant] = await this.repo.sellableVariants(tx, [variantId]);
+      if (!variant?.active) throw notForSale();
+      const agreed =
+        variant.pricingMode === 'negotiable'
+          ? await this.agreedPrices.find(tx, customerId, variant.productId)
+          : undefined;
+      const unit = unitPriceOf(variant, agreed);
+      return unit.status === 'priced' ? unit.price : undefined;
+    });
+  }
+
+  recentForCustomer(shopId: string, customerId: string, limit: number): Promise<OrderRow[]> {
+    return withShop(this.db, shopId, (tx) => this.repo.recentForCustomer(tx, customerId, limit));
+  }
+
+  paidOrderCount(shopId: string, customerId: string): Promise<number> {
+    return withShop(this.db, shopId, (tx) =>
+      this.repo.countWithStatus(tx, customerId, paidStatuses),
+    );
   }
 
   /** Validates the move, applies its stock effect, and records it, all in one transaction. */
@@ -179,6 +218,33 @@ export class OrderService {
     return this.get(shopId, orderId);
   }
 
+  /**
+   * Prices each line inside the order's transaction. A negotiable product's agreed price is taken
+   * once per product and checked against its current range.
+   */
+  private async priceLines(tx: Transaction, order: NewOrder, variants: SellableVariant[]) {
+    const agreed = new Map<string, Money | undefined>();
+    const lines = [];
+    for (const item of order.items) {
+      const variant = variants.find((v) => v.variantId === item.variantId);
+      if (!variant?.active) throw notForSale();
+      if (variant.pricingMode === 'negotiable' && !agreed.has(variant.productId)) {
+        const price = await this.agreedPrices.take(tx, order.customerId, variant.productId);
+        agreed.set(variant.productId, price);
+      }
+      const unit = unitPriceOf(variant, agreed.get(variant.productId));
+      if (unit.status !== 'priced') {
+        throw new AppError('CONFLICT', `${variant.productTitle} needs an agreed price first`);
+      }
+      lines.push({
+        ...item,
+        unitPrice: unit.price.toString(),
+        label: `${variant.productTitle} ${variant.size}`,
+      });
+    }
+    return lines;
+  }
+
   private async lock(tx: Transaction, orderId: string): Promise<OrderRow> {
     const order = await this.repo.lock(tx, orderId);
     if (!order) throw new AppError('NOT_FOUND', 'Order not found');
@@ -218,3 +284,5 @@ export class OrderService {
     }
   }
 }
+
+const notForSale = () => new AppError('NOT_FOUND', 'This product is not for sale');

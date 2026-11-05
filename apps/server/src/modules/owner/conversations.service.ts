@@ -1,8 +1,15 @@
 import type { Database, Transaction } from '../../db/client';
+import type { ConversationTurn } from '../../db/schema';
 import { withShop } from '../../db/with-shop';
 import type { Conversation, ConversationsRepo } from './conversations.repo';
 import type { MessageRef, Messenger, OwnerMessage, OwnerNotifier } from './owner-notifier.service';
-import { handBackNotice, handBackTime, priceRequestAlert } from './owner.domain';
+import {
+  appendTurns,
+  currentTurns,
+  handBackNotice,
+  handBackTime,
+  humanRequestAlert,
+} from './owner.domain';
 
 export const HAND_BACK_TIMER = 'conversation.hand_back';
 
@@ -55,16 +62,57 @@ export class ConversationService {
     return conversation?.mode === 'human' ? conversation : undefined;
   }
 
-  /** Until the sales agent negotiates (Task 4.2), an owner answers price questions in person. */
-  async requestPrice(
+  /** Hands the chat to the shop's owners, for a customer who asked or a case Buchi cannot settle. */
+  async requestHuman(
     shopId: string,
     customer: ConversationCustomer,
-    productTitle: string,
-  ): Promise<void> {
+    reason: string,
+  ): Promise<Conversation> {
     const { conversation } = await withShop(this.db, shopId, async (tx) =>
       this.toHuman(tx, await this.upsert(tx, shopId, customer)),
     );
-    await this.notifier.notify(conversation, { text: priceRequestAlert(productTitle) });
+    await this.notifier.notify(conversation, { text: humanRequestAlert(reason) });
+    return conversation;
+  }
+
+  /** The recent messages between the customer and the sales agent, oldest first. */
+  async recentTurns(shopId: string, customer: ConversationCustomer): Promise<ConversationTurn[]> {
+    const conversation = await this.open(shopId, customer);
+    return currentTurns(conversation.recentTurns, this.now());
+  }
+
+  /** Adds messages to the agent's memory of the chat. The upsert locks the row for the update. */
+  async recordTurns(
+    shopId: string,
+    customer: ConversationCustomer,
+    turns: Pick<ConversationTurn, 'role' | 'text'>[],
+  ): Promise<void> {
+    const at = this.now().toISOString();
+    await withShop(this.db, shopId, async (tx) => {
+      const conversation = await this.upsert(tx, shopId, customer);
+      const added = turns.map((turn) => ({ ...turn, at }));
+      await this.repo.setTurns(
+        tx,
+        conversation.id,
+        appendTurns(conversation.recentTurns, added, this.now()),
+      );
+    });
+  }
+
+  /** The customer's latest message, which a fact the agent saves cites as its source. */
+  async latestCustomerMessage(
+    shopId: string,
+    customer: ConversationCustomer,
+  ): Promise<string | undefined> {
+    const turns = await this.recentTurns(shopId, customer);
+    return turns.filter((turn) => turn.role === 'customer').at(-1)?.text;
+  }
+
+  async forgetTurns(shopId: string, customer: ConversationCustomer): Promise<void> {
+    await withShop(this.db, shopId, async (tx) => {
+      const conversation = await this.upsert(tx, shopId, customer);
+      await this.repo.setTurns(tx, conversation.id, []);
+    });
   }
 
   relayFromCustomer(conversation: Conversation, message: OwnerMessage): Promise<void> {

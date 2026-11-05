@@ -5,7 +5,9 @@
   "exports": {
     "./ai/*": "./src/ai/*.ts",
     "./db/schema": "./src/db/schema/index.ts",
-    "./db/*": "./src/db/*.ts"
+    "./db/*": "./src/db/*.ts",
+    "./modules/*": "./src/modules/*.ts",
+    "./shared/*": "./src/shared/*.ts"
   },
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",

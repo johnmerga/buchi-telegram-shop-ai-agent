@@ -1,10 +1,12 @@
 import {
   formatBirr,
+  Money,
   type DeliveryType,
   type MoneyString,
   type OrderStatus,
   type PaymentAccount,
   type PaymentProvider,
+  type PricingMode,
 } from '@buchi/shared';
 
 export type OrderEvent =
@@ -59,6 +61,40 @@ export function nextState(current: OrderStatus, event: OrderEvent): TransitionRe
     ? { allowed: true, to: transition.to, stock: transition.stock }
     : { allowed: false };
 }
+
+interface PricedProduct {
+  pricingMode: PricingMode;
+  /** The shown price of a fixed-price product, or the asking price of a negotiable one. */
+  price: MoneyString;
+  lowestPrice: MoneyString | null;
+}
+
+type UnitPrice = { status: 'priced'; price: Money } | { status: 'needs_agreement' };
+
+/**
+ * The price one unit sells at. A fixed-price product always sells at its own price, whatever was
+ * agreed. A negotiable product sells only at an agreed price that is still within the owner's
+ * range, so a price agreed before the owner changed the range is negotiated again.
+ */
+export function unitPriceOf(product: PricedProduct, agreed: Money | undefined): UnitPrice {
+  if (product.pricingMode === 'fixed') return { status: 'priced', price: Money.of(product.price) };
+  if (product.lowestPrice === null) throw new Error('A negotiable product has no lowest price');
+  const withinRange =
+    agreed !== undefined &&
+    agreed.compare(Money.of(product.lowestPrice)) >= 0 &&
+    agreed.compare(Money.of(product.price)) <= 0;
+  return withinRange ? { status: 'priced', price: agreed } : { status: 'needs_agreement' };
+}
+
+/** Statuses of an order that the customer paid for, which count as buying before. */
+export const paidStatuses: readonly OrderStatus[] = [
+  'paid',
+  'dispatching',
+  'assigned',
+  'out_for_delivery',
+  'ready_for_pickup',
+  'delivered',
+];
 
 /** A short order number that customers can read out, such as "#3F2A9C". */
 export function orderReference(orderId: string): string {

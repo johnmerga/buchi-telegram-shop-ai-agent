@@ -1,6 +1,7 @@
 import { Composer } from 'grammy';
 import type { Message } from 'grammy/types';
 import type { BuchiContext } from '../../telegram/actor';
+import type { TelegramCustomerChat } from '../../telegram/customer-chat';
 import type { CustomersService } from '../customers/customers.service';
 import type { ImageIntake, IncomingImage } from './image-intake.service';
 import type { PaymentReview, ReviewResult } from './payment-review.service';
@@ -10,6 +11,7 @@ interface PaymentDeps {
   intake: ImageIntake;
   review: PaymentReview;
   customers: Pick<CustomersService, 'sessionOf'>;
+  chat: Pick<TelegramCustomerChat, 'photoSearch'>;
 }
 
 const reviewAnswers: Record<ReviewResult, string> = {
@@ -24,7 +26,7 @@ const reviewAnswers: Record<ReviewResult, string> = {
  * handlers, so an image in a chat that an owner has taken over goes to the owner instead.
  */
 export function createPaymentHandlers(deps: PaymentDeps): Composer<BuchiContext> {
-  const { intake, review, customers } = deps;
+  const { intake, review, customers, chat } = deps;
   const handlers = new Composer<BuchiContext>();
 
   handlers.on(['message:photo', 'message:document'], async (ctx, next) => {
@@ -36,7 +38,9 @@ export function createPaymentHandlers(deps: PaymentDeps): Composer<BuchiContext>
       await ctx.reply('ሰላም! Tap Buy on a channel post to start an order.');
       return;
     }
-    await ctx.reply(await intake.receive(session.shopId, ctx.from.id, image));
+    const reply = await intake.receive(session.shopId, ctx.from.id, image);
+    if (reply.kind === 'text') await ctx.reply(reply.text);
+    else await chat.photoSearch(ctx.from.id, reply.result);
   });
 
   handlers.callbackQuery(/^payment:/, async (ctx) => {

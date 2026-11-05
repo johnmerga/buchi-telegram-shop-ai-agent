@@ -1,6 +1,6 @@
 import { and, eq, lte, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
-import { conversations, relayedMessages } from '../../db/schema';
+import { conversations, relayedMessages, type ConversationTurn } from '../../db/schema';
 
 export type Conversation = typeof conversations.$inferSelect;
 
@@ -85,6 +85,10 @@ export class ConversationsRepo {
       )
       .returning();
     return row;
+  }
+
+  async setTurns(tx: Transaction, id: string, turns: ConversationTurn[]): Promise<void> {
+    await tx.update(conversations).set({ recentTurns: turns }).where(eq(conversations.id, id));
   }
 
   async recordRelays(tx: Transaction, relays: Relay[]): Promise<void> {

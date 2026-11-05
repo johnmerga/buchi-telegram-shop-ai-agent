@@ -16,6 +16,15 @@ export function createDeliveryRouter(deps: {
   const { delivery, saverSchedule, requireAuth, requireShopOwner } = deps;
   const router = Router();
 
+  router.get(
+    '/shops/:shopId/delivery-settings',
+    requireAuth,
+    requireShopOwner,
+    async (req, res) => {
+      res.json(await delivery.savedSettings(parseInput(shopParams, req.params).shopId));
+    },
+  );
+
   router.put(
     '/shops/:shopId/delivery-settings',
     requireAuth,

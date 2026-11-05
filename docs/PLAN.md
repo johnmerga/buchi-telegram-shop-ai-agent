@@ -618,8 +618,7 @@ loading, empty, and error states.
   and **Hand back**, AI decisions, the deliveries map, zones, and insights; **Run now** buttons.
 - **Built as:** screenshots stream from Telegram through an owner-only proxy and are never stored.
   Dashboard decisions call the same services as the chat buttons. Run now runs one shop's daily
-  report without the job secret. First reply time is not measured yet: it needs message arrival
-  times (Task 10.2). A far-area price above the cap is still answered in the chat.
+  report without the job secret. First reply time is measured from `reply_times` (Task 10.2). A far-area price above the cap is still answered in the chat.
 
 ### 9.2 Google Sheets ledger
 
@@ -645,6 +644,17 @@ loading, empty, and error states.
 - **Deliverables:** reclaiming timers stuck in `running` after a crash, with retries based on
   `attempts`; a pass over every fallback in the design doc's third-party table and risk table,
   each with a test; rate limits on public endpoints; a load check of the tick with 1,000 due timers.
+
+- **Built as:** a timer still `running` after a 10-minute lease returns to `pending`, and fails after
+  three claims; a late result from an expired claim changes nothing. Per-IP and per-user rate limits
+  answer `RATE_LIMITED` (429); `TRUST_PROXY_HOPS` must be confirmed from `req.ips` after the first
+  Render deploy. Security headers: a strict default CSP, and per-role Mini App policies that allow
+  Telegram Web to embed the pages (`'unsafe-eval'` only on the owner page, for the Login Widget).
+  `reply_times` stores only arrival and reply times. A far-area price on a straight-line route always
+  goes to the owner. Map screens keep their lists when the map cannot load.
+- **Follow-ups:** local long-polling mode; a GitHub Actions fallback for the daily jobs; owner
+  correction of trip times; an eval gate that requires the far-price agent to beat the statistics;
+  a check that each role's bundle stays separate.
 
 ### 10.3 Demo
 

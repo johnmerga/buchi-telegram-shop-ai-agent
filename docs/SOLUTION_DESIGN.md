@@ -76,7 +76,7 @@ The dashboard tracks the following metrics. The targets apply to the demo shop.
 
 | Metric | Target |
 | --- | --- |
-| Median time to Buchi's first reply | Under 10 seconds |
+| Median time to Buchi's first reply, from the customer's message reaching Telegram to Buchi's text answer | Under 10 seconds |
 | Payments approved without the owner | At least 80% |
 | Fraudulent receipts caught in the evaluation set | Every reused reference, and every edited receipt whose bank page is reachable |
 | Negotiated prices outside the owner's range, or discounts on fixed-price products | Zero, enforced by the policy guard and tested with adversarial messages |

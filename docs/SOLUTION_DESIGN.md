@@ -406,7 +406,9 @@ A customer who writes "forget my details" has the facts deleted.
 
 Each `NeedsReview` case and each escalation reaches the owner as a Telegram message with buttons,
 and in the review queue of the owner Mini App. The owner can take over any conversation. Buchi stops
-replying in that chat until the owner selects **Hand back** or stays silent for two hours. Buchi
+replying in that chat until the owner selects **Hand back** or stays silent for two hours. In
+Telegram, the owner replies to a relayed customer message, and Buchi delivers the reply; a reply
+counts as taking over and restarts the two hours. Buchi
 hands off by itself when a customer asks for a human or seems frustrated.
 
 ### Scheduled jobs
@@ -632,7 +634,8 @@ waitlist           customer, product variant, joined, notified
 timers             kind, target, due time, done
 agent_decisions    agent, tool, proposed value, limits, result, reason, evidence
 agent_traces       prompt version, model, tool calls, tokens, latency
-conversations      agent or human mode, messages
+conversations      agent or human mode, hand-back deadline
+relayed_messages   owner message, customer, shop
 telegram_updates   processed update IDs for deduplication
 ```
 

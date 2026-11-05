@@ -20,15 +20,25 @@ import { CustomersRepo } from './modules/customers/customers.repo';
 import { CustomersService } from './modules/customers/customers.service';
 import { SessionsRepo } from './modules/customers/sessions.repo';
 import { CheckoutService } from './modules/orders/checkout.service';
+import { orderTimerKinds } from './modules/orders/orders.deadlines.domain';
+import { PaymentDeadlineService } from './modules/orders/orders.deadlines.service';
 import { OrdersRepo } from './modules/orders/orders.repo';
 import { OrderService } from './modules/orders/orders.service';
+import { createReorderHandlers } from './modules/orders/orders.reorder.handlers';
 import { createPurchaseHandlers } from './modules/orders/purchase.handlers';
+import { createConversationHandlers } from './modules/owner/conversations.handlers';
+import { ConversationsRepo } from './modules/owner/conversations.repo';
+import { ConversationService, HAND_BACK_TIMER } from './modules/owner/conversations.service';
+import { OrderAlerts } from './modules/owner/order-alerts.service';
+import { OwnerNotifier } from './modules/owner/owner-notifier.service';
 import { createShopsRouter } from './modules/shops/shops.routes';
 import { ShopsService } from './modules/shops/shops.service';
 import { TelegramChannels } from './telegram/channels';
 import { EventBus } from './shared/events';
 import { createBot } from './telegram/bot';
+import { TelegramMessenger } from './telegram/messenger';
 import { TelegramIngress } from './telegram/ingress';
+import { TelegramOrderNotifier } from './telegram/order-notifier';
 import { TelegramUpdatesRepo } from './telegram/updates.repo';
 import { createTelegramWebhookRouter } from './telegram/webhook.routes';
 import { UpdateWorker } from './telegram/worker';
@@ -61,15 +71,40 @@ const customers = new CustomersService(
   new CustomersRepo(),
   new SessionsRepo(database.db),
 );
-const orders = new OrderService(database.db, new OrdersRepo(), events);
+const orders = new OrderService(database.db, new OrdersRepo(), events, timers);
 const checkout = new CheckoutService(customers, orders, shops, () => new Date());
+const deadlines = new PaymentDeadlineService(
+  orders,
+  customers,
+  new TelegramOrderNotifier(telegramApi),
+  () => new Date(),
+);
+timers.register(orderTimerKinds.paymentReminder, (timer) => deadlines.remind(timer));
+timers.register(orderTimerKinds.expire, (timer) => deadlines.expire(timer));
+
+const messenger = new TelegramMessenger(telegramApi);
+const conversationsRepo = new ConversationsRepo();
+const notifier = new OwnerNotifier(database.db, conversationsRepo, shops, messenger, logger);
+const conversations = new ConversationService(
+  database.db,
+  conversationsRepo,
+  notifier,
+  messenger,
+  timers,
+  () => new Date(),
+);
+timers.register(HAND_BACK_TIMER, (timer) => conversations.handBackIfSilent(timer));
+const orderAlerts = new OrderAlerts(orders, conversations, notifier);
+events.subscribe('order.created', (event) => orderAlerts.orderCreated(event));
 
 const bot = createBot({
   token: env.TELEGRAM_BOT_TOKEN,
   botInfo,
   ownedShopIds: (telegramUserId) => shops.ownedShopIds(telegramUserId),
   handlers: [
-    createPurchaseHandlers({ catalog, customers, checkout }),
+    createConversationHandlers({ conversations, customers }),
+    createPurchaseHandlers({ catalog, customers, checkout, conversations }),
+    createReorderHandlers(checkout),
     createCatalogHandlers(catalog),
   ],
 });

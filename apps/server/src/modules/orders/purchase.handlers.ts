@@ -7,6 +7,7 @@ import { availableSizes } from '../catalog/catalog.domain';
 import type { CatalogService, ProductWithVariants } from '../catalog/catalog.service';
 import { postIdFromStartPayload } from '../catalog/catalog.domain';
 import type { CustomersService } from '../customers/customers.service';
+import type { ConversationService } from '../owner/conversations.service';
 import type { CheckoutService, PlaceOrderResult } from './checkout.service';
 
 const UUID = '([0-9a-f-]{36})';
@@ -15,6 +16,7 @@ export interface PurchaseDeps {
   catalog: CatalogService;
   customers: CustomersService;
   checkout: CheckoutService;
+  conversations: Pick<ConversationService, 'requestPrice'>;
 }
 
 const buyerOf = (from: User) => ({
@@ -27,7 +29,7 @@ const buyerOf = (from: User) => ({
  * instructions. It works without the model, so customers can buy when Gemini is unavailable.
  */
 export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContext> {
-  const { catalog, customers, checkout } = deps;
+  const { catalog, customers, checkout, conversations } = deps;
   const purchase = new Composer<BuchiContext>();
 
   purchase.command('start', async (ctx, next) => {
@@ -38,9 +40,13 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
       await ctx.reply('ይህ ምርት አሁን አይገኝም / This product is no longer available.');
       return;
     }
-    await customers.identify(opened.shopId, ctx.from.id, buyerOf(ctx.from).name);
-    await customers.startSession(ctx.from.id, opened.shopId);
+    const buyer = buyerOf(ctx.from);
+    await customers.identify(opened.shopId, buyer.telegramUserId, buyer.name);
+    await customers.startSession(buyer.telegramUserId, opened.shopId);
     await sendProductCard(ctx, opened.product);
+    if (opened.product.pricingMode === 'negotiable') {
+      await conversations.requestPrice(opened.shopId, buyer, opened.product.title);
+    }
   });
 
   purchase.callbackQuery(new RegExp(`^size:${UUID}$`), async (ctx) => {

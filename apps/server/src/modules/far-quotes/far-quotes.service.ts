@@ -43,7 +43,7 @@ export class FarQuoteService {
 
   /**
    * Estimates the first price for an order in `quoting` and offers it to the drivers, or asks the
-   * owner when it is above the cap.
+   * owner when it is above the cap or the distance is a straight-line guess.
    */
   async start(shopId: string, orderId: string): Promise<void> {
     const order = await this.orders.get(shopId, orderId);
@@ -91,6 +91,7 @@ export class FarQuoteService {
         cap: priced.cap,
         price: estimate.price.toString(),
         reason: estimate.reason,
+        approximateRoute: trip.approximate,
       }),
       [
         { text: '✅ Approve once', data: farQuoteCallbackData('approve', quote.id) },
@@ -100,7 +101,7 @@ export class FarQuoteService {
   }
 
   /**
-   * The owner's answer to a price above the cap. **Approve once** offers that price to the
+   * The owner's answer to a price that needs them. **Approve once** offers that price to the
    * drivers without raises; **Offer pickup** cancels the quote and offers the customer pickup.
    */
   async ownerAnswered(

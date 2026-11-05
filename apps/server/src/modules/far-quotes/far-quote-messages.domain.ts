@@ -1,4 +1,4 @@
-import { formatBirr, type MoneyString } from '@buchi/shared';
+import { formatBirr, Money, type MoneyString } from '@buchi/shared';
 import { orderReference } from '../orders/orders.domain';
 import { deliveryChoiceCallback } from '../orders/orders.schemas';
 import type { Button } from '../owner/owner.domain';
@@ -45,7 +45,10 @@ export function pickupOffered(orderId: string): string {
 export const declinedReply =
   'እሺ / Okay, the order is cancelled. You can pick it up at the shop instead.';
 
-/** The owner decides a price above the cap. Nothing above it reaches a driver without them. */
+/**
+ * The owner decides a price above the cap, or one for a distance guessed from the straight line.
+ * Nothing above the cap, and nothing priced on a guessed distance, reaches a driver without them.
+ */
 export function ownerApproval(quote: {
   orderId: string;
   routeMeters: number;
@@ -53,10 +56,15 @@ export function ownerApproval(quote: {
   cap: MoneyString;
   price: MoneyString;
   reason: string;
+  approximateRoute: boolean;
 }): string {
+  const aboveCap = Money.of(quote.price).compare(Money.of(quote.cap)) > 0;
   return [
     `💰 Far delivery for ${orderReference(quote.orderId)} (${(quote.routeMeters / 1000).toFixed(1)} km) needs your OK.`,
-    `Estimated driver price: ${formatBirr(quote.price)}, above your cap of ${formatBirr(quote.cap)}.`,
+    `Estimated driver price: ${formatBirr(quote.price)}, ${aboveCap ? 'above' : 'within'} your cap of ${formatBirr(quote.cap)}.`,
+    ...(quote.approximateRoute
+      ? ['The route service did not answer, so the distance is a straight-line estimate.']
+      : []),
     `Formula payout: ${formatBirr(quote.formulaPayout)}. Why: ${quote.reason}`,
     'Approve this price once, or offer the customer pickup.',
   ].join('\n');

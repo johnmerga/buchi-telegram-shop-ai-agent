@@ -63,7 +63,11 @@ export class FarPriceEstimator {
     let proposal: ProposedPrice | undefined;
     const tool = proposeDeliveryPriceTool({
       guard: this.guard,
-      limits: { formulaPayout: evidence.formulaPayout, cap },
+      limits: {
+        formulaPayout: evidence.formulaPayout,
+        cap,
+        approximateRoute: evidence.approximate,
+      },
       evidenceIds: evidenceIds(evidence),
       propose: (proposed) => {
         proposal = proposed;
@@ -99,7 +103,7 @@ export class FarPriceEstimator {
         tool: 'statistical_estimate',
       },
       { value: price, reason, evidenceIds: ['formula', 'acceptance_factor'] },
-      { formulaPayout, cap },
+      { formulaPayout, cap, approximateRoute: evidence.approximate },
     );
     // The statistical price is never below the formula payout, so the guard cannot reject it.
     if (decision.result === 'rejected') throw new Error('The guard rejected a statistical price');

@@ -32,9 +32,25 @@ describe('far quote messages', () => {
       cap: '1000.00',
       price: '1200.00',
       reason: 'The road to Kality is closed.',
+      approximateRoute: false,
     });
     expect(text).toContain('(18.4 km)');
     expect(text).toContain('1,200.00 ብር, above your cap of 1,000.00 ብር');
     expect(text).toContain('Why: The road to Kality is closed.');
+    expect(text).not.toContain('straight-line');
+  });
+
+  it('tells the owner when the distance is a straight-line estimate', () => {
+    const text = ownerApproval({
+      orderId,
+      routeMeters: 18_400,
+      formulaPayout: '420.00',
+      cap: '1000.00',
+      price: '480.00',
+      reason: 'Formula payout × acceptance factor 1.14 (12 trips).',
+      approximateRoute: true,
+    });
+    expect(text).toContain('480.00 ብር, within your cap of 1,000.00 ብር');
+    expect(text).toContain('the distance is a straight-line estimate');
   });
 });

@@ -149,9 +149,13 @@ const orders = new OrderService(
   new StockHoldsRepo(),
 );
 /** Every road trip from the shop is 15 km and 30 minutes: inside the 20 km far range. */
+const routing = { down: false };
 const routes = new RouteService(
   {
-    route: () => Promise.resolve({ meters: 15_000, seconds: 1800 }),
+    route: () =>
+      routing.down
+        ? Promise.reject(new Error('OpenRouteService is down'))
+        : Promise.resolve({ meters: 15_000, seconds: 1800 }),
     matrix: (points) => Promise.resolve(straightLineMatrix(points)),
   },
   logger,
@@ -375,12 +379,15 @@ const propose = (price: string, reason = 'Similar trips were accepted near this 
 const agentProposes = (price: string): ScriptedTurn[] => [propose(price), { text: 'Proposed.' }];
 
 /** A customer with a phone and a far pin taps "ask the drivers", as the button flow does. */
-async function requestQuote(turns: ScriptedTurn[]): Promise<{ customer: User; orderId: string }> {
+async function requestQuote(
+  turns: ScriptedTurn[],
+  pin = kality,
+): Promise<{ customer: User; orderId: string }> {
   model = new ScriptedModel(turns);
   const customer = userOf(nextCustomer++, 'Meron');
   const row = await customers.identify(shopId, customer.id, customer.first_name);
   await customers.setPhone(shopId, row.id, `+25191${String(customer.id)}`);
-  await customers.setDeliveryPin(shopId, row.id, kality);
+  await customers.setDeliveryPin(shopId, row.id, pin);
   await customers.startSession(customer.id, shopId, null);
   await customers.rememberChosenVariant(customer.id, variantId);
   await bot.handleUpdate(tap(customer, 'deliver:far'));
@@ -677,6 +684,34 @@ describe('a price above the cap', () => {
     await bot.handleUpdate(tap(abebe, `farquote:approve:${quote?.id ?? ''}`));
     expect(answers().at(-1)).toBe("Only this shop's owners can do this.");
     expect(await offersOf(orderId)).toEqual([]);
+  });
+});
+
+describe('a route the routing service could not give', () => {
+  it('prices the straight line × 1.4 and asks the owner even for a price within the cap', async () => {
+    // Another zone than Kality's, whose road route is cached, and about 12 km in a straight line.
+    const nearKality = { latitude: 8.91, longitude: 38.775 };
+    routing.down = true;
+    let quote: Awaited<ReturnType<typeof quoteOf>>;
+    try {
+      const { orderId } = await requestQuote(agentProposes('480'), nearKality);
+      quote = await quoteOf(orderId);
+      expect(await offersOf(orderId)).toEqual([]);
+    } finally {
+      routing.down = false;
+    }
+
+    expect(quote).toMatchObject({ status: 'awaiting_owner', proposedPrice: '480.00' });
+    expect(quote?.routeMeters).toBeGreaterThan(15_000);
+    expect(lastTo(owner)?.text).toContain('within your cap of 1,000.00 ብር');
+    expect(lastTo(owner)?.text).toContain('the distance is a straight-line estimate');
+    const [decision] = await withShop(db, shopId, (tx) =>
+      tx
+        .select()
+        .from(agentDecisions)
+        .where(eq(agentDecisions.id, quote?.decisionId ?? '')),
+    );
+    expect(decision).toMatchObject({ result: 'needs_owner', reason: 'approximate_route' });
   });
 });
 

@@ -155,6 +155,20 @@
       "when": 1793849286649,
       "tag": "0021_reports_and_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793874639405,
+      "tag": "0022_owner_assistant_and_listings",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793874640612,
+      "tag": "0023_reporting_views",
+      "breakpoints": true
     }
   ]
 }

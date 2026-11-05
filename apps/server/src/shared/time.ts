@@ -35,3 +35,8 @@ export function addisDay(date: Date): AddisDay {
     end: new Date(startOfLocalDay - ADDIS_OFFSET_MS + DAY_MS),
   };
 }
+
+/** The instant of a time of day on an Addis Ababa date such as "2026-11-05". Hours past 23 roll over. */
+export function addisInstant(day: string, hour: number, minute: number): Date {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + (hour * 60 + minute) * 60_000 - ADDIS_OFFSET_MS);
+}

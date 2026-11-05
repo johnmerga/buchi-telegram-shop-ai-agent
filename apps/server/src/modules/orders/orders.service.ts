@@ -6,6 +6,8 @@ import { AppError } from '../../shared/errors';
 import type { EventBus } from '../../shared/events';
 import type { Coordinates } from '../delivery/location.domain';
 import type { TimerService } from '../jobs/timers.service';
+import type { PromotionParameters } from '../rules/rules.schemas';
+import type { StockHoldsRepo } from './stock-holds.repo';
 import { zoneOf } from '../delivery/zones.domain';
 import { orderTimerKinds, paymentTimers } from './orders.deadlines.domain';
 import {
@@ -51,6 +53,11 @@ export interface AgreedPrices {
   take(tx: Transaction, customerId: string, productId: string): Promise<Money | undefined>;
 }
 
+/** The owner's promotions in force, read in the order's own transaction. */
+export interface Promotions {
+  activePromotions(tx: Transaction): Promise<PromotionParameters[]>;
+}
+
 /** The only code that changes an order's status or the stock it reserves. */
 export class OrderService {
   constructor(
@@ -59,6 +66,8 @@ export class OrderService {
     private readonly events: EventBus,
     private readonly timers: Pick<TimerService, 'schedule'>,
     private readonly agreedPrices: AgreedPrices,
+    private readonly promotions: Promotions,
+    private readonly holds: StockHoldsRepo,
   ) {}
 
   async create(shopId: string, order: NewOrder, actor: OrderActor): Promise<OrderRow> {
@@ -111,6 +120,39 @@ export class OrderService {
   }
 
   /**
+   * Reserves one unit of a variant for a waitlisted customer until `until`. Returns false when no
+   * unit is free. The customer's next order of the variant uses the held unit.
+   */
+  holdForCustomer(
+    shopId: string,
+    hold: { variantId: string; customerId: string; until: Date },
+  ): Promise<boolean> {
+    return withShop(this.db, shopId, async (tx) => {
+      if (!(await this.repo.reserve(tx, hold.variantId, 1))) return false;
+      const holdId = await this.holds.insert(tx, {
+        shopId,
+        variantId: hold.variantId,
+        customerId: hold.customerId,
+        expiresAt: hold.until,
+      });
+      await this.timers.schedule(tx, orderTimerKinds.holdExpire, holdId, shopId, hold.until);
+      return true;
+    });
+  }
+
+  /**
+   * The hold expiry: returns the unit to sale unless the customer's order used it. Returns the
+   * released variant, or undefined when nothing was released.
+   */
+  releaseHold(shopId: string, holdId: string): Promise<string | undefined> {
+    return withShop(this.db, shopId, async (tx) => {
+      const variantId = await this.holds.release(tx, holdId);
+      if (variantId) await this.repo.release(tx, variantId, 1);
+      return variantId;
+    });
+  }
+
+  /**
    * Deletes the exact pins of orders that ended before `before`. Each order keeps its zone. Returns
    * how many orders lost their pin.
    */
@@ -130,7 +172,8 @@ export class OrderService {
         variant.pricingMode === 'negotiable'
           ? await this.agreedPrices.find(tx, customerId, variant.productId)
           : undefined;
-      const unit = unitPriceOf(variant, agreed);
+      const promotions = await this.promotions.activePromotions(tx);
+      const unit = unitPriceOf(productOf(variant), agreed, promotions);
       return unit.status === 'priced' ? unit.price : undefined;
     });
   }
@@ -324,6 +367,7 @@ export class OrderService {
     variants: SellableVariant[],
   ) {
     const agreed = new Map<string, Money | undefined>();
+    const promotions = await this.promotions.activePromotions(tx);
     const lines = [];
     for (const item of order.items) {
       const variant = variants.find((v) => v.variantId === item.variantId);
@@ -332,7 +376,7 @@ export class OrderService {
         const price = await this.agreedPrices.take(tx, order.customerId, variant.productId);
         agreed.set(variant.productId, price);
       }
-      const unit = unitPriceOf(variant, agreed.get(variant.productId));
+      const unit = unitPriceOf(productOf(variant), agreed.get(variant.productId), promotions);
       if (unit.status !== 'priced') {
         throw new AppError('CONFLICT', `${variant.productTitle} needs an agreed price first`);
       }
@@ -368,7 +412,10 @@ export class OrderService {
 
       // A fixed order of reservations keeps two orders for the same items from deadlocking.
       for (const line of [...lines].sort((a, b) => a.variantId.localeCompare(b.variantId))) {
-        if (!(await this.repo.reserve(tx, line.variantId, line.quantity))) {
+        // A unit held for this customer is already reserved, so it moves to the order as it is.
+        const held = await this.holds.use(tx, order.customerId, line.variantId);
+        const toReserve = line.quantity - (held ? 1 : 0);
+        if (toReserve > 0 && !(await this.repo.reserve(tx, line.variantId, toReserve))) {
           throw new AppError('CONFLICT', `${line.label} is out of stock`);
         }
       }
@@ -465,6 +512,10 @@ export class OrderService {
       else await this.repo.commit(tx, item.variantId, item.quantity);
     }
   }
+}
+
+function productOf(variant: SellableVariant) {
+  return { ...variant, title: variant.productTitle, description: variant.productDescription };
 }
 
 const notForSale = () => new AppError('NOT_FOUND', 'This product is not for sale');

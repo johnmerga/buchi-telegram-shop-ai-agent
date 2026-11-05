@@ -1,0 +1,6 @@
+{"id":"pause-after-10-ethiopian","input":{"message":"ነገ ከ10 ሰዓት በኋላ ዴሊቨሪ የለም"},"expected":{"type":"delivery_pause","startsAt":"2026-11-06T13:00:00Z","endsAt":"2026-11-06T21:00:00Z"}}
+{"id":"pause-after-4pm-english","input":{"message":"No deliveries tomorrow after 4 PM"},"expected":{"type":"delivery_pause","startsAt":"2026-11-06T13:00:00Z","endsAt":"2026-11-06T21:00:00Z"}}
+{"id":"pause-saturday-morning","input":{"message":"ቅዳሜ ከጠዋቱ 2 ሰዓት እስከ 6 ሰዓት ዴሊቨሪ የለም"},"expected":{"type":"delivery_pause","startsAt":"2026-11-07T05:00:00Z","endsAt":"2026-11-07T09:00:00Z"}}
+{"id":"pause-tonight-from-3-evening","input":{"message":"ዛሬ ማታ ከ3 ሰዓት ጀምሮ ዴሊቨሪ አቁም"},"expected":{"type":"delivery_pause","startsAt":"2026-11-05T18:00:00Z","endsAt":"2026-11-05T21:00:00Z"}}
+{"id":"weekend-sneaker-promotion","input":{"message":"All sneakers 10% off this weekend"},"expected":{"type":"promotion","startsAt":"2026-11-06T21:00:00Z","endsAt":"2026-11-08T21:00:00Z","percentOff":10,"keywords":["sneaker"]}}
+{"id":"rate-per-km-change","input":{"message":"Raise the delivery rate per km to 22 birr"},"expected":{"type":"delivery_settings","settings":{"ratePerKm":"22"}}}

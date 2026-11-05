@@ -44,6 +44,7 @@ import { ShopsRepo } from '@buchi/server/modules/shops/shops.repo';
 import { ShopsService } from '@buchi/server/modules/shops/shops.service';
 import { EventBus } from '@buchi/server/shared/events';
 import { pino } from 'pino';
+import { StockHoldsRepo } from '@buchi/server/modules/orders/stock-holds.repo';
 
 const offline = () => Promise.reject(new Error('Evaluations do not call Telegram'));
 
@@ -62,9 +63,17 @@ export function createOperationsShop(db: Database, model: LanguageModel, now: ()
   };
   const channels = { verifyPostingRights: offline, publish: offline };
   const shops = new ShopsService(db, new ShopsRepo(db), channels);
-  const catalog = new CatalogService(db, new CatalogRepo(), shops, channels, 'evals_bot', {
-    enqueue: () => Promise.resolve(),
-  });
+  const catalog = new CatalogService(
+    db,
+    new CatalogRepo(),
+    shops,
+    channels,
+    'evals_bot',
+    {
+      enqueue: () => Promise.resolve(),
+    },
+    { publish: () => Promise.resolve() },
+  );
   const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
   const timers = new TimerService(new TimersRepo(db), logger);
   const events = new EventBus(logger);
@@ -74,6 +83,8 @@ export function createOperationsShop(db: Database, model: LanguageModel, now: ()
     events,
     timers,
     new NegotiationService(db, new NegotiationsRepo()),
+    { activePromotions: () => Promise.resolve([]) },
+    new StockHoldsRepo(),
   );
   const conversationsRepo = new ConversationsRepo();
   const conversations = new ConversationService(

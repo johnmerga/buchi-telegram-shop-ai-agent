@@ -72,6 +72,9 @@ import { TelegramMessenger } from '../../src/telegram/messenger';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
 import { testDatabaseUrl } from './test-database';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPauses, noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -131,6 +134,7 @@ const catalog = new CatalogService(
   { publish: () => Promise.reject(new Error('unused')) },
   botInfo.username,
   noEmbeddings,
+  noEvents,
 );
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const timerService = new TimerService(new TimersRepo(db), logger);
@@ -141,6 +145,8 @@ const orders = new OrderService(
   events,
   timerService,
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 /** Every road trip from the shop is 15 km and 30 minutes: inside the 20 km far range. */
 const routes = new RouteService(
@@ -153,8 +159,13 @@ const routes = new RouteService(
 );
 const zoneFactors = new ZoneFactorService(new ZoneFactorsRepo(db), clock);
 /** Other test files learn time factors in the same database, so payouts here use a fixed 1. */
-const delivery = new DeliveryService(db, new DeliverySettingsRepo(), shops, routes, () =>
-  Promise.resolve(1),
+const delivery = new DeliveryService(
+  db,
+  new DeliverySettingsRepo(),
+  shops,
+  routes,
+  () => Promise.resolve(1),
+  noPauses,
 );
 const checkout = new CheckoutService(customers, orders, shops, delivery, clock);
 

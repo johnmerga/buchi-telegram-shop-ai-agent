@@ -7,6 +7,7 @@ import {
   postContent,
   postIdFromStartPayload,
   productCard,
+  restockedVariants,
 } from './catalog.domain';
 
 describe('availableSizes', () => {
@@ -109,5 +110,23 @@ describe('photoQueryText', () => {
     expect(
       photoQueryText({ category: 'sneakers', colors: ['white', 'red'], brand: null, style: '' }),
     ).toBe('sneakers; white, red');
+  });
+});
+
+describe('restockedVariants', () => {
+  it('names the sizes whose stock rose, including a new size with stock', () => {
+    const before = [
+      { id: 'a', stock: 0 },
+      { id: 'b', stock: 3 },
+      { id: 'c', stock: 2 },
+    ];
+    const after = [
+      { id: 'a', stock: 2 },
+      { id: 'b', stock: 3 },
+      { id: 'c', stock: 1 },
+      { id: 'd', stock: 1 },
+      { id: 'e', stock: 0 },
+    ];
+    expect(restockedVariants(before, after)).toEqual(['a', 'd']);
   });
 });

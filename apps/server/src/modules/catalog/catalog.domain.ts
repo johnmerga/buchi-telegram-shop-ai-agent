@@ -22,6 +22,12 @@ export interface PostContent {
 
 const START_PREFIX = 'p_';
 
+/**
+ * The largest cosine distance (1 minus cosine similarity) at which a product still counts as the
+ * one in a customer's photo. Task 10.1's product photo set tunes it against real photos.
+ */
+export const SIMILAR_PRODUCT_DISTANCE = 0.3;
+
 /** Sizes that a customer can still buy, in natural order such as 39, 40, 41, M, L. */
 export function availableSizes(variants: VariantStock[]): string[] {
   const sizes = new Set(variants.filter((v) => v.stock > v.reserved).map((v) => v.size));
@@ -98,4 +104,15 @@ export function photoQueryText(photo: ProductPhoto): string {
   return [photo.category, photo.colors.join(', '), photo.brand, photo.style]
     .filter((part) => part !== null && part !== '')
     .join('; ');
+}
+
+/** The variants whose stock is higher after a change than before it, including new ones. */
+export function restockedVariants(
+  before: { id: string; stock: number }[],
+  after: { id: string; stock: number }[],
+): string[] {
+  const stockBefore = new Map(before.map((variant) => [variant.id, variant.stock]));
+  return after
+    .filter((variant) => variant.stock > (stockBefore.get(variant.id) ?? 0))
+    .map((variant) => variant.id);
 }

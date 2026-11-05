@@ -4,6 +4,7 @@ import { failureOf } from '../../ai/structured-output';
 import type { Database, Transaction } from '../../db/client';
 import { PRODUCT_EMBEDDING_DIMENSIONS } from '../../db/schema';
 import { withShop } from '../../db/with-shop';
+import type { EventBus } from '../../shared/events';
 import type { TimerService } from '../jobs/timers.service';
 import { embeddingText } from './catalog.domain';
 import type { CatalogRepo } from './catalog.repo';
@@ -27,6 +28,7 @@ export class ProductEmbeddingService implements ProductEmbeddingQueue {
     private readonly timers: Pick<TimerService, 'schedule'>,
     private readonly now: () => Date,
     private readonly logger: Logger,
+    private readonly events: Pick<EventBus, 'publish'>,
   ) {}
 
   async enqueue(tx: Transaction, shopId: string, productId: string): Promise<void> {
@@ -55,12 +57,13 @@ export class ProductEmbeddingService implements ProductEmbeddingQueue {
     if (embedding.length !== PRODUCT_EMBEDDING_DIMENSIONS) {
       throw new Error(`The embedding has ${String(embedding.length)} dimensions`);
     }
-    await withShop(this.db, shopId, async (tx) => {
+    const stored = await withShop(this.db, shopId, async (tx) => {
       const current = await this.repo.findProduct(tx, productId);
       // A newer timer embeds the changed text, so this older vector is not stored.
-      if (current && embeddingText(current) === text) {
-        await this.repo.setEmbedding(tx, productId, embedding);
-      }
+      if (!current || embeddingText(current) !== text) return false;
+      await this.repo.setEmbedding(tx, productId, embedding);
+      return true;
     });
+    if (stored) await this.events.publish('product.embedded', { shopId, productId, embedding });
   }
 }

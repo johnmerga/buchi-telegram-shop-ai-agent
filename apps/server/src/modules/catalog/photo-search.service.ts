@@ -5,7 +5,7 @@ import { failureOf, jsonSchemaOf, parseJson } from '../../ai/structured-output';
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import type { DemandService } from '../demand/demand.service';
-import { photoQueryText } from './catalog.domain';
+import { photoQueryText, SIMILAR_PRODUCT_DISTANCE } from './catalog.domain';
 import type { CatalogRepo } from './catalog.repo';
 import { productPhotoSchema, type ProductPhoto } from './catalog.schemas';
 import type { CatalogService, ProductWithVariants } from './catalog.service';
@@ -17,11 +17,6 @@ export type PhotoSearchAnswer =
 type PhotoSearchResult = PhotoSearchAnswer | { status: 'unavailable' };
 
 const MAX_MATCHES = 3;
-/**
- * The largest cosine distance (1 minus cosine similarity) at which a product still counts as the
- * one in the photo. Task 10.1's product photo set tunes it against real photos.
- */
-const MAX_COSINE_DISTANCE = 0.3;
 
 /**
  * Finds the shop's products that look like a customer's photo: the fast model describes the
@@ -54,13 +49,16 @@ export class PhotoSearchService {
     }
 
     const ids = await withShop(this.db, shopId, (tx) =>
-      this.repo.nearestProducts(tx, embedding, MAX_COSINE_DISTANCE, MAX_MATCHES),
+      this.repo.nearestProducts(tx, embedding, SIMILAR_PRODUCT_DISTANCE, MAX_MATCHES),
     );
     const products = await this.catalog.activeProducts(shopId, ids);
     if (products.length > 0) return { status: 'found', products };
     return {
       status: 'not_found',
-      signalId: await this.demand.recordUnmet(shopId, customerId, query),
+      signalId: await this.demand.recordUnmet(shopId, customerId, {
+        description: query,
+        embedding,
+      }),
     };
   }
 

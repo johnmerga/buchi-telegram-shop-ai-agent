@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { approvalButtons, approvalRequest } from './approvals.domain';
+import { approvalButtons, approvalRequest, confirmButtons } from './approvals.domain';
 import { approvalCallbackSchema } from './approvals.schemas';
 
 const orderId = '3f2a9c00-0000-4000-8000-000000000001';
@@ -55,6 +55,13 @@ describe('approval buttons', () => {
       decisionId,
     });
     expect(approvalCallbackSchema.parse(decline?.data)).toMatchObject({ choice: 'decline' });
+  });
+
+  it('read the same on a preview with Confirm and Cancel', () => {
+    const [confirm, cancel] = confirmButtons(decisionId);
+    expect(confirm?.text).toContain('Confirm');
+    expect(approvalCallbackSchema.parse(confirm?.data)).toMatchObject({ choice: 'approve' });
+    expect(approvalCallbackSchema.parse(cancel?.data)).toMatchObject({ choice: 'decline' });
   });
 
   it('rejects data of other buttons', () => {

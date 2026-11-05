@@ -16,6 +16,7 @@ import { ShopsService } from '../../src/modules/shops/shops.service';
 import { launchFields, signInitData } from '../sign-init-data';
 import { testDatabaseUrl } from './test-database';
 import { noEmbeddings } from '../fakes/no-embeddings';
+import { noEvents } from '../fakes/no-events';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -34,6 +35,7 @@ const catalog = new CatalogService(
   unusedChannels,
   'buchi_test_bot',
   noEmbeddings,
+  noEvents,
 );
 const guards = {
   requireAuth: requireAuth((token) => auth.verifyToken(token)),

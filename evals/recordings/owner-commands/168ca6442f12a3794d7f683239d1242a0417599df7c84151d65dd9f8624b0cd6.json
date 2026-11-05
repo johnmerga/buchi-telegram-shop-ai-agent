@@ -1,0 +1,297 @@
+{
+  "request": {
+    "tier": "smart",
+    "systemInstruction": "You are Buchi (ቡቺ), the assistant of the owner of one Ethiopian shop on Telegram. The owner\nwrites in Amharic, English, or a mix; answer in the language they use, briefly.\n\nCommands become rules with propose_rule. The owner sees a preview and taps Confirm, so\nnever say a rule is active; say the preview is waiting for their confirmation.\n- \"No deliveries ...\", \"ዴሊቨሪ የለም\" or \"pause deliveries\": type delivery_pause.\n- \"10% off ...\", \"ቅናሽ\": type promotion, with the percent, keywords in English and Amharic\n  for the products named (an empty list for all products), and the first and last day.\n  Promotions apply only to fixed-price products.\n- A change to delivery prices or ranges: type delivery_settings with only the changed fields.\n- Dates: the first line of each message gives today in Addis Ababa. ነገ is tomorrow, ዛሬ\n  today, \"this weekend\" the coming Saturday and Sunday.\n- Times: Amharic hours such as \"10 ሰዓት\" use the Ethiopian clock (clock ethiopian, hour as\n  said, 1 to 12). Fill period only when the owner says ጠዋት, ከሰዓት, ማታ, ምሽት, or ሌሊት.\n  \"4 PM\", \"16:00\", or English hours use clock western with a 24-hour hour. Never convert\n  between clocks yourself.\n\nQuestions about the business: call ask_data with one PostgreSQL SELECT over these views\nonly, and a short title. No other tables, schemas, or statements are allowed.\n- report_orders(order_id, created_at, status, paid, delivery_type, items_total, delivery_fee, total, customer_id)\n- report_sales(order_id, sold_at, product_id, product_title, size, color, quantity, unit_price, line_total): one row per item of a paid order\n- report_stock(product_id, product_title, pricing_mode, price, active, listed_at, variant_id, size, color, stock, reserved, available)\n- report_deliveries(job_id, created_at, delivered_at, status, special, driver_id, delivery_type, stops, route_km, fees, payout, margin, estimated_minutes, actual_minutes): one row per trip; margin is fees minus payout\n- report_drivers(driver_id, driver_name, available, delivered_jobs, delivered_payout)\n- report_demand(created_at, description, notify_requested): products customers asked for by photo that the shop did not have\n- report_waitlist(joined_at, notified, product_title, size, color, available)\nMoney columns are birr. Times are timestamptz; group days with\ndate_trunc('day', created_at AT TIME ZONE 'Africa/Addis_Ababa'). If ask_data returns an\nerror, fix the query and try once more.\nState only numbers that ask_data returned. Never guess or round them differently.\n\nIf the message is neither a command nor a question about the shop, answer briefly that you\nhandle rules and questions about the business.",
+    "contents": [
+      {
+        "role": "user",
+        "parts": [
+          {
+            "text": "[Today in Addis Ababa: Thursday 2026-11-05, 17:00]"
+          },
+          {
+            "text": "ቅዳሜ ከጠዋቱ 2 ሰዓት እስከ 6 ሰዓት ዴሊቨሪ የለም"
+          }
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "name": "propose_rule",
+        "description": "Prepares a rule from the owner's command: a delivery pause, a promotion on fixed-price products, or a delivery settings change. The owner sees a preview and confirms it.",
+        "parametersJsonSchema": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "delivery_pause",
+                "promotion",
+                "delivery_settings"
+              ]
+            },
+            "deliveryPause": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                  "description": "The day the pause starts."
+                },
+                "from": {
+                  "description": "When the pause starts. Omit for the start of the day.",
+                  "type": "object",
+                  "properties": {
+                    "clock": {
+                      "type": "string",
+                      "enum": [
+                        "ethiopian",
+                        "western"
+                      ],
+                      "description": "ethiopian when the owner counts hours the Ethiopian way, as in \"10 ሰዓት\"; western for 24-hour or AM/PM times, as in \"4 PM\" or \"16:00\"."
+                    },
+                    "hour": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 23,
+                      "description": "1 to 12 on the Ethiopian clock, 0 to 23 on the western."
+                    },
+                    "minute": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 59
+                    },
+                    "period": {
+                      "description": "Only for the Ethiopian clock, when the owner names the part of the day: ጠዋት morning, ከሰዓት or ከቀኑ afternoon, ማታ or ምሽት evening, ሌሊት night.",
+                      "type": "string",
+                      "enum": [
+                        "morning",
+                        "afternoon",
+                        "evening",
+                        "night"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "clock",
+                    "hour"
+                  ]
+                },
+                "untilDate": {
+                  "description": "The day the pause ends. Omit for the same day.",
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "until": {
+                  "description": "When deliveries start again. Omit for the end of the day.",
+                  "type": "object",
+                  "properties": {
+                    "clock": {
+                      "type": "string",
+                      "enum": [
+                        "ethiopian",
+                        "western"
+                      ],
+                      "description": "ethiopian when the owner counts hours the Ethiopian way, as in \"10 ሰዓት\"; western for 24-hour or AM/PM times, as in \"4 PM\" or \"16:00\"."
+                    },
+                    "hour": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 23,
+                      "description": "1 to 12 on the Ethiopian clock, 0 to 23 on the western."
+                    },
+                    "minute": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 59
+                    },
+                    "period": {
+                      "description": "Only for the Ethiopian clock, when the owner names the part of the day: ጠዋት morning, ከሰዓት or ከቀኑ afternoon, ማታ or ምሽት evening, ሌሊት night.",
+                      "type": "string",
+                      "enum": [
+                        "morning",
+                        "afternoon",
+                        "evening",
+                        "night"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "clock",
+                    "hour"
+                  ]
+                }
+              },
+              "required": [
+                "date"
+              ]
+            },
+            "promotion": {
+              "type": "object",
+              "properties": {
+                "percentOff": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 90
+                },
+                "keywords": {
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 40
+                  },
+                  "description": "Words that a product title or description contains, in English and Amharic, such as [\"sneaker\", \"ስኒከር\"]. An empty list means every product."
+                },
+                "startDate": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                  "description": "The first day of the promotion."
+                },
+                "endDate": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                  "description": "The last day of the promotion, included."
+                }
+              },
+              "required": [
+                "percentOff",
+                "keywords",
+                "startDate",
+                "endDate"
+              ]
+            },
+            "deliverySettings": {
+              "type": "object",
+              "properties": {
+                "baseFee": {
+                  "type": "string",
+                  "pattern": "^\\d+(\\.\\d{1,2})?$"
+                },
+                "ratePerKm": {
+                  "type": "string",
+                  "pattern": "^\\d+(\\.\\d{1,2})?$"
+                },
+                "ratePerMinute": {
+                  "type": "string",
+                  "pattern": "^\\d+(\\.\\d{1,2})?$"
+                },
+                "freeRadiusKm": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "standardRangeKm": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "farRangeKm": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "farCap": {
+                  "type": "string",
+                  "pattern": "^\\d+(\\.\\d{1,2})?$"
+                },
+                "saverDiscountPercent": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 90
+                }
+              }
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      },
+      {
+        "name": "ask_data",
+        "description": "Runs one read-only PostgreSQL SELECT over the reporting views and returns up to 200 rows. Anything else is refused before it reaches the database.",
+        "parametersJsonSchema": {
+          "type": "object",
+          "properties": {
+            "sql": {
+              "type": "string",
+              "minLength": 10,
+              "maxLength": 2000
+            },
+            "title": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 80,
+              "description": "A short title for a chart of the result."
+            }
+          },
+          "required": [
+            "sql",
+            "title"
+          ]
+        }
+      }
+    ]
+  },
+  "result": {
+    "content": {
+      "role": "model",
+      "parts": [
+        {
+          "functionCall": {
+            "name": "propose_rule",
+            "args": {
+              "type": "delivery_pause",
+              "deliveryPause": {
+                "date": "2026-11-07",
+                "from": {
+                  "clock": "ethiopian",
+                  "hour": 2,
+                  "period": "morning"
+                },
+                "until": {
+                  "clock": "ethiopian",
+                  "hour": 6,
+                  "period": "morning"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "functionCalls": [
+      {
+        "name": "propose_rule",
+        "args": {
+          "type": "delivery_pause",
+          "deliveryPause": {
+            "date": "2026-11-07",
+            "from": {
+              "clock": "ethiopian",
+              "hour": 2,
+              "period": "morning"
+            },
+            "until": {
+              "clock": "ethiopian",
+              "hour": 6,
+              "period": "morning"
+            }
+          }
+        }
+      }
+    ],
+    "usage": {
+      "inputTokens": 100,
+      "outputTokens": 10
+    }
+  }
+}

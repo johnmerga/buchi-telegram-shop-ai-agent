@@ -34,6 +34,9 @@ import { ShopsService } from '../../src/modules/shops/shops.service';
 import { EventBus } from '../../src/shared/events';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { testDatabaseUrl } from './test-database';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -203,6 +206,8 @@ describe('sales ledger', () => {
     events,
     new TimerService(new TimersRepo(db), logger),
     new NegotiationService(db, new NegotiationsRepo()),
+    noPromotions,
+    new StockHoldsRepo(),
   );
   const proofs = new PaymentProofsRepo();
   const records = new PaymentRecords(
@@ -221,6 +226,7 @@ describe('sales ledger', () => {
     { publish: () => Promise.reject(new Error('unused')) },
     'buchi_test_bot',
     noEmbeddings,
+    noEvents,
   );
 
   it('queues a row when a payment is approved, with the bank check and the items', async () => {

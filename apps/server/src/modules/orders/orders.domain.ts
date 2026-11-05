@@ -8,6 +8,8 @@ import {
   type PaymentProvider,
   type PricingMode,
 } from '@buchi/shared';
+import { promotedPrice } from '../rules/rules.domain';
+import type { PromotionParameters } from '../rules/rules.schemas';
 
 export type OrderEvent =
   | 'quote_accepted'
@@ -66,6 +68,8 @@ export function nextState(current: OrderStatus, event: OrderEvent): TransitionRe
 }
 
 interface PricedProduct {
+  title: string;
+  description: string;
   pricingMode: PricingMode;
   /** The shown price of a fixed-price product, or the asking price of a negotiable one. */
   price: MoneyString;
@@ -75,12 +79,22 @@ interface PricedProduct {
 type UnitPrice = { status: 'priced'; price: Money } | { status: 'needs_agreement' };
 
 /**
- * The price one unit sells at. A fixed-price product always sells at its own price, whatever was
- * agreed. A negotiable product sells only at an agreed price that is still within the owner's
- * range, so a price agreed before the owner changed the range is negotiated again.
+ * The price one unit sells at. A fixed-price product always sells at its own price, less the
+ * owner's promotions, whatever was agreed. A negotiable product sells only at an agreed price that
+ * is still within the owner's range, so a price agreed before the owner changed the range is
+ * negotiated again.
  */
-export function unitPriceOf(product: PricedProduct, agreed: Money | undefined): UnitPrice {
-  if (product.pricingMode === 'fixed') return { status: 'priced', price: Money.of(product.price) };
+export function unitPriceOf(
+  product: PricedProduct,
+  agreed: Money | undefined,
+  promotions: readonly PromotionParameters[],
+): UnitPrice {
+  if (product.pricingMode === 'fixed') {
+    return {
+      status: 'priced',
+      price: promotedPrice({ ...product, price: Money.of(product.price) }, promotions),
+    };
+  }
   if (product.lowestPrice === null) throw new Error('A negotiable product has no lowest price');
   const withinRange =
     agreed !== undefined &&

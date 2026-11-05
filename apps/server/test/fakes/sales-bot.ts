@@ -44,6 +44,9 @@ import { TelegramCustomerChat } from '../../src/telegram/customer-chat';
 import { TelegramMessenger } from '../../src/telegram/messenger';
 import { noEmbeddings } from './no-embeddings';
 import { pickupOnlyDelivery } from './pickup-only-delivery';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from './no-events';
+import { noPromotions } from './no-owner-rules';
 
 interface SentMessage {
   method: string;
@@ -106,11 +109,20 @@ export function createSalesBot(db: Database, model: LanguageModel, geocoder: Geo
     telegram,
     botInfo.username,
     noEmbeddings,
+    noEvents,
   );
   const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
   const timers = new TimerService(new TimersRepo(db), logger);
   const negotiations = new NegotiationService(db, new NegotiationsRepo());
-  const orders = new OrderService(db, new OrdersRepo(), new EventBus(logger), timers, negotiations);
+  const orders = new OrderService(
+    db,
+    new OrdersRepo(),
+    new EventBus(logger),
+    timers,
+    negotiations,
+    noPromotions,
+    new StockHoldsRepo(),
+  );
   const checkout = new CheckoutService(
     customers,
     orders,

@@ -64,6 +64,9 @@ import { TelegramMessenger } from '../../src/telegram/messenger';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { launchFields, signInitData } from '../sign-init-data';
 import { testDatabaseUrl } from './test-database';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPauses, noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -92,6 +95,7 @@ const catalog = new CatalogService(
   { publish: () => Promise.reject(new Error('unused')) },
   'buchi_test_bot',
   noEmbeddings,
+  noEvents,
 );
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const timers = new TimerService(new TimersRepo(db), logger);
@@ -102,6 +106,8 @@ const orders = new OrderService(
   events,
   timers,
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 const routes = new RouteService(
   {
@@ -112,7 +118,14 @@ const routes = new RouteService(
   clock,
 );
 const deliverySettings = new DeliverySettingsRepo();
-const delivery = new DeliveryService(db, deliverySettings, shops, routes, () => Promise.resolve(1));
+const delivery = new DeliveryService(
+  db,
+  deliverySettings,
+  shops,
+  routes,
+  () => Promise.resolve(1),
+  noPauses,
+);
 const driversRepo = new DriversRepo();
 const jobsRepo = new DeliveryJobsRepo();
 const drivers = new DriverService(db, driversRepo, shops, 'buchi_test_bot', clock);

@@ -45,6 +45,9 @@ import { EventBus } from '../../src/shared/events';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { launchFields, signInitData } from '../sign-init-data';
 import { testDatabaseUrl } from './test-database';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -64,6 +67,7 @@ const catalog = new CatalogService(
   { publish: () => Promise.reject(new Error('unused')) },
   'buchi_test_bot',
   noEmbeddings,
+  noEvents,
 );
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const orders = new OrderService(
@@ -72,6 +76,8 @@ const orders = new OrderService(
   new EventBus(logger),
   new TimerService(new TimersRepo(db), logger),
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 const sent: { shopId: string; text: string }[] = [];
 const ledger = new LedgerService(db, new LedgerRepo(), undefined, logger, clock);

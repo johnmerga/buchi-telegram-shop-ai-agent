@@ -11,6 +11,10 @@ export interface DomainEvents {
   'delivery.problem_reported': { shopId: string; orderId: string };
   /** A customer joined the waitlist of a sold-out size, which now has `waiting` people. */
   'waitlist.joined': { shopId: string; variantId: string; waiting: number };
+  /** The owner raised the stock of a variant, so units may be free for its waitlist. */
+  'variant.restocked': { shopId: string; variantId: string };
+  /** A product's text was embedded for photo search, so it can match earlier photo requests. */
+  'product.embedded': { shopId: string; productId: string; embedding: number[] };
 }
 
 type Handler<K extends keyof DomainEvents> = (payload: DomainEvents[K]) => Promise<void>;

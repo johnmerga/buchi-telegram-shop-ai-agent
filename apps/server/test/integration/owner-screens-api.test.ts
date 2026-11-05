@@ -64,6 +64,9 @@ import { TelegramMessenger } from '../../src/telegram/messenger';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { launchFields, signInitData } from '../sign-init-data';
 import { testDatabaseUrl } from './test-database';
+import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
+import { noEvents } from '../fakes/no-events';
+import { noPromotions } from '../fakes/no-owner-rules';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -92,6 +95,7 @@ const catalog = new CatalogService(
   { publish: () => Promise.reject(new Error('unused')) },
   'buchi_test_bot',
   noEmbeddings,
+  noEvents,
 );
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const timers = new TimerService(new TimersRepo(db), logger);
@@ -101,6 +105,8 @@ const orders = new OrderService(
   new EventBus(logger),
   timers,
   new NegotiationService(db, new NegotiationsRepo()),
+  noPromotions,
+  new StockHoldsRepo(),
 );
 const proofs = new PaymentProofsRepo();
 const risk = new RiskService(new RiskSignalsRepo(db), 'r'.repeat(32));

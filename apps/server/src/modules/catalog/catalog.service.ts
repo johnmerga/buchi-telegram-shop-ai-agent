@@ -3,7 +3,14 @@ import type { Database, Transaction } from '../../db/client';
 import { isCheckViolation } from '../../db/errors';
 import { withShop } from '../../db/with-shop';
 import { AppError } from '../../shared/errors';
-import { availableSizes, buyLink, embeddingText, postContent } from './catalog.domain';
+import type { EventBus } from '../../shared/events';
+import {
+  availableSizes,
+  buyLink,
+  embeddingText,
+  postContent,
+  restockedVariants,
+} from './catalog.domain';
 import type { CatalogRepo, ProductRow, VariantRow } from './catalog.repo';
 
 /** Posts to a Telegram channel. Telegram is the only implementation. */
@@ -43,11 +50,26 @@ export class CatalogService {
     private readonly publisher: ChannelPublisher,
     private readonly botUsername: string,
     private readonly embeddings: ProductEmbeddingQueue,
+    private readonly events: Pick<EventBus, 'publish'>,
   ) {}
 
   createProduct(shopId: string, input: ProductInput): Promise<ProductRow> {
     return withShop(this.db, shopId, async (tx) => {
       const row = await this.repo.insertProduct(tx, shopId, input);
+      await this.embeddings.enqueue(tx, shopId, row.id);
+      return row;
+    });
+  }
+
+  /** A product with its sizes and photos in one transaction, as snap-to-list posts it. */
+  createListing(
+    shopId: string,
+    listing: { product: ProductInput; variants: VariantInput[]; photoFileIds: string[] },
+  ): Promise<ProductRow> {
+    return withShop(this.db, shopId, async (tx) => {
+      const row = await this.repo.insertProduct(tx, shopId, listing.product);
+      await this.repo.upsertVariants(tx, shopId, row.id, listing.variants);
+      for (const fileId of listing.photoFileIds) await this.repo.addPhoto(tx, row.id, fileId);
       await this.embeddings.enqueue(tx, shopId, row.id);
       return row;
     });
@@ -104,17 +126,25 @@ export class CatalogService {
     });
   }
 
+  /** Publishes each variant whose stock rose, for its waitlist. */
   async setVariants(shopId: string, productId: string, variants: VariantInput[]): Promise<void> {
+    let restocked: string[];
     try {
-      await withShop(this.db, shopId, async (tx) => {
+      restocked = await withShop(this.db, shopId, async (tx) => {
         if (!(await this.repo.findProduct(tx, productId))) throw productNotFound();
+        const before = await this.repo.listVariants(tx, productId);
         await this.repo.upsertVariants(tx, shopId, productId, variants);
+        const after = await this.repo.listVariants(tx, productId);
+        return restockedVariants(before, after);
       });
     } catch (err) {
       if (isCheckViolation(err)) {
         throw new AppError('CONFLICT', 'Stock cannot go below the units reserved by open orders');
       }
       throw err;
+    }
+    for (const variantId of restocked) {
+      await this.events.publish('variant.restocked', { shopId, variantId });
     }
   }
 

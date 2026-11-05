@@ -5,13 +5,18 @@ import type { OwnerAlerts } from '../../modules/owner/owner-alerts.service';
 import { AppError } from '../../shared/errors';
 import type { DecisionRow, DecisionsRepo } from '../guard/decisions.repo';
 import type { Tool, ToolCallContext, ToolResult } from '../tool';
-import { approvalButtons, approvalRequest } from './approvals.domain';
+import { approvalButtons, approvalRequest, confirmButtons } from './approvals.domain';
 import type { ApprovalChoice } from './approvals.schemas';
 
 /** What runs once the owner approves a held decision of one tool, with the decision's input. */
 export interface ApprovedAction {
   tool: string;
   run(proposed: Record<string, unknown>, context: ToolCallContext): Promise<ToolResult>;
+  /**
+   * The owner's own request shown back as a preview to **Confirm**, such as a rule from their
+   * words. Without it, the request reads as Buchi asking for approval.
+   */
+  preview?: (shopId: string, proposed: Record<string, unknown>) => Promise<string>;
 }
 
 /** An `owner_confirms` tool's handler is its approved action, run with the stored input. */
@@ -63,7 +68,11 @@ export class OwnerApprovals {
   async requestFor(shopId: string, runId: string): Promise<void> {
     const pending = await withShop(this.db, shopId, (tx) => this.repo.pendingOfRun(tx, runId));
     for (const decision of pending) {
-      await this.alerts.send(shopId, approvalRequest(decision), approvalButtons(decision.id));
+      const preview = this.actions.get(decision.tool)?.preview;
+      const message = preview
+        ? { text: await preview(shopId, decision.proposed), buttons: confirmButtons(decision.id) }
+        : { text: approvalRequest(decision), buttons: approvalButtons(decision.id) };
+      await this.alerts.send(shopId, message.text, message.buttons);
     }
   }
 

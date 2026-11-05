@@ -19,5 +19,12 @@
     "agentError": 0.035142905491742704,
     "statisticsError": 0.06733048535374117,
     "priceOutsideLimits": 0
+  },
+  "owner-commands": {
+    "ruleMatch": 1,
+    "savedWithoutConfirm": 0
+  },
+  "owner-questions": {
+    "sameRows": 1
   }
 }

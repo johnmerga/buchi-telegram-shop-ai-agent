@@ -17,6 +17,11 @@ import type { RouteService } from './route.service';
 /** How much longer than the routing estimate trips to a destination take now. */
 export type TimeFactor = (destination: Coordinates) => Promise<number>;
 
+/** The owner's delivery pauses, which turn checkout to pickup only while one is in force. */
+export interface DeliveryPauses {
+  deliveryPaused(shopId: string): Promise<boolean>;
+}
+
 /** A trip into the far range, which drivers price, with the most the owner lets it cost. */
 export interface FarTrip extends TripCost {
   /** True when the distance comes from the straight line, without a road route. */
@@ -31,6 +36,7 @@ export class DeliveryService {
     private readonly shops: Pick<ShopsService, 'get'>,
     private readonly routes: Pick<RouteService, 'between'>,
     private readonly timeFactor: TimeFactor,
+    private readonly pauses: DeliveryPauses,
   ) {}
 
   async saveSettings(shopId: string, settings: DeliverySettings): Promise<void> {
@@ -45,14 +51,17 @@ export class DeliveryService {
     }));
   }
 
-  /** A shop delivers once it has both its location and its delivery settings. */
+  /**
+   * A shop delivers once it has both its location and its delivery settings, except while the
+   * owner pauses deliveries.
+   */
   async offersDelivery(shopId: string): Promise<boolean> {
-    return (await this.pricing(shopId)) !== undefined;
+    return (await this.checkoutPricing(shopId)) !== undefined;
   }
 
-  /** The delivery options to a destination, or nothing when the shop offers pickup only. */
+  /** The delivery options to a destination, or nothing when the shop offers pickup only now. */
   async quote(shopId: string, destination: Coordinates): Promise<DeliveryQuote | undefined> {
-    const pricing = await this.pricing(shopId);
+    const pricing = await this.checkoutPricing(shopId);
     if (!pricing) return undefined;
     const { route, timeFactor } = await this.roadTo(pricing.origin, destination);
     return quoteDelivery(route, timeFactor, pricing.settings);
@@ -111,6 +120,12 @@ export class DeliveryService {
       this.timeFactor(destination),
     ]);
     return { route, timeFactor };
+  }
+
+  /** A pause stops new delivery orders only; trips of orders placed before it are still priced. */
+  private async checkoutPricing(shopId: string) {
+    if (await this.pauses.deliveryPaused(shopId)) return undefined;
+    return this.pricing(shopId);
   }
 
   private async pricing(

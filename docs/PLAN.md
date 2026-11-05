@@ -426,7 +426,8 @@ Exit criteria: Express, Saver, and far-area deliveries run end to end with drive
 - **Doc:** Delivery location.
 - **Deliverables:** parsers for a Telegram location and a Google Maps link (pure functions with
   fixtures); Nominatim client with a one-request-per-second limiter and a cache; landmark memory.
-  Landmark extraction from text joins in Task 4.1 as the `set_location` tool.
+  Landmark extraction from text joins in Task 4.1 as the `set_location` tool, which also wires
+  `LandmarkService` and the Nominatim client into `index.ts`.
 - **Acceptance:** a Maps link without coordinates returns a clear "ask for a pin" result.
 
 ### 5.2 Delivery options and fees
@@ -435,6 +436,11 @@ Exit criteria: Express, Saver, and far-area deliveries run end to end with drive
 - **Deliverables:** OpenRouteService client with a 24-hour cache by destination zone; pure fee
   functions for the free, standard, far, and pickup options; the straight-line fallback.
 - **Acceptance:** unit tests cover every range boundary and the rounding rule.
+- **Built as:** `modules/delivery/` with the `PUT /shops/:shopId/delivery-settings` owner route and
+  the delivery choice in checkout. Routes go to the destination's H3 resolution-9 cell centre, so the
+  cache is shared and exact pins never leave Buchi. The ORS path is
+  `/openrouteservice/v2/directions/driving-car` with the raw key in `Authorization`. Saver is Express
+  minus the discount, rounded so the customer always gets at least the promised discount.
 
 ### 5.3 Drivers and dispatch
 

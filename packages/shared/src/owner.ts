@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { agentNames } from './enums';
 
 /** One message of a customer's chat, as the sales agent remembers it. */
-export const conversationTurnSchema = z.object({
+const conversationTurnSchema = z.object({
   role: z.enum(['customer', 'buchi']),
   text: z.string(),
   at: z.iso.datetime(),

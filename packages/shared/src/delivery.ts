@@ -56,7 +56,7 @@ const zoneBandSchema = z.object({
  * One H3 zone of the learned time factors, with its hexagon's corners. A band is null when no
  * trips taught the zone a factor for that time of day yet.
  */
-export const zoneFactorSchema = z.object({
+const zoneFactorSchema = z.object({
   zone: z.string(),
   boundary: z.array(coordinatesSchema),
   peak: zoneBandSchema.nullable(),
@@ -65,7 +65,7 @@ export const zoneFactorSchema = z.object({
 export type ZoneFactor = z.infer<typeof zoneFactorSchema>;
 
 /** How far the trip-time estimates of the last 14 days were from the real trip times. */
-export const estimateErrorSchema = z.object({
+const estimateErrorSchema = z.object({
   trips: z.number().int().min(0),
   errorPercent: z.number().min(0),
 });

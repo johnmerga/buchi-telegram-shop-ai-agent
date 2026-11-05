@@ -4,6 +4,8 @@ import { Loading } from '../screen-state';
 // Leaflet is large, so it loads only when a screen shows a map.
 const PinPickerMap = lazy(() => import('./pin-picker-map'));
 const StopsMap = lazy(() => import('./stops-map'));
+const RoutesMap = lazy(() => import('./routes-map'));
+const HexMap = lazy(() => import('./hex-map'));
 
 export function LazyPinPickerMap(props: ComponentProps<typeof PinPickerMap>) {
   return (
@@ -17,6 +19,22 @@ export function LazyStopsMap(props: ComponentProps<typeof StopsMap>) {
   return (
     <Suspense fallback={<Loading label="Loading the map…" />}>
       <StopsMap {...props} />
+    </Suspense>
+  );
+}
+
+export function LazyRoutesMap(props: ComponentProps<typeof RoutesMap>) {
+  return (
+    <Suspense fallback={<Loading label="Loading the map…" />}>
+      <RoutesMap {...props} />
+    </Suspense>
+  );
+}
+
+export function LazyHexMap(props: ComponentProps<typeof HexMap>) {
+  return (
+    <Suspense fallback={<Loading label="Loading the map…" />}>
+      <HexMap {...props} />
     </Suspense>
   );
 }

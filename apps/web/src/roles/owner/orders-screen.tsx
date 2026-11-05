@@ -5,7 +5,7 @@ import { Badge } from '../../components/ui/badge';
 import { Card } from '../../components/ui/card';
 import { deliveryLabels, formatTime, statusLabels } from '../../lib/labels';
 import { useOrders } from './owner-api';
-import { useLiveOrders } from './use-live-orders';
+import { useLiveReload } from './use-live-reload';
 import { useShopId } from './use-shop-id';
 
 /** The board's columns, from the first step to the last. Closed orders get one column at the end. */
@@ -21,7 +21,7 @@ const columns: { title: string; statuses: OrderStatus[] }[] = [
 export default function OrdersScreen() {
   const shopId = useShopId();
   const orders = useOrders(shopId);
-  useLiveOrders(shopId);
+  useLiveReload(shopId, 'orders');
 
   return (
     <QueryView query={orders}>

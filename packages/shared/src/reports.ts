@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { moneySchema } from './money';
 
 /** The reports that the cron service sends every day and that **Run now** sends at once. */
-export const dailyReportNames = ['evening-summary', 'morning-brief'] as const;
+const dailyReportNames = ['evening-summary', 'morning-brief'] as const;
 export const dailyReportNameSchema = z.enum(dailyReportNames);
 export type DailyReportName = z.infer<typeof dailyReportNameSchema>;
 

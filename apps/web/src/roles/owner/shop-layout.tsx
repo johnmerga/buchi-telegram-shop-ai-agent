@@ -8,8 +8,14 @@ import { useShopId } from './use-shop-id';
 
 const tabs = [
   { to: '', label: 'Orders', amharic: 'ትዕዛዞች' },
+  { to: 'payments', label: 'Payments', amharic: 'ክፍያዎች' },
   { to: 'inventory', label: 'Inventory', amharic: 'ዕቃዎች' },
+  { to: 'deliveries', label: 'Deliveries', amharic: 'ማድረሻዎች' },
   { to: 'drivers', label: 'Drivers', amharic: 'ሹፌሮች' },
+  { to: 'conversations', label: 'Chats', amharic: 'ውይይቶች' },
+  { to: 'ai-decisions', label: 'AI decisions', amharic: 'ውሳኔዎች' },
+  { to: 'zones', label: 'Zones', amharic: 'ዞኖች' },
+  { to: 'insights', label: 'Insights', amharic: 'ግንዛቤዎች' },
   { to: 'settings', label: 'Settings', amharic: 'ማስተካከያ' },
   { to: 'setup', label: 'Setup', amharic: 'ማዋቀር' },
 ];

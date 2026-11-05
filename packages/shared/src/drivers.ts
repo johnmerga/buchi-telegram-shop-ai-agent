@@ -90,7 +90,7 @@ export const acceptResultSchema = z.object({ result: z.enum(['accepted', 'closed
 export const holdResultSchema = z.object({ result: z.enum(['held', 'closed']) });
 
 /** A stop on the owner's deliveries map. The pin is null once the nightly job forgot it. */
-export const deliveryMapStopSchema = z.object({
+const deliveryMapStopSchema = z.object({
   orderId: z.uuid(),
   position: z.number().int().positive(),
   pin: coordinatesSchema.nullable(),

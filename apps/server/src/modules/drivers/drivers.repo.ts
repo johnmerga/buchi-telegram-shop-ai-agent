@@ -76,6 +76,10 @@ export class DriversRepo {
     return rows.map((row) => row.shop_id);
   }
 
+  list(tx: Transaction): Promise<DriverRow[]> {
+    return tx.select().from(drivers).orderBy(drivers.createdAt);
+  }
+
   async byTelegramUser(tx: Transaction, telegramUserId: number): Promise<DriverRow | undefined> {
     const [row] = await tx.select().from(drivers).where(eq(drivers.telegramUserId, telegramUserId));
     return row;

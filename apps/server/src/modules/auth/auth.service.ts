@@ -2,6 +2,7 @@ import { errors, jwtVerify, SignJWT } from 'jose';
 import { z } from 'zod';
 import { AppError } from '../../shared/errors';
 import { verifyInitData } from './init-data.domain';
+import { verifyLoginWidget, type LoginWidgetData } from './login-widget.domain';
 
 const TOKEN_LIFETIME_SECONDS = 12 * 60 * 60;
 const ALGORITHM = 'HS256';
@@ -36,7 +37,16 @@ export class AuthService {
 
   async signInWithMiniApp(initData: string): Promise<Session> {
     const now = this.deps.now();
-    const telegramUserId = verifyInitData(initData, this.deps.botToken, now);
+    return await this.issue(verifyInitData(initData, this.deps.botToken, now), now);
+  }
+
+  /** The browser dashboard's sign-in. It issues the same token as the Mini App sign-in. */
+  async signInWithLoginWidget(data: LoginWidgetData): Promise<Session> {
+    const now = this.deps.now();
+    return await this.issue(verifyLoginWidget(data, this.deps.botToken, now), now);
+  }
+
+  private async issue(telegramUserId: number, now: Date): Promise<Session> {
     const issuedAt = Math.floor(now.getTime() / 1000);
     const expiresAt = issuedAt + TOKEN_LIFETIME_SECONDS;
     const token = await new SignJWT()

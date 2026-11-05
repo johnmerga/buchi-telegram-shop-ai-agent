@@ -1,0 +1,69 @@
+@import 'tailwindcss';
+
+/*
+ * Telegram's script sets --tg-theme-* on the page from the user's Telegram theme. In a browser
+ * they are missing, so each token falls back to a light or dark default.
+ */
+:root {
+  --background: var(--tg-theme-bg-color, #ffffff);
+  --foreground: var(--tg-theme-text-color, #0f172a);
+  --card: var(--tg-theme-section-bg-color, #ffffff);
+  --muted: var(--tg-theme-secondary-bg-color, #f1f5f9);
+  --muted-foreground: var(--tg-theme-hint-color, #475569);
+  --primary: var(--tg-theme-button-color, #1d4ed8);
+  --primary-foreground: var(--tg-theme-button-text-color, #ffffff);
+  --link: var(--tg-theme-link-color, #1d4ed8);
+  --destructive: var(--tg-theme-destructive-text-color, #b91c1c);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--tg-theme-bg-color, #0b1220);
+    --foreground: var(--tg-theme-text-color, #e2e8f0);
+    --card: var(--tg-theme-section-bg-color, #111a2e);
+    --muted: var(--tg-theme-secondary-bg-color, #1e293b);
+    --muted-foreground: var(--tg-theme-hint-color, #94a3b8);
+    --primary: var(--tg-theme-button-color, #3b82f6);
+    --primary-foreground: var(--tg-theme-button-text-color, #ffffff);
+    --link: var(--tg-theme-link-color, #60a5fa);
+    --destructive: var(--tg-theme-destructive-text-color, #f87171);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-link: var(--link);
+  --color-destructive: var(--destructive);
+  --color-border: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, 'Noto Sans Ethiopic', sans-serif;
+}
+
+/* The Leaflet pin is plain HTML, so it follows the theme like the rest of the page. */
+.map-pin {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 2px solid var(--background);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.map-pin > span {
+  transform: rotate(45deg);
+}

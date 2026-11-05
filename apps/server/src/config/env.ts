@@ -28,6 +28,11 @@ const envSchema = z.object({
     .string()
     .min(1)
     .default('Buchi/1.0 (contact via GitHub johnmerga/buchi-telegram-shop-ai-agent)'),
+  /**
+   * The public HTTPS address of this server, such as https://buchi.onrender.com. Chat buttons open
+   * the Mini Apps there. Telegram opens only HTTPS links, so without it the chat shows none.
+   */
+  WEB_APP_URL: z.url({ protocol: /^https$/ }).optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 

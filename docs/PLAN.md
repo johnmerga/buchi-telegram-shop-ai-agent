@@ -556,6 +556,15 @@ action in the evaluation set.
   products ask for asking and lowest prices privately; waitlist notifications with 30-minute holds,
   read from the `waitlist` table and `demand_signals.notify_requested`.
 - **Acceptance:** a listing never gets a price that the owner did not write.
+- **Built as (Phase 7):** `ai/agents/owner-assistant/`, `modules/rules/` (Ethiopian-time helper;
+  pauses, promotions on fixed prices only, settings changes, confirmed through `ai/approvals`),
+  `modules/reporting/` (SQL guard with `node-sql-parser`; seven `report_*` views read by the
+  `report_reader` role in a read-only, three-second transaction with shop row-level security),
+  `modules/listings/` (the draft schema has no price field), and restock holds through
+  `OrderService` (`stock_holds`, 30-minute timer). Weekly suggestions drop any suggestion with a
+  number that the analysis did not return.
+- **Follow-ups:** show promoted prices on product cards and in `search_products`; let owners end a
+  rule early; store the drafted category; skip shops with no recent orders in the weekly job.
 
 ---
 

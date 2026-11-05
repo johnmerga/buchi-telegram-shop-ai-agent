@@ -636,6 +636,8 @@ area_notes         zone, note, source (driver or owner), expiry
 owner_rules        rule type, parameters, active period, confirmed by
 demand_signals     description, customer, time
 waitlist           customer, product variant, joined, notified
+stock_holds        waitlisted customer, product variant, expiry
+listing_drafts     owner photos, drafted listing, owner-written prices
 timers             kind, target, due time, done
 agent_decisions    agent, tool, proposed value, limits, result, reason, evidence
 agent_traces       prompt version, model, tool calls, tokens, latency

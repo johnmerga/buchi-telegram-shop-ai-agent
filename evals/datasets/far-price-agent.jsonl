@@ -1,0 +1,4 @@
+{"id":"north-west-15km","input":{"seed":11,"trip":150},"expected":{"heldPrice":"350.00"}}
+{"id":"south-west-8km","input":{"seed":12,"trip":165},"expected":{"heldPrice":"260.00"}}
+{"id":"south-east-14km","input":{"seed":13,"trip":180},"expected":{"heldPrice":"370.00"}}
+{"id":"north-east-19km","input":{"seed":14,"trip":195},"expected":{"heldPrice":"430.00"}}

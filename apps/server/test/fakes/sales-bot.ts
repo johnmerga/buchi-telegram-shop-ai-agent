@@ -174,6 +174,7 @@ export function createSalesBot(db: Database, model: LanguageModel, geocoder: Geo
         customers,
         checkout,
         locations: { fromText: () => Promise.resolve({ status: 'not_a_location' }) },
+        farQuotes: { start: () => Promise.reject(new Error('unused')) },
         landmarks,
         chat,
       }),

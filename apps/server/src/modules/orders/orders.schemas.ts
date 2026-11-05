@@ -1,5 +1,5 @@
+import { deliveryTypes, type DeliveryType } from '@buchi/shared';
 import { z } from 'zod';
-import type { PricedDeliveryType } from '../delivery/fees.domain';
 
 const REORDER_PREFIX = 'reorder:';
 
@@ -17,13 +17,13 @@ export const reorderCallbackSchema = z
 
 const DELIVERY_PREFIX = 'deliver:';
 
-export function deliveryChoiceCallback(type: PricedDeliveryType): string {
+/** A delivery option button. `far` asks the drivers for a price instead of choosing one. */
+export function deliveryChoiceCallback(type: DeliveryType): string {
   return `${DELIVERY_PREFIX}${type}`;
 }
 
-/** Parses a delivery option button. Far-area delivery has no button until Task 5.6. */
 export const deliveryChoiceCallbackSchema = z
   .string()
   .startsWith(DELIVERY_PREFIX)
   .transform((data) => data.slice(DELIVERY_PREFIX.length))
-  .pipe(z.enum(['free', 'express', 'saver', 'pickup']));
+  .pipe(z.enum(deliveryTypes));

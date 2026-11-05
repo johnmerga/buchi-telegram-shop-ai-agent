@@ -22,12 +22,13 @@ const parts = (data: string) => {
   return { prefix, action, id };
 };
 
-const jobActions = ['accept', 'picked', 'delivered', 'problem'] as const;
+const jobActions = ['accept', 'hold', 'picked', 'delivered', 'problem'] as const;
 export type JobAction = (typeof jobActions)[number];
 
 /**
  * Telegram limits callback data to 64 bytes, so a job button carries one ID: the offer for
- * **Accept**, the job for **Picked up** and **Problem**, and the stop for **Delivered**.
+ * **Accept** (`hold` on a special offer), the job for **Picked up** and **Problem**, and the stop
+ * for **Delivered**.
  */
 export function jobCallbackData(action: JobAction, id: string): string {
   return `job:${action}:${id}`;

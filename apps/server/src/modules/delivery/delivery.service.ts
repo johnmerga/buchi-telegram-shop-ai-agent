@@ -1,18 +1,28 @@
-import type { DeliverySettings, DeliverySettingsView } from '@buchi/shared';
+import { Money, type DeliverySettings, type DeliverySettingsView } from '@buchi/shared';
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import type { ShopsService } from '../shops/shops.service';
 import type { DeliverySettingsRepo } from './delivery-settings.repo';
 import type { Route } from './distance.domain';
-import { quoteDelivery, tripCost, type DeliveryQuote, type TripCost } from './fees.domain';
+import {
+  deliveryArea,
+  quoteDelivery,
+  tripCost,
+  type DeliveryQuote,
+  type TripCost,
+} from './fees.domain';
 import type { Coordinates } from './location.domain';
 import type { RouteService } from './route.service';
 
-/**
- * How much longer than the routing estimate trips to a destination take. Task 5.5 learns it per
- * zone. Until then every zone uses 1.
- */
+/** How much longer than the routing estimate trips to a destination take now. */
 export type TimeFactor = (destination: Coordinates) => Promise<number>;
+
+/** A trip into the far range, which drivers price, with the most the owner lets it cost. */
+export interface FarTrip extends TripCost {
+  /** True when the distance comes from the straight line, without a road route. */
+  approximate: boolean;
+  cap: Money;
+}
 
 export class DeliveryService {
   constructor(
@@ -57,6 +67,19 @@ export class DeliveryService {
       [{ meters: route.meters, seconds: route.seconds, timeFactor }],
       pricing.settings,
     );
+  }
+
+  /** The trip to a destination in the far range, or nothing for any other destination. */
+  async farTrip(shopId: string, destination: Coordinates): Promise<FarTrip | undefined> {
+    const pricing = await this.pricing(shopId);
+    if (!pricing) return undefined;
+    const { route, timeFactor } = await this.roadTo(pricing.origin, destination);
+    if (deliveryArea(route.meters, pricing.settings) !== 'far') return undefined;
+    return {
+      ...tripCost([{ meters: route.meters, seconds: route.seconds, timeFactor }], pricing.settings),
+      approximate: route.approximate,
+      cap: Money.of(pricing.settings.farCap),
+    };
   }
 
   /**

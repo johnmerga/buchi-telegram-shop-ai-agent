@@ -73,6 +73,11 @@ export const deliveryJobs = pgTable(
     shopId: shopId(),
     driverId: uuid('driver_id'),
     status: deliveryJobStatus('status').notNull().default('offered'),
+    /**
+     * A far-area job, offered under **Special offers**. Its first accept only holds it while the
+     * customer confirms and pays, and its price rises every five minutes without an accept.
+     */
+    special: boolean('special').notNull().default(false),
     /** What the driver gets: the formula payout plus any bonus the owner added. */
     payout: money('payout').notNull(),
     /**
@@ -117,6 +122,12 @@ export const jobStops = pgTable(
     jobId: uuid('job_id').notNull(),
     orderId: uuid('order_id').notNull().unique(),
     position: integer('position').notNull(),
+    /**
+     * The routing time of the leg that ends at this stop, and that time scaled by the zone's time
+     * factor. Delivered legs teach the time factors. Empty on stops planned before Task 5.5.
+     */
+    routingSeconds: integer('routing_seconds'),
+    expectedSeconds: integer('expected_seconds'),
     /** Set when the driver taps **Delivered** in the chat and Buchi waits for their location. */
     locationRequestedAt: timestamp('location_requested_at', { withTimezone: true }),
     deliveredAt: timestamp('delivered_at', { withTimezone: true }),
@@ -140,7 +151,7 @@ export const jobStops = pgTable(
   ],
 );
 
-/** `held` is for far-area quotes, where one driver holds the price (Task 5.6). */
+/** `held` is for far-area jobs, where one driver holds the price until the customer pays. */
 export const jobOfferStatus = pgEnum('job_offer_status', ['open', 'held', 'taken', 'expired']);
 
 /**
@@ -170,7 +181,10 @@ export const jobOffers = pgTable(
     }),
     unique('job_offers_id_shop_unique').on(t.id, t.shopId),
     unique('job_offers_job_step_unique').on(t.jobId, t.raiseStep),
-    check('job_offers_taken_by', sql`(${t.status} = 'taken') = (${t.takenByDriverId} is not null)`),
+    check(
+      'job_offers_taken_by',
+      sql`(${t.status} in ('taken', 'held')) = (${t.takenByDriverId} is not null)`,
+    ),
     shopIsolation(t.shopId),
   ],
 );

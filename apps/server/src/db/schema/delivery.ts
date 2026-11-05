@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   doublePrecision,
   index,
@@ -7,6 +8,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -74,6 +76,50 @@ export const landmarks = pgTable(
     unique('landmarks_shop_name_area_unique').on(t.shopId, t.name, t.area),
     shopIsolation(t.shopId),
   ],
+);
+
+/** Addis Ababa traffic differs at rush hour, so each zone learns one time factor per band. */
+export const timeBand = pgEnum('time_band', ['peak', 'off_peak']);
+
+/**
+ * One road leg of a finished delivery: how long the routing service said it takes and how long it
+ * took. Platform-wide, because traffic is the same for every shop. It holds only the destination's
+ * H3 resolution-7 zone (about 5 km²), never a pin or a shop, so it holds no personal data.
+ */
+export const tripLegs = pgTable(
+  'trip_legs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    zone: text('zone').notNull(),
+    band: timeBand('band').notNull(),
+    routingSeconds: integer('routing_seconds').notNull(),
+    /** Routing seconds times the time factor that the payout used. */
+    expectedSeconds: integer('expected_seconds').notNull(),
+    actualSeconds: integer('actual_seconds').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    /** Seeded demo data, so the zone map shows learning before real trips exist. */
+    synthetic: boolean('synthetic').notNull().default(false),
+  },
+  (t) => [
+    check('trip_legs_positive_seconds', sql`${t.routingSeconds} > 0 and ${t.actualSeconds} > 0`),
+    index('trip_legs_started_at_idx').on(t.startedAt),
+  ],
+);
+
+/**
+ * The learned time factor of a zone in a time band. Zones are H3 resolution-7 cells, their
+ * resolution-6 parents, and the whole city. Platform-wide like the legs it is learned from.
+ */
+export const zoneTimeFactors = pgTable(
+  'zone_time_factors',
+  {
+    zone: text('zone').notNull(),
+    band: timeBand('band').notNull(),
+    factor: doublePrecision('factor').notNull(),
+    trips: integer('trips').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.zone, t.band] })],
 );
 
 export const areaNoteSource = pgEnum('area_note_source', ['driver', 'owner']);

@@ -6,8 +6,13 @@ type NewDecision = typeof agentDecisions.$inferInsert;
 export type DecisionRow = typeof agentDecisions.$inferSelect;
 
 export class DecisionsRepo {
-  async insert(tx: Transaction, decision: NewDecision): Promise<void> {
-    await tx.insert(agentDecisions).values(decision);
+  async insert(tx: Transaction, decision: NewDecision): Promise<string> {
+    const [row] = await tx
+      .insert(agentDecisions)
+      .values(decision)
+      .returning({ id: agentDecisions.id });
+    if (!row) throw new Error('Insert returned no agent decision');
+    return row.id;
   }
 
   /** The requests one agent run left for the owner, in the order the agent made them. */

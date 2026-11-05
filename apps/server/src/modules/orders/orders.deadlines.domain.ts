@@ -1,9 +1,16 @@
 export const orderTimerKinds = {
   paymentReminder: 'order.payment_reminder',
   expire: 'order.expire',
+  quoteExpire: 'order.quote_expire',
 } as const;
 
 type OrderTimerKind = (typeof orderTimerKinds)[keyof typeof orderTimerKinds];
+
+/** The design doc's default payment deadline. */
+export const PAYMENT_WINDOW_MS = 3 * 60 * 60_000;
+
+/** The design doc's rule: a far-area quote holds the stock for 20 minutes. */
+export const QUOTE_HOLD_MS = 20 * 60_000;
 
 const PAYMENT_REMINDER_DELAY_MS = 60 * 60_000;
 

@@ -317,12 +317,13 @@ describe('PolicyGuard', () => {
       extensionsMade: 1,
     });
 
-    expect(outcome).toEqual({
+    expect(outcome).toMatchObject({
       decision: { result: 'needs_owner', reason: 'already_extended' },
       toolResult: { status: 'awaiting_owner' },
     });
     expect(await decisionsOf(context.runId)).toMatchObject([
       {
+        id: outcome.decisionId,
         proposed: { orderId, value: 30 },
         limits: { extensionsMade: 1 },
         result: 'needs_owner',
@@ -342,6 +343,22 @@ describe('PolicyGuard', () => {
     expect(outcome.toolResult).toEqual({ status: 'awaiting_owner' });
     expect(await decisionsOf(scoped.runId)).toMatchObject([
       { limits: { formulaPayout: '300.00', cap: '1000.00' }, ownerStatus: 'pending' },
+    ]);
+  });
+
+  it('records the owner answer once, so a second tap changes nothing', async () => {
+    const scoped = { ...context, shopId, runId: '00000000-0000-4000-8000-0000000000d3' };
+    const proposal = { value: Money.of('1200'), reason: 'Roadworks', evidenceIds: [] };
+    const deliveryLimits = { formulaPayout: Money.of('300'), cap: Money.of('1000') };
+    const { decisionId } = await guard.checkDeliveryPrice(scoped, proposal, deliveryLimits);
+
+    const answer = (status: 'approved' | 'declined') =>
+      guard.answerOwner(shopId, decisionId, { status, decidedBy: 4242, decidedAt: new Date() });
+
+    expect(await answer('approved')).toBe(true);
+    expect(await answer('declined')).toBe(false);
+    expect(await decisionsOf(scoped.runId)).toMatchObject([
+      { ownerStatus: 'approved', decidedBy: 4242 },
     ]);
   });
 });

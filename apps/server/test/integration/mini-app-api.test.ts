@@ -119,6 +119,7 @@ const dispatch = new DispatchService(
   jobsRepo,
   driversRepo,
   offers,
+  { assignHolder: () => Promise.reject(new Error('unused')) },
   orders,
   customers,
   shops,
@@ -137,6 +138,7 @@ const trips = new TripService(
   new DeliveryOwnerAlerts(shops, messenger, logger),
   events,
   timers,
+  { recordLeg: () => Promise.resolve() },
   logger,
   clock,
 );

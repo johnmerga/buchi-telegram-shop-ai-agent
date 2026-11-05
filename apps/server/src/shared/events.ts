@@ -1,10 +1,12 @@
-import type { OrderStatus } from '@buchi/shared';
+import type { MoneyString, OrderStatus } from '@buchi/shared';
 import type { Logger } from 'pino';
 
 /** Every domain event and its payload. Events are published after their transaction commits. */
 export interface DomainEvents {
   'order.created': { shopId: string; orderId: string };
   'order.transitioned': { shopId: string; orderId: string; from: OrderStatus; to: OrderStatus };
+  /** A driver holds the special offer for a far-area order at `price`, after `raises` raises. */
+  'delivery.offer_held': { shopId: string; orderId: string; price: MoneyString; raises: number };
   /** A customer tapped **Problem** after a delivery. */
   'delivery.problem_reported': { shopId: string; orderId: string };
   /** A customer joined the waitlist of a sold-out size, which now has `waiting` people. */

@@ -103,6 +103,7 @@ export class OrdersRepo {
       deliveryFee: MoneyString;
       total: MoneyString;
       destination: { latitude: number; longitude: number } | null;
+      deliveryZone: string | null;
       paymentDeadline: Date | null;
       items: { variantId: string; quantity: number; unitPrice: MoneyString }[];
     },
@@ -231,6 +232,25 @@ export class OrdersRepo {
 
   items(tx: Transaction, orderId: string): Promise<OrderItemRow[]> {
     return tx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  }
+
+  async setQuotedFee(
+    tx: Transaction,
+    orderId: string,
+    quoted: { deliveryFee: MoneyString; total: MoneyString; paymentDeadline: Date },
+  ): Promise<void> {
+    await tx
+      .update(orders)
+      .set({ ...quoted, updatedAt: sql`now()` })
+      .where(eq(orders.id, orderId));
+  }
+
+  /** Looks across all shops through the `forget_delivery_pins` database function. */
+  async forgetPinsBefore(db: Database, before: Date): Promise<number> {
+    const [row] = await db.execute<{ forgotten: number }>(
+      sql`select forget_delivery_pins(${before.toISOString()}::timestamptz) as forgotten`,
+    );
+    return row?.forgotten ?? 0;
   }
 
   async setStatus(tx: Transaction, orderId: string, status: OrderStatus): Promise<void> {

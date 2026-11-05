@@ -7,5 +7,17 @@
   "operations-situations": {
     "actionMatch": 1,
     "autonomyMatch": 1
+  },
+  "far-price-statistics": {
+    "statisticsError": 0.0769836364243599,
+    "statisticsBeatsFormula": 1,
+    "timeError": 0.13181734170204007,
+    "timeFactorBeatsRouting": 1
+  },
+  "far-price-agent": {
+    "agentAnswered": 1,
+    "agentError": 0.035142905491742704,
+    "statisticsError": 0.06733048535374117,
+    "priceOutsideLimits": 0
   }
 }

@@ -4,7 +4,7 @@ import type { PhotoSearchAnswer } from '../modules/catalog/photo-search.service'
 import type { ProductWithVariants } from '../modules/catalog/catalog.service';
 import type { Coordinates } from '../modules/delivery/location.domain';
 import { notifyCallbackData } from '../modules/demand/demand.schemas';
-import type { PlaceOrderResult } from '../modules/orders/checkout.service';
+import type { CheckoutStep } from '../modules/orders/checkout.service';
 import { inlineKeyboard, locationKeyboard, phoneKeyboard } from './keyboards';
 import type { MiniAppLinks } from './mini-app-links';
 
@@ -36,7 +36,7 @@ export class TelegramCustomerChat {
     else await this.api.sendMessage(chatId, text, markup);
   }
 
-  async orderStep(chatId: number, step: PlaceOrderResult): Promise<void> {
+  async orderStep(chatId: number, step: CheckoutStep): Promise<void> {
     switch (step.status) {
       case 'needs_phone':
         await this.api.sendMessage(
@@ -64,7 +64,13 @@ export class TelegramCustomerChat {
               }
             : {},
         );
+        return;
       }
+      case 'quoting':
+        await this.api.sendMessage(
+          chatId,
+          '🛵 ሹፌሮቻችንን እየጠየቅሁ ነው / I am asking our drivers for a price. Your item is held for 20 minutes, and I will message you here in about 10 minutes.',
+        );
     }
   }
 

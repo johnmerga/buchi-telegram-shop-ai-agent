@@ -3,8 +3,12 @@ import type { Coordinates } from '../delivery/location.domain';
 import { orderReference } from '../orders/orders.domain';
 import { mapsLink } from './dispatch.domain';
 
-/** What a driver sees before accepting: never the customer's name, phone, or pin. */
+/**
+ * What a driver sees before accepting: never the customer's name, phone, or pin. A special offer
+ * is a far-area job, whose customer pays only after a driver holds the price.
+ */
 export function offerText(offer: {
+  special: boolean;
   shopName: string;
   stops: number;
   routeMeters: number;
@@ -14,6 +18,14 @@ export function offerText(offer: {
 }): string {
   const km = (offer.routeMeters / 1000).toFixed(1);
   const stops = offer.stops === 1 ? '1 stop' : `${String(offer.stops)} stops`;
+  if (offer.special) {
+    return [
+      `⭐ ልዩ ስራ / Special offer · ${offer.shopName}`,
+      `Far area · ${stops} · ~${km} km · ~${String(offer.estimatedMinutes)} min`,
+      `ክፍያ / Payout: ${formatBirr(offer.price)}${offer.raiseStep > 0 ? ' (raised)' : ''}`,
+      'Accept to hold it. The job is yours once the customer confirms and pays.',
+    ].join('\n');
+  }
   return [
     `🛵 አዲስ ስራ / New delivery job · ${offer.shopName}`,
     `${stops} · ~${km} km · ~${String(offer.estimatedMinutes)} min`,
@@ -24,6 +36,9 @@ export function offerText(offer: {
 export const takenNotice = '❌ ይህ ስራ ተወስዷል / Another driver took this job.';
 export const raisedNotice = '⏫ This offer was replaced by a higher payout. See the new message.';
 export const acceptedNotice = '✅ ስራውን ወስደዋል / You took this job. The details follow.';
+export const heldNotice =
+  '⏳ ይዘዋል / You hold this job. The details come once the customer pays; we will tell you if they decline.';
+export const withdrawnNotice = '🚫 ይህ ልዩ ስራ ተሰርዟል / This special offer was withdrawn.';
 
 export interface StopDetails {
   position: number;

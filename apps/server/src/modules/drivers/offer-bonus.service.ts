@@ -24,6 +24,10 @@ export class OfferBonusService {
     const outcome = await withShop(this.db, shopId, async (tx) => {
       const offer = await this.jobs.findOffer(tx, offerId);
       if (!offer) throw new AppError('NOT_FOUND', 'There is no such job offer.');
+      // A special offer's price rises only within the owner's cap, never by a bonus.
+      if ((await this.jobs.findJob(tx, offer.jobId))?.special) {
+        throw new AppError('CONFLICT', 'A far-area offer never takes a bonus.');
+      }
       if (!(await this.jobs.expireOffer(tx, offerId))) return undefined;
       return this.offers.open(tx, {
         shopId,

@@ -44,6 +44,8 @@ export const orders = pgTable(
     total: money('total').notNull(),
     deliveryLatitude: doublePrecision('delivery_latitude'),
     deliveryLongitude: doublePrecision('delivery_longitude'),
+    /** The pin's H3 resolution-7 zone. It stays after the nightly job deletes the exact pin. */
+    deliveryZone: text('delivery_zone'),
     paymentDeadline: timestamp('payment_deadline', { withTimezone: true }),
     /** How often an agent or the owner moved the deadline. The policy guard allows one automatically. */
     deadlineExtensions: integer('deadline_extensions').notNull().default(0),
@@ -59,7 +61,7 @@ export const orders = pgTable(
     check('orders_total_adds_up', sql`${t.total} = ${t.itemsTotal} + ${t.deliveryFee}`),
     check(
       'orders_delivery_pin',
-      sql`(${t.deliveryLatitude} is null) = (${t.deliveryLongitude} is null) and (${t.deliveryType} = 'pickup') = (${t.deliveryLatitude} is null)`,
+      sql`(${t.deliveryLatitude} is null) = (${t.deliveryLongitude} is null) and (${t.deliveryType} = 'pickup') = (${t.deliveryLatitude} is null and ${t.deliveryZone} is null)`,
     ),
     shopIsolation(t.shopId),
   ],

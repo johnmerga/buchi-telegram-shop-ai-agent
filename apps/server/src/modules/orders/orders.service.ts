@@ -6,6 +6,7 @@ import { AppError } from '../../shared/errors';
 import type { EventBus } from '../../shared/events';
 import type { Coordinates } from '../delivery/location.domain';
 import type { TimerService } from '../jobs/timers.service';
+import { zoneOf } from '../delivery/zones.domain';
 import { orderTimerKinds, paymentTimers } from './orders.deadlines.domain';
 import {
   nextState,
@@ -61,60 +62,60 @@ export class OrderService {
   ) {}
 
   async create(shopId: string, order: NewOrder, actor: OrderActor): Promise<OrderRow> {
-    if (order.items.length === 0) throw new AppError('VALIDATION_FAILED', 'An order needs items');
+    const { paymentDeadline, ...placed } = order;
+    return this.insert(shopId, placed, { status: 'awaiting_payment', paymentDeadline }, actor);
+  }
 
-    const created = await withShop(this.db, shopId, async (tx) => {
-      const variants = await this.repo.sellableVariants(
+  /**
+   * Reserves the stock of a far-area order while drivers price its delivery. The fee is set when
+   * the customer accepts a price, and the stock returns to sale at `holdUntil` unless they do.
+   */
+  async createQuoting(
+    shopId: string,
+    order: Pick<NewOrder, 'customerId' | 'items'> & { destination: Coordinates },
+    holdUntil: Date,
+    actor: OrderActor,
+  ): Promise<OrderRow> {
+    const { destination, ...placed } = order;
+    const delivery = { type: 'far' as const, fee: Money.zero, destination };
+    return this.insert(shopId, { ...placed, delivery }, { status: 'quoting', holdUntil }, actor);
+  }
+
+  /** Sets the delivery fee a driver holds, and starts the payment deadline. */
+  async acceptQuote(
+    shopId: string,
+    orderId: string,
+    quote: { fee: Money; acceptedAt: Date; paymentDeadline: Date },
+  ): Promise<OrderRow> {
+    const { order, change } = await withShop(this.db, shopId, async (tx) => {
+      const locked = await this.lock(tx, orderId);
+      const total = Money.of(locked.itemsTotal).add(quote.fee);
+      await this.repo.setQuotedFee(tx, orderId, {
+        deliveryFee: quote.fee.toString(),
+        total: total.toString(),
+        paymentDeadline: quote.paymentDeadline,
+      });
+      const applied = await this.apply(
         tx,
-        order.items.map((item) => item.variantId),
+        locked,
+        'quote_accepted',
+        'customer',
+        'Accepted the delivery price',
       );
-      const lines = await this.priceLines(tx, order, variants);
-
-      // A fixed order of reservations keeps two orders for the same items from deadlocking.
-      for (const line of [...lines].sort((a, b) => a.variantId.localeCompare(b.variantId))) {
-        if (!(await this.repo.reserve(tx, line.variantId, line.quantity))) {
-          throw new AppError('CONFLICT', `${line.label} is out of stock`);
-        }
-      }
-
-      const itemsTotal = lines.reduce(
-        (sum, line) => sum.add(Money.of(line.unitPrice).times(line.quantity)),
-        Money.zero,
-      );
-      const { delivery } = order;
-      const deliveryFee = delivery.type === 'pickup' ? Money.zero : delivery.fee;
-      const row = await this.repo.insertOrder(tx, {
-        shopId,
-        customerId: order.customerId,
-        status: 'awaiting_payment',
-        deliveryType: delivery.type,
-        itemsTotal: itemsTotal.toString(),
-        deliveryFee: deliveryFee.toString(),
-        total: itemsTotal.add(deliveryFee).toString(),
-        destination: delivery.type === 'pickup' ? null : delivery.destination,
-        paymentDeadline: order.paymentDeadline,
-        items: lines.map(({ variantId, quantity, unitPrice }) => ({
-          variantId,
-          quantity,
-          unitPrice,
-        })),
-      });
-      await this.repo.insertEvent(tx, {
-        shopId,
-        orderId: row.id,
-        fromStatus: null,
-        toStatus: row.status,
-        actor,
-        reason: 'Order created',
-      });
-      for (const timer of paymentTimers(row.createdAt, order.paymentDeadline)) {
-        await this.timers.schedule(tx, timer.kind, row.id, shopId, timer.dueAt);
-      }
-      return row;
+      const timers = paymentTimers(quote.acceptedAt, quote.paymentDeadline);
+      await this.scheduleAll(tx, shopId, orderId, timers);
+      return { order: await this.lock(tx, orderId), change: applied };
     });
+    await this.events.publish('order.transitioned', { shopId, orderId, ...change });
+    return order;
+  }
 
-    await this.events.publish('order.created', { shopId, orderId: created.id });
-    return created;
+  /**
+   * Deletes the exact pins of orders that ended before `before`. Each order keeps its zone. Returns
+   * how many orders lost their pin.
+   */
+  forgetPinsBefore(before: Date): Promise<number> {
+    return this.repo.forgetPinsBefore(this.db, before);
   }
 
   /**
@@ -317,7 +318,11 @@ export class OrderService {
    * Prices each line inside the order's transaction. A negotiable product's agreed price is taken
    * once per product and checked against its current range.
    */
-  private async priceLines(tx: Transaction, order: NewOrder, variants: SellableVariant[]) {
+  private async priceLines(
+    tx: Transaction,
+    order: Pick<NewOrder, 'customerId' | 'items'>,
+    variants: SellableVariant[],
+  ) {
     const agreed = new Map<string, Money | undefined>();
     const lines = [];
     for (const item of order.items) {
@@ -338,6 +343,88 @@ export class OrderService {
       });
     }
     return lines;
+  }
+
+  /**
+   * Reserves the stock and inserts the order with its first event and the timers that guard it:
+   * the payment deadline, or the end of a far-area quote's hold.
+   */
+  private async insert(
+    shopId: string,
+    order: Omit<NewOrder, 'paymentDeadline'>,
+    start:
+      | { status: 'awaiting_payment'; paymentDeadline: Date }
+      | { status: 'quoting'; holdUntil: Date },
+    actor: OrderActor,
+  ): Promise<OrderRow> {
+    if (order.items.length === 0) throw new AppError('VALIDATION_FAILED', 'An order needs items');
+
+    const created = await withShop(this.db, shopId, async (tx) => {
+      const variants = await this.repo.sellableVariants(
+        tx,
+        order.items.map((item) => item.variantId),
+      );
+      const lines = await this.priceLines(tx, order, variants);
+
+      // A fixed order of reservations keeps two orders for the same items from deadlocking.
+      for (const line of [...lines].sort((a, b) => a.variantId.localeCompare(b.variantId))) {
+        if (!(await this.repo.reserve(tx, line.variantId, line.quantity))) {
+          throw new AppError('CONFLICT', `${line.label} is out of stock`);
+        }
+      }
+
+      const itemsTotal = lines.reduce(
+        (sum, line) => sum.add(Money.of(line.unitPrice).times(line.quantity)),
+        Money.zero,
+      );
+      const { delivery } = order;
+      const deliveryFee = delivery.type === 'pickup' ? Money.zero : delivery.fee;
+      const row = await this.repo.insertOrder(tx, {
+        shopId,
+        customerId: order.customerId,
+        status: start.status,
+        deliveryType: delivery.type,
+        itemsTotal: itemsTotal.toString(),
+        deliveryFee: deliveryFee.toString(),
+        total: itemsTotal.add(deliveryFee).toString(),
+        destination: delivery.type === 'pickup' ? null : delivery.destination,
+        deliveryZone: delivery.type === 'pickup' ? null : zoneOf(delivery.destination),
+        paymentDeadline: start.status === 'awaiting_payment' ? start.paymentDeadline : null,
+        items: lines.map(({ variantId, quantity, unitPrice }) => ({
+          variantId,
+          quantity,
+          unitPrice,
+        })),
+      });
+      await this.repo.insertEvent(tx, {
+        shopId,
+        orderId: row.id,
+        fromStatus: null,
+        toStatus: row.status,
+        actor,
+        reason: 'Order created',
+      });
+      const timers =
+        start.status === 'quoting'
+          ? [{ kind: orderTimerKinds.quoteExpire, dueAt: start.holdUntil }]
+          : paymentTimers(row.createdAt, start.paymentDeadline);
+      await this.scheduleAll(tx, shopId, row.id, timers);
+      return row;
+    });
+
+    await this.events.publish('order.created', { shopId, orderId: created.id });
+    return created;
+  }
+
+  private async scheduleAll(
+    tx: Transaction,
+    shopId: string,
+    orderId: string,
+    timers: { kind: string; dueAt: Date }[],
+  ): Promise<void> {
+    for (const timer of timers) {
+      await this.timers.schedule(tx, timer.kind, orderId, shopId, timer.dueAt);
+    }
   }
 
   private async lock(tx: Transaction, orderId: string): Promise<OrderRow> {

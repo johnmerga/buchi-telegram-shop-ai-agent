@@ -171,6 +171,7 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
     jobsRepo,
     driversRepo,
     offers,
+    { assignHolder: () => Promise.reject(new Error('unused')) },
     orders,
     customers,
     shops,
@@ -189,6 +190,7 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
     new DeliveryOwnerAlerts(shops, messenger, logger),
     events,
     timers,
+    { recordLeg: () => Promise.resolve() },
     logger,
     now,
   );
@@ -280,7 +282,11 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
     ownedShopIds: (id) => shops.ownedShopIds(id),
     driverShopIds: (id) => drivers.shopIds(id),
     handlers: [
-      createDispatchHandlers({ dispatch, trips }),
+      createDispatchHandlers({
+        dispatch,
+        trips,
+        specialOffers: { hold: () => Promise.reject(new Error('unused')) },
+      }),
       createApprovalHandlers(approvals),
       createConversationHandlers({ conversations, customers }),
       createOperationsHandlers({ triggers, problems, customers }),

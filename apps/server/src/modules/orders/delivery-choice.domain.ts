@@ -29,15 +29,20 @@ export function deliveryChoice(quote: DeliveryQuote | undefined): {
   const texts = {
     free: `🎉 ማድረሻው ነፃ ነው / Delivery to your location is free (${distance}).`,
     standard: `ማድረሻ / Delivery to your location (${distance}). Choose an option:`,
-    // Far-area prices come from drivers (Task 5.6). Until then, far customers can pick up.
-    far: `ከተለመደው የማድረሻ ክልል ውጭ ነዎት / You're outside our usual delivery area (${distance}). A delivery price there needs a quote from our drivers, which is not available yet. You can pick up at the shop.`,
+    far: `ከተለመደው የማድረሻ ክልል ውጭ ነዎት / You're outside our usual delivery area (${distance}). I can ask our drivers for a price, which takes about 10 minutes. Should I?`,
     beyond: `ይቅርታ፣ ቦታው ሩቅ ነው / Sorry, that is too far for delivery (${distance}). You can pick up at the shop.`,
   };
+  const askDrivers = quote.area === 'far' ? [askDriversButton] : [];
   return {
     text: texts[quote.area],
-    buttons: quote.options.map(optionButton),
+    buttons: [...askDrivers, ...quote.options.map(optionButton)],
   };
 }
+
+const askDriversButton: Button = {
+  text: '🛵 ዋጋ ጠይቅ / Yes, ask the drivers for a price',
+  data: deliveryChoiceCallback('far'),
+};
 
 /** What Buchi says when it cannot use a location the customer sent. */
 export function pinRequest(problem: PinProblem): string {

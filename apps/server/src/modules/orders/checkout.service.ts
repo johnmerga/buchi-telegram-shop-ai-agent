@@ -5,17 +5,21 @@ import type { DeliveryService } from '../delivery/delivery.service';
 import type { DeliveryQuote, PricedDeliveryType } from '../delivery/fees.domain';
 import type { Coordinates } from '../delivery/location.domain';
 import type { ShopsService } from '../shops/shops.service';
+import { PAYMENT_WINDOW_MS, QUOTE_HOLD_MS } from './orders.deadlines.domain';
 import { paymentInstructions } from './orders.domain';
 import type { OrderRow } from './orders.repo';
 import type { NewOrder, OrderDelivery, OrderService } from './orders.service';
-
-/** The design doc's default payment deadline. */
-const PAYMENT_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 export type PlaceOrderResult =
   | { status: 'needs_phone' }
   | { status: 'needs_location' }
   | { status: 'placed'; orderId: string; instructions: string };
+
+/** The stock is held while drivers price a far-area delivery. */
+export type FarQuoteRequest =
+  { status: 'needs_phone' } | { status: 'quoting'; shopId: string; orderId: string };
+
+export type CheckoutStep = PlaceOrderResult | FarQuoteRequest;
 
 type Customer = Awaited<ReturnType<CustomersService['identify']>>;
 
@@ -94,6 +98,45 @@ export class CheckoutService {
     return this.finish(shopId, customer, variantId, delivery);
   }
 
+  /**
+   * Holds the item for 20 minutes while the drivers price a delivery to the far area. The pin and
+   * the chosen size stay with the customer until they accept a price.
+   */
+  async requestFarQuote(shopId: string, buyer: Buyer, variantId: string): Promise<FarQuoteRequest> {
+    const customer = await this.customers.identify(shopId, buyer.telegramUserId, buyer.name);
+    if (customer.phone === null) return { status: 'needs_phone' };
+    const destination = savedPin(customer);
+    if ((await this.delivery.quote(shopId, destination))?.area !== 'far') {
+      throw new AppError('CONFLICT', 'This location is not in the far delivery area');
+    }
+    const holdUntil = new Date(this.now().getTime() + QUOTE_HOLD_MS);
+    const order = await this.orders.createQuoting(
+      shopId,
+      { customerId: customer.id, items: [{ variantId, quantity: 1 }], destination },
+      holdUntil,
+      'customer',
+    );
+    return { status: 'quoting', shopId, orderId: order.id };
+  }
+
+  /**
+   * Sets the delivery fee that a driver holds and starts the payment deadline. Returns the payment
+   * instructions. The pin now lives on the order, so the customer's copy is cleared.
+   */
+  async acceptFarQuote(shopId: string, orderId: string, fee: Money): Promise<string> {
+    const acceptedAt = this.now();
+    const deadline = new Date(acceptedAt.getTime() + PAYMENT_WINDOW_MS);
+    const order = await this.orders.acceptQuote(shopId, orderId, {
+      fee,
+      acceptedAt,
+      paymentDeadline: deadline,
+    });
+    const customer = await this.customers.get(shopId, order.customerId);
+    await this.customers.rememberChosenVariant(customer.telegramUserId, null);
+    await this.customers.setDeliveryPin(shopId, customer.id, null);
+    return this.instructions(order, deadline);
+  }
+
   /** Places an expired order again with the same items, only for the customer who placed it. */
   async reorder(telegramUserId: number, orderId: string): Promise<string> {
     const expired = await this.orders.getForCustomer(telegramUserId, orderId);
@@ -124,11 +167,7 @@ export class CheckoutService {
     choice: PricedDeliveryType,
   ): Promise<OrderDelivery> {
     if (choice === 'pickup') return { type: 'pickup' };
-    const { deliveryLatitude: latitude, deliveryLongitude: longitude } = customer;
-    if (latitude === null || longitude === null) {
-      throw new AppError('CONFLICT', 'Send your delivery location again');
-    }
-    const destination = { latitude, longitude };
+    const destination = savedPin(customer);
     const quote = await this.delivery.quote(shopId, destination);
     const option = quote?.options.find((o) => o.type === choice);
     if (!option) throw new AppError('CONFLICT', 'This delivery option is no longer available');
@@ -162,18 +201,29 @@ export class CheckoutService {
       { ...order, paymentDeadline: deadline },
       'customer',
     );
-    const { paymentAccounts } = await this.shops.get(shopId);
-    const instructions = paymentInstructions({
-      orderId: created.id,
-      deliveryType: created.deliveryType,
-      itemsTotal: created.itemsTotal,
-      deliveryFee: created.deliveryFee,
-      total: created.total,
+    return { orderId: created.id, instructions: await this.instructions(created, deadline) };
+  }
+
+  private async instructions(order: OrderRow, deadline: Date): Promise<string> {
+    const { paymentAccounts } = await this.shops.get(order.shopId);
+    return paymentInstructions({
+      orderId: order.id,
+      deliveryType: order.deliveryType,
+      itemsTotal: order.itemsTotal,
+      deliveryFee: order.deliveryFee,
+      total: order.total,
       deadline,
       accounts: paymentAccounts,
     });
-    return { orderId: created.id, instructions };
   }
+}
+
+function savedPin(customer: Customer): Coordinates {
+  const { deliveryLatitude: latitude, deliveryLongitude: longitude } = customer;
+  if (latitude === null || longitude === null) {
+    throw new AppError('CONFLICT', 'Send your delivery location again');
+  }
+  return { latitude, longitude };
 }
 
 /** An order placed again keeps its delivery, at the fee the customer already saw. */

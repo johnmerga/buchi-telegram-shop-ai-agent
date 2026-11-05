@@ -97,6 +97,8 @@ export function createOperationsShop(db: Database, model: LanguageModel, now: ()
     new DeliveryOwnerAlerts(shops, messenger, logger),
     events,
     timers,
+    // Situations end before a delivery, so no trip leg is ever timed here.
+    { recordLeg: () => Promise.resolve() },
     logger,
     now,
   );

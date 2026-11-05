@@ -1,0 +1,3 @@
+{"id":"seed-1","input":{"seed":1,"trips":200,"holdout":50},"expected":{}}
+{"id":"seed-2","input":{"seed":2,"trips":200,"holdout":50},"expected":{}}
+{"id":"seed-3","input":{"seed":3,"trips":200,"holdout":50},"expected":{}}

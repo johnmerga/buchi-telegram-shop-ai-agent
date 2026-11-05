@@ -1,7 +1,14 @@
 import { Money, type DeliverySettings } from '@buchi/shared';
 import { describe, expect, it } from 'vitest';
 import type { Route } from './distance.domain';
-import { deliveryArea, driverPayout, expressFee, quoteDelivery, saverFee } from './fees.domain';
+import {
+  deliveryArea,
+  driverPayout,
+  expressFee,
+  quoteDelivery,
+  saverFee,
+  tripCost,
+} from './fees.domain';
 
 const settings: DeliverySettings = {
   baseFee: '50',
@@ -57,6 +64,28 @@ describe('driverPayout', () => {
   it('rounds each part up to the next cent', () => {
     // 15 × 0.001 km = 0.015 → 0.02, and 2 × 1 s = 0.0333 → 0.04
     expect(driverPayout(road(1, 1), 1, { ...settings, baseFee: '0' }).toString()).toBe('0.06');
+  });
+});
+
+describe('tripCost', () => {
+  it('pays one leg exactly as driverPayout does', () => {
+    const trip = tripCost([{ meters: 6000, seconds: 900, timeFactor: 1.5 }], settings);
+    expect(trip.payout.toString()).toBe(driverPayout(road(6000, 900), 1.5, settings).toString());
+  });
+
+  it("scales each leg by its own zone's factor and keeps both times per leg", () => {
+    const trip = tripCost(
+      [
+        { meters: 4000, seconds: 600, timeFactor: 1.5 },
+        { meters: 2000, seconds: 300, timeFactor: 1 },
+      ],
+      settings,
+    );
+    expect(trip).toMatchObject({ meters: 6000, expectedMinutes: 20 });
+    expect(trip.legs).toEqual([
+      { routingSeconds: 600, expectedSeconds: 900 },
+      { routingSeconds: 300, expectedSeconds: 300 },
+    ]);
   });
 });
 

@@ -7,8 +7,14 @@ import { availableSizes } from '../catalog/catalog.domain';
 import type { CatalogService, ProductWithVariants } from '../catalog/catalog.service';
 import { postIdFromStartPayload } from '../catalog/catalog.domain';
 import type { CustomersService } from '../customers/customers.service';
+import type { PricedDeliveryType } from '../delivery/fees.domain';
+import { checkPin, type PinResult } from '../delivery/location.domain';
+import type { LocationService } from '../delivery/location.service';
+import type { Button } from '../owner/owner.domain';
 import type { ConversationService } from '../owner/conversations.service';
 import type { CheckoutService, PlaceOrderResult } from './checkout.service';
+import { deliveryChoice, pinRequest } from './delivery-choice.domain';
+import { deliveryChoiceCallbackSchema } from './orders.schemas';
 
 const UUID = '([0-9a-f-]{36})';
 
@@ -17,7 +23,12 @@ export interface PurchaseDeps {
   customers: CustomersService;
   checkout: CheckoutService;
   conversations: Pick<ConversationService, 'requestPrice'>;
+  locations: Pick<LocationService, 'fromText'>;
 }
+
+type Session = NonNullable<Awaited<ReturnType<CustomersService['sessionOf']>>>;
+
+const PICKUP_TEXT = '🏪 ከሱቁ እወስዳለሁ / I will pick up at the shop';
 
 const buyerOf = (from: User) => ({
   telegramUserId: from.id,
@@ -25,11 +36,12 @@ const buyerOf = (from: User) => ({
 });
 
 /**
- * The purchase flow with buttons only: Buy link, size, confirmation, phone number, and payment
- * instructions. It works without the model, so customers can buy when Gemini is unavailable.
+ * The purchase flow with buttons only: Buy link, size, confirmation, phone number, delivery
+ * location and option, and payment instructions. It works without the model, so customers can buy
+ * when Gemini is unavailable.
  */
 export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContext> {
-  const { catalog, customers, checkout, conversations } = deps;
+  const { catalog, customers, checkout, conversations, locations } = deps;
   const purchase = new Composer<BuchiContext>();
 
   purchase.command('start', async (ctx, next) => {
@@ -59,7 +71,7 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
     }
     const { product, variant } = forSale;
     await ctx.reply(
-      `${product.title} · መጠን / size ${variant.size} · ${formatBirr(product.price)}\nPickup at the shop.`,
+      `${product.title} · መጠን / size ${variant.size} · ${formatBirr(product.price)}`,
       {
         reply_markup: new InlineKeyboard()
           .text('✅ አረጋግጥ / Confirm', `buy:${variant.id}`)
@@ -107,7 +119,91 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
     );
   });
 
+  /** Continues an order only while the customer has a size waiting for its delivery choice. */
+  const pendingOrder = async (telegramUserId: number) => {
+    const session = await customers.sessionOf(telegramUserId);
+    return session?.pendingVariantId
+      ? { ...session, variantId: session.pendingVariantId }
+      : undefined;
+  };
+
+  const choose = async (
+    ctx: Context & { from: User },
+    session: Session & { variantId: string },
+    choice: PricedDeliveryType,
+  ) =>
+    replyWith(ctx, () =>
+      checkout.placeWithDelivery(session.shopId, buyerOf(ctx.from), session.variantId, choice),
+    );
+
+  const offerOptions = async (
+    ctx: Context & { from: User },
+    session: Session,
+    pin: PinResult,
+  ): Promise<void> => {
+    if (pin.status === 'ask_for_pin') {
+      await ctx.reply(pinRequest(pin.reason), { reply_markup: locationKeyboard() });
+      return;
+    }
+    await ctx.reply('📍 ተቀብያለሁ / Got your location.', { reply_markup: { remove_keyboard: true } });
+    const quote = await checkout.deliveryOptions(
+      session.shopId,
+      buyerOf(ctx.from),
+      pin.coordinates,
+    );
+    const { text, buttons } = deliveryChoice(quote);
+    await ctx.reply(text, { reply_markup: oneButtonPerRow(buttons) });
+  };
+
+  purchase.on('message:location', async (ctx, next) => {
+    const session = await pendingOrder(ctx.from.id);
+    if (!session) return next();
+    const { latitude, longitude } = ctx.msg.location;
+    await offerOptions(ctx, session, checkPin({ latitude, longitude }));
+  });
+
+  purchase.on('message:text', async (ctx, next) => {
+    const session = await pendingOrder(ctx.from.id);
+    if (!session) return next();
+    if (ctx.msg.text === PICKUP_TEXT) {
+      await ctx.reply('አመሰግናለሁ / Thank you!', { reply_markup: { remove_keyboard: true } });
+      await choose(ctx, session, 'pickup');
+      return;
+    }
+    const read = await locations.fromText(ctx.msg.text);
+    if (read.status === 'not_a_location') return next();
+    await offerOptions(ctx, session, read);
+  });
+
+  purchase.callbackQuery(/^deliver:/, async (ctx) => {
+    const choice = deliveryChoiceCallbackSchema.safeParse(ctx.callbackQuery.data);
+    const session = await pendingOrder(ctx.from.id);
+    await ctx.answerCallbackQuery();
+    if (!choice.success || !session) {
+      await ctx.reply(startAgain);
+      return;
+    }
+    // Removing the buttons first keeps a second tap from placing the order twice.
+    await ctx.editMessageReplyMarkup();
+    await choose(ctx, session, choice.data);
+  });
+
   return purchase;
+}
+
+function locationKeyboard(): Keyboard {
+  return new Keyboard()
+    .requestLocation('📍 ቦታ አጋራ / Share location')
+    .row()
+    .text(PICKUP_TEXT)
+    .oneTime()
+    .resized();
+}
+
+function oneButtonPerRow(buttons: Button[]): InlineKeyboard {
+  return InlineKeyboard.from(
+    buttons.map((button) => [InlineKeyboard.text(button.text, button.data)]),
+  );
 }
 
 const startAgain = 'እባክዎ በቻናሉ ላይ ያለውን ቁልፍ እንደገና ይጫኑ / Tap the button on the channel post again.';
@@ -164,6 +260,11 @@ async function replyWith(
           .oneTime()
           .resized(),
       });
+    } else if (result?.status === 'needs_location') {
+      await ctx.reply(
+        '📍 የት እናድርስ? / Where should we deliver? Share your location, or paste a Google Maps link.',
+        { reply_markup: locationKeyboard() },
+      );
     } else if (result?.status === 'placed') {
       await ctx.reply(result.instructions);
     }

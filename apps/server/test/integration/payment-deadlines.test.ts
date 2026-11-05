@@ -27,6 +27,7 @@ import { ShopsRepo } from '../../src/modules/shops/shops.repo';
 import { ShopsService } from '../../src/modules/shops/shops.service';
 import { EventBus } from '../../src/shared/events';
 import { createBot } from '../../src/telegram/bot';
+import { pickupOnlyDelivery } from '../fakes/pickup-only-delivery';
 import { testDatabaseUrl } from './test-database';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
@@ -43,7 +44,13 @@ const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo
 const bus = new EventBus(logger);
 const timers = new TimerService(new TimersRepo(db), logger);
 const orders = new OrderService(db, new OrdersRepo(), bus, timers);
-const checkout = new CheckoutService(customers, orders, shops, () => new Date());
+const checkout = new CheckoutService(
+  customers,
+  orders,
+  shops,
+  pickupOnlyDelivery,
+  () => new Date(),
+);
 
 /** Records what customers would be told, instead of calling Telegram. */
 const told = {
@@ -87,7 +94,12 @@ async function variantWithStock(stock: number): Promise<string> {
 const placeOrder = (variantId: string, paymentDeadline: Date, service = orders) =>
   service.create(
     shopId,
-    { customerId, items: [{ variantId, quantity: 2 }], deliveryType: 'pickup', paymentDeadline },
+    {
+      customerId,
+      items: [{ variantId, quantity: 2 }],
+      delivery: { type: 'pickup' },
+      paymentDeadline,
+    },
     'customer',
   );
 

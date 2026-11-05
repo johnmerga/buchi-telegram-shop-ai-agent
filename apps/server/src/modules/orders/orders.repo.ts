@@ -1,5 +1,5 @@
 import type { DeliveryType, MoneyString, OrderStatus } from '@buchi/shared';
-import { and, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import type { Database, Transaction } from '../../db/client';
 import {
   customers,
@@ -147,6 +147,23 @@ export class OrdersRepo {
       sql`select customer_order_shop_id(${orderId}, ${telegramUserId}) as shop_id`,
     );
     return row?.shop_id ?? null;
+  }
+
+  /** The customer's latest order that waits for a payment or has one being checked. */
+  async latestUnpaid(tx: Transaction, telegramUserId: number): Promise<OrderRow | undefined> {
+    const [row] = await tx
+      .select({ order: orders })
+      .from(orders)
+      .innerJoin(customers, eq(customers.id, orders.customerId))
+      .where(
+        and(
+          eq(customers.telegramUserId, telegramUserId),
+          inArray(orders.status, ['awaiting_payment', 'verifying', 'needs_review']),
+        ),
+      )
+      .orderBy(desc(orders.createdAt))
+      .limit(1);
+    return row?.order;
   }
 
   items(tx: Transaction, orderId: string): Promise<OrderItemRow[]> {

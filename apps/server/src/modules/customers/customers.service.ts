@@ -34,6 +34,12 @@ export class CustomersService {
     await withShop(this.db, shopId, (tx) => this.repo.setPhone(tx, customerId, phone));
   }
 
+  async get(shopId: string, customerId: string): Promise<CustomerRow> {
+    const customer = await withShop(this.db, shopId, (tx) => this.repo.find(tx, customerId));
+    if (!customer) throw new AppError('NOT_FOUND', 'Customer not found');
+    return customer;
+  }
+
   /** The customer's private chat with the bot has the same ID as their Telegram user. */
   async telegramUserId(shopId: string, customerId: string): Promise<number> {
     const id = await withShop(this.db, shopId, (tx) => this.repo.telegramUserId(tx, customerId));

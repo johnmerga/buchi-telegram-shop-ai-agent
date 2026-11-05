@@ -3,6 +3,7 @@ export * from './catalog';
 export * from './conversations';
 export * from './customers';
 export * from './orders';
+export * from './payments';
 export * from './sessions';
 export * from './shops';
 export * from './telegram';

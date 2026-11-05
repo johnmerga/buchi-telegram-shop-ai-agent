@@ -155,12 +155,13 @@ header. Every job is safe to call twice.
 1. In the **Advanced** tab of each, set the request method to `POST` and add the header
    `x-job-secret` with the same secret.
 
-| Job                | Cron expression (Africa/Addis_Ababa) | What it does                                                                                                                                        |
-| ------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tick`             | `* * * * *`                          | Runs due timers and sends queued Google Sheets ledger rows. Returns a summary such as `{"done":3,"failed":0,"ledgerSent":2,"ledgerFailed":0}`.      |
-| `nightly-learning` | `0 2 * * *`                          | Learns the zone time factors and forgets delivery pins older than seven days.                                                                       |
-| `morning-brief`    | `0 8 * * *`                          | Sends each shop's owners low stock, open reviews, and waitlist demand.                                                                              |
-| `evening-summary`  | `0 18 * * *`                         | Sends each shop's owners the day's orders, revenue, delivery cost, Saver savings, fraud blocked, and open reviews, and queues the day's ledger row. |
+| Job                  | Cron expression (Africa/Addis_Ababa) | What it does                                                                                                                                                     |
+| -------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tick`               | `* * * * *`                          | Runs due timers and sends queued Google Sheets ledger rows. Returns a summary such as `{"done":3,"failed":0,"ledgerSent":2,"ledgerFailed":0}`.                   |
+| `nightly-learning`   | `0 2 * * *`                          | Learns the zone time factors and forgets delivery pins older than seven days.                                                                                    |
+| `morning-brief`      | `0 8 * * *`                          | Sends each shop's owners low stock, open reviews, and waitlist demand.                                                                                           |
+| `evening-summary`    | `0 18 * * *`                         | Sends each shop's owners the day's orders, revenue, delivery cost, Saver savings, fraud blocked, and open reviews, and queues the day's ledger row.              |
+| `weekly-suggestions` | `0 9 * * 1`                          | Runs the owner assistant's weekly analysis and sends each shop's owners up to three suggestions, each as a rule preview to confirm. Runs once per shop and week. |
 
 The daily reports go out once per shop and day, so a repeated call sends nothing twice. Owners can
 send their own shop's report at any time with **Run now** in **Settings**, which needs no job

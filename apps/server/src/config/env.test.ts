@@ -7,6 +7,7 @@ describe('loadEnv', () => {
     TELEGRAM_BOT_TOKEN: '123:abc',
     TELEGRAM_WEBHOOK_SECRET: 'a'.repeat(32),
     JOB_SECRET: 'x'.repeat(32),
+    AUTH_TOKEN_SECRET: 'y'.repeat(32),
   };
 
   it('applies defaults', () => {
@@ -28,6 +29,12 @@ describe('loadEnv', () => {
 
   it('rejects a job secret shorter than 32 characters', () => {
     expect(() => loadEnv({ ...required, JOB_SECRET: 'x'.repeat(31) })).toThrow(/JOB_SECRET/);
+  });
+
+  it('rejects an auth token secret shorter than 32 characters', () => {
+    expect(() => loadEnv({ ...required, AUTH_TOKEN_SECRET: 'y'.repeat(31) })).toThrow(
+      /AUTH_TOKEN_SECRET/,
+    );
   });
 });
 

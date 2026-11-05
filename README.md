@@ -116,6 +116,13 @@ Replace `YOUR_HOST` with the Render host name. For local development, expose por
 with a tunnel such as `cloudflared tunnel --url http://localhost:3000`, and register the tunnel's
 host name instead.
 
+### Mini App sign-in
+
+A Mini App sends its Telegram launch data to `POST /auth/mini-app` as `{"initData": "..."}`. The
+server checks Telegram's signature with the bot token, rejects launch data older than 24 hours, and
+returns a bearer token that is valid for 12 hours. In Render, set `AUTH_TOKEN_SECRET` to a secret of
+at least 32 characters, for example from `openssl rand -hex 32`. Changing it signs out every user.
+
 ### cron-job.org
 
 [cron-job.org](https://cron-job.org) calls the scheduled job endpoints, which also keeps the free

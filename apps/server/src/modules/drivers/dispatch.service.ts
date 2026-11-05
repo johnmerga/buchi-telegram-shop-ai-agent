@@ -13,6 +13,7 @@ import { point } from './dispatch.domain';
 import type { DriversRepo } from './drivers.repo';
 import { jobCallbackData } from './drivers.schemas';
 import type { JobOffers } from './job-offers.service';
+import type { SpecialOffers } from './special-offers.service';
 
 /** One trip to offer: its stops in visiting order and what the formula pays for it. */
 export interface JobPlan {
@@ -35,6 +36,7 @@ export class DispatchService {
     private readonly jobs: DeliveryJobsRepo,
     private readonly drivers: DriversRepo,
     private readonly offers: JobOffers,
+    private readonly specialOffers: Pick<SpecialOffers, 'assignHolder'>,
     private readonly orders: Pick<OrderService, 'get' | 'summary' | 'transition'>,
     private readonly customers: Pick<CustomersService, 'get'>,
     private readonly shops: Pick<ShopsService, 'get'>,
@@ -162,20 +164,7 @@ export class DispatchService {
   /** A paid far-area order goes to the driver who held its price, without a new offer. */
   private async assignHolder(order: OrderWithItems): Promise<void> {
     const { shopId } = order;
-    const assigned = await withShop(this.db, shopId, async (tx) => {
-      const held = await this.jobs.heldOfferOf(tx, order.id);
-      const offer = held && (await this.jobs.takeHeldOffer(tx, held.id));
-      if (!offer?.takenByDriverId) return undefined;
-      const driver = await this.drivers.find(tx, offer.takenByDriverId);
-      const job = await this.jobs.assign(tx, offer.jobId, {
-        driverId: offer.takenByDriverId,
-        payout: offer.price,
-        acceptedAt: this.now(),
-      });
-      const chatId = driver?.telegramUserId ?? null;
-      if (!job || chatId === null) throw new Error('A held far-area job cannot go to its driver');
-      return { job, chatId, stops: await this.jobs.stops(tx, job.id) };
-    });
+    const assigned = await this.specialOffers.assignHolder(shopId, order.id);
     if (!assigned) throw new Error('A paid far-area order has no driver holding it');
     await this.orders.transition(
       shopId,

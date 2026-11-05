@@ -14,7 +14,7 @@ const ADDIS_ABABA_OFFSET_HOURS = 3;
  * Addis Ababa rush hours, as [from, to) hours of the local day: the morning commute and the
  * evening commute, when traffic slows motorbikes on the main roads.
  */
-export const PEAK_HOURS: readonly (readonly [number, number])[] = [
+const PEAK_HOURS: readonly (readonly [number, number])[] = [
   [7, 10],
   [16, 20],
 ];

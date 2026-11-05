@@ -3,7 +3,7 @@ import type { Database } from '../../db/client';
 import { tripLegs, zoneTimeFactors } from '../../db/schema';
 import type { TimeBand } from './factors.domain';
 
-export type NewTripLeg = typeof tripLegs.$inferInsert;
+type NewTripLeg = typeof tripLegs.$inferInsert;
 export type TripLegRow = typeof tripLegs.$inferSelect;
 
 /** Trip legs and time factors are platform-wide, so this repo uses the database directly. */

@@ -171,6 +171,7 @@ const dispatch = new DispatchService(
   jobsRepo,
   driversRepo,
   offers,
+  { assignHolder: () => Promise.reject(new Error('unused')) },
   orders,
   customers,
   shops,

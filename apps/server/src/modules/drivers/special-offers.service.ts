@@ -2,10 +2,11 @@ import type { Money } from '@buchi/shared';
 import type { Database, Transaction } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import type { EventBus } from '../../shared/events';
-import type { DeliveryJobsRepo, NewStop, OfferRow } from './delivery-jobs.repo';
+import type { DeliveryJobsRepo, JobRow, NewStop, OfferRow, StopRow } from './delivery-jobs.repo';
 import { raisedNotice, takenNotice, withdrawnNotice } from './dispatch-messages.domain';
 import type { DriversRepo } from './drivers.repo';
 import type { JobOffers } from './job-offers.service';
+import type { SpecialJobsRepo } from './special-jobs.repo';
 
 export const SPECIAL_OFFER_RAISE_TIMER = 'drivers.special_offer_raise';
 
@@ -40,6 +41,7 @@ export class SpecialOffers {
   constructor(
     private readonly db: Database,
     private readonly jobs: DeliveryJobsRepo,
+    private readonly special: SpecialJobsRepo,
     private readonly drivers: DriversRepo,
     private readonly offers: Pick<JobOffers, 'broadcast' | 'close' | 'closeMessages'>,
     private readonly timers: TimerScheduler,
@@ -101,7 +103,7 @@ export class SpecialOffers {
       const held = await withShop(this.db, shopId, async (tx) => {
         const driver = await this.drivers.byTelegramUser(tx, telegramUserId);
         if (!driver || !(await this.jobs.findOffer(tx, offerId))) return undefined;
-        const offer = await this.jobs.holdOffer(tx, offerId, driver.id);
+        const offer = await this.special.holdOffer(tx, offerId, driver.id);
         if (!offer) return 'closed' as const;
         const [stop] = await this.jobs.stops(tx, offer.jobId);
         if (!stop) throw new Error('A special job has no stop');
@@ -122,15 +124,38 @@ export class SpecialOffers {
   }
 
   /**
+   * Gives the job of a paid far-area order to the driver who held it, with the held price as the
+   * payout. Returns nothing when no driver holds it.
+   */
+  async assignHolder(
+    shopId: string,
+    orderId: string,
+  ): Promise<{ job: JobRow; stops: StopRow[]; chatId: number } | undefined> {
+    return withShop(this.db, shopId, async (tx) => {
+      const offer = await this.special.takeHeldOffer(tx, orderId);
+      if (!offer?.takenByDriverId) return undefined;
+      const driver = await this.drivers.find(tx, offer.takenByDriverId);
+      const job = await this.jobs.assign(tx, offer.jobId, {
+        driverId: offer.takenByDriverId,
+        payout: offer.price,
+        acceptedAt: this.now(),
+      });
+      const chatId = driver?.telegramUserId ?? null;
+      if (!job || chatId === null) throw new Error('A held far-area job cannot go to its driver');
+      return { job, chatId, stops: await this.jobs.stops(tx, job.id) };
+    });
+  }
+
+  /**
    * Withdraws the order's special job, held or not, and tells every driver who got an offer for
    * it. Does nothing when the order has no special job waiting.
    */
   async withdraw(shopId: string, orderId: string): Promise<void> {
     const messages = await withShop(this.db, shopId, async (tx) => {
-      const job = await this.jobs.untakenSpecialJobOf(tx, orderId);
+      const job = await this.special.untakenJobOf(tx, orderId);
       if (!job) return [];
-      const sent = await this.jobs.jobOfferMessages(tx, job.id);
-      await this.jobs.deleteJob(tx, job.id);
+      const sent = await this.special.offerMessages(tx, job.id);
+      await this.special.deleteJob(tx, job.id);
       return sent;
     });
     await this.offers.closeMessages(shopId, messages, withdrawnNotice);

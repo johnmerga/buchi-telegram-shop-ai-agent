@@ -58,6 +58,7 @@ import { OfferBonusService } from './modules/drivers/offer-bonus.service';
 import { DeliveryOwnerAlerts } from './modules/drivers/owner-alerts.service';
 import { SaverRunService } from './modules/drivers/saver-runs.service';
 import { SpecialOffers, SPECIAL_OFFER_RAISE_TIMER } from './modules/drivers/special-offers.service';
+import { SpecialJobsRepo } from './modules/drivers/special-jobs.repo';
 import { RECEIPT_TIMER, TripService } from './modules/drivers/trips.service';
 import { AcceptanceFactorService } from './modules/far-quotes/acceptance-factors.service';
 import { FarQuoteEvidence } from './modules/far-quotes/far-quote-evidence.service';
@@ -254,11 +255,22 @@ const jobOffers = new JobOffers(
   () => new Date(),
 );
 const deliveryAlerts = new DeliveryOwnerAlerts(shops, messenger, logger);
+const specialOffers = new SpecialOffers(
+  database.db,
+  deliveryJobs,
+  new SpecialJobsRepo(),
+  driversRepo,
+  jobOffers,
+  timers,
+  events,
+  () => new Date(),
+);
 const dispatch = new DispatchService(
   database.db,
   deliveryJobs,
   driversRepo,
   jobOffers,
+  specialOffers,
   orders,
   customers,
   shops,
@@ -295,15 +307,6 @@ const saverRuns = new SaverRunService(
 timers.register(OFFER_UNANSWERED_TIMER, (timer) => bonuses.offerUnanswered(timer));
 timers.register(RECEIPT_TIMER, (timer) => trips.receiptTimeout(timer));
 timers.register(SAVER_RUN_TIMER, (timer) => saverRuns.runScheduled(timer));
-const specialOffers = new SpecialOffers(
-  database.db,
-  deliveryJobs,
-  driversRepo,
-  jobOffers,
-  timers,
-  events,
-  () => new Date(),
-);
 
 const receiptPage = timedFetch(RECEIPT_PAGE_TIMEOUT_MS);
 const receiptReader = new ReceiptReader(model, logger);

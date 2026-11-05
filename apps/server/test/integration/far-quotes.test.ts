@@ -43,6 +43,7 @@ import { DriverService } from '../../src/modules/drivers/drivers.service';
 import { JobOffers } from '../../src/modules/drivers/job-offers.service';
 import { OfferBonusService } from '../../src/modules/drivers/offer-bonus.service';
 import { DeliveryOwnerAlerts } from '../../src/modules/drivers/owner-alerts.service';
+import { SpecialJobsRepo } from '../../src/modules/drivers/special-jobs.repo';
 import {
   SPECIAL_OFFER_RAISE_TIMER,
   SpecialOffers,
@@ -171,25 +172,27 @@ const jobOffersService = new JobOffers(
   clock,
 );
 const alerts = new DeliveryOwnerAlerts(shops, messenger, logger);
+const specialOffers = new SpecialOffers(
+  db,
+  jobsRepo,
+  new SpecialJobsRepo(),
+  driversRepo,
+  jobOffersService,
+  timerService,
+  events,
+  clock,
+);
 const dispatch = new DispatchService(
   db,
   jobsRepo,
   driversRepo,
   jobOffersService,
+  specialOffers,
   orders,
   customers,
   shops,
   delivery,
   messenger,
-  clock,
-);
-const specialOffers = new SpecialOffers(
-  db,
-  jobsRepo,
-  driversRepo,
-  jobOffersService,
-  timerService,
-  events,
   clock,
 );
 

@@ -3,7 +3,6 @@ import type { Database, Transaction } from '../../db/client';
 import { farQuotes, zoneAcceptanceFactors } from '../../db/schema';
 
 export type FarQuoteRow = typeof farQuotes.$inferSelect;
-export type FarQuoteStatus = FarQuoteRow['status'];
 type NewFarQuote = typeof farQuotes.$inferInsert;
 
 export class FarQuotesRepo {
@@ -31,7 +30,7 @@ export class FarQuotesRepo {
   async move(
     tx: Transaction,
     quoteId: string,
-    from: readonly FarQuoteStatus[],
+    from: readonly FarQuoteRow['status'][],
     change: Partial<
       Pick<
         NewFarQuote,

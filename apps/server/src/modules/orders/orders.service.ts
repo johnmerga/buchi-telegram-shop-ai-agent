@@ -60,9 +60,8 @@ export class OrderService {
   ) {}
 
   async create(shopId: string, order: NewOrder, actor: OrderActor): Promise<OrderRow> {
-    return this.insert(shopId, order, actor, (tx, row) =>
-      this.scheduleAll(tx, shopId, row.id, paymentTimers(row.createdAt, order.paymentDeadline)),
-    );
+    const { paymentDeadline, ...placed } = order;
+    return this.insert(shopId, placed, { status: 'awaiting_payment', paymentDeadline }, actor);
   }
 
   /**
@@ -71,21 +70,13 @@ export class OrderService {
    */
   async createQuoting(
     shopId: string,
-    order: Omit<NewOrder, 'delivery' | 'paymentDeadline'> & { destination: Coordinates },
+    order: Pick<NewOrder, 'customerId' | 'items'> & { destination: Coordinates },
     holdUntil: Date,
     actor: OrderActor,
   ): Promise<OrderRow> {
-    const { destination, ...rest } = order;
-    const quoting = {
-      ...rest,
-      delivery: { type: 'far' as const, fee: Money.zero, destination },
-      paymentDeadline: null,
-    };
-    return this.insert(shopId, quoting, actor, (tx, row) =>
-      this.scheduleAll(tx, shopId, row.id, [
-        { kind: orderTimerKinds.quoteExpire, dueAt: holdUntil },
-      ]),
-    );
+    const { destination, ...placed } = order;
+    const delivery = { type: 'far' as const, fee: Money.zero, destination };
+    return this.insert(shopId, { ...placed, delivery }, { status: 'quoting', holdUntil }, actor);
   }
 
   /** Sets the delivery fee a driver holds, and starts the payment deadline. */
@@ -260,14 +251,16 @@ export class OrderService {
   }
 
   /**
-   * Reserves the stock and inserts the order with its first event. `schedule` adds the timers that
-   * guard the new order in the same transaction.
+   * Reserves the stock and inserts the order with its first event and the timers that guard it:
+   * the payment deadline, or the end of a far-area quote's hold.
    */
   private async insert(
     shopId: string,
-    order: Omit<NewOrder, 'paymentDeadline'> & { paymentDeadline: Date | null },
+    order: Omit<NewOrder, 'paymentDeadline'>,
+    start:
+      | { status: 'awaiting_payment'; paymentDeadline: Date }
+      | { status: 'quoting'; holdUntil: Date },
     actor: OrderActor,
-    schedule: (tx: Transaction, row: OrderRow) => Promise<void>,
   ): Promise<OrderRow> {
     if (order.items.length === 0) throw new AppError('VALIDATION_FAILED', 'An order needs items');
 
@@ -294,14 +287,14 @@ export class OrderService {
       const row = await this.repo.insertOrder(tx, {
         shopId,
         customerId: order.customerId,
-        status: order.paymentDeadline === null ? 'quoting' : 'awaiting_payment',
+        status: start.status,
         deliveryType: delivery.type,
         itemsTotal: itemsTotal.toString(),
         deliveryFee: deliveryFee.toString(),
         total: itemsTotal.add(deliveryFee).toString(),
         destination: delivery.type === 'pickup' ? null : delivery.destination,
         deliveryZone: delivery.type === 'pickup' ? null : zoneOf(delivery.destination),
-        paymentDeadline: order.paymentDeadline,
+        paymentDeadline: start.status === 'awaiting_payment' ? start.paymentDeadline : null,
         items: lines.map(({ variantId, quantity, unitPrice }) => ({
           variantId,
           quantity,
@@ -316,7 +309,11 @@ export class OrderService {
         actor,
         reason: 'Order created',
       });
-      await schedule(tx, row);
+      const timers =
+        start.status === 'quoting'
+          ? [{ kind: orderTimerKinds.quoteExpire, dueAt: start.holdUntil }]
+          : paymentTimers(row.createdAt, start.paymentDeadline);
+      await this.scheduleAll(tx, shopId, row.id, timers);
       return row;
     });
 

@@ -9,7 +9,7 @@ export class MiniAppLinks {
 
   /** The map picker starts at `suggested`, such as a landmark the customer named. */
   pinPicker(suggested?: Coordinates): string {
-    const url = new URL('/customer/pin', this.baseUrl);
+    const url = new URL('/app/customer/pin', this.baseUrl);
     if (suggested) {
       url.searchParams.set('lat', String(suggested.latitude));
       url.searchParams.set('lng', String(suggested.longitude));
@@ -18,6 +18,6 @@ export class MiniAppLinks {
   }
 
   orderTracking(orderId: string): string {
-    return new URL(`/customer/orders/${orderId}`, this.baseUrl).toString();
+    return new URL(`/app/customer/orders/${orderId}`, this.baseUrl).toString();
   }
 }

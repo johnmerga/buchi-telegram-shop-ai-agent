@@ -31,7 +31,7 @@ describe('TelegramCustomerChat with Mini App links', () => {
         [
           {
             text: '📦 ትዕዛዜ / Track order',
-            web_app: { url: `https://buchi.example.com/customer/orders/${orderId}` },
+            web_app: { url: `https://buchi.example.com/app/customer/orders/${orderId}` },
           },
         ],
       ],
@@ -45,7 +45,7 @@ describe('TelegramCustomerChat with Mini App links', () => {
       longitude: 38.79,
     });
     expect(JSON.stringify(payloads[0]?.reply_markup)).toContain(
-      'https://buchi.example.com/customer/pin?lat=9.005&lng=38.79',
+      'https://buchi.example.com/app/customer/pin?lat=9.005&lng=38.79',
     );
   });
 

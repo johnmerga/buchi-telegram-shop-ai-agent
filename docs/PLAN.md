@@ -482,6 +482,9 @@ Exit criteria: Express, Saver, and far-area deliveries run end to end with drive
   zone); the nightly learning job; the synthetic trip seeder; the backtest runner.
 - **Acceptance:** a zone with no trips returns its parent's factor. The backtest reports error for
   the statistics alone and for the AI estimate.
+- **Built as:** trip legs are learned per stop from `job_stops` timing; `POST /jobs/nightly-learning`
+  (cron, 02:00) learns factors and deletes pins older than seven days from orders, pending customer
+  pins, and processed `telegram_updates`. Evals suites `far-price-statistics` and `far-price-agent`.
 
 ### 5.6 Far-area quotes (needs 2.3)
 
@@ -490,6 +493,11 @@ Exit criteria: Express, Saver, and far-area deliveries run end to end with drive
   area notes); `propose_delivery_price` through the guard; **Approve once** and **Offer pickup**
   for prices above the cap; the 10% raise timer; the statistical fallback when Gemini is unavailable.
 - **Acceptance:** no offer to a driver ever exceeds the cap without an owner approval record.
+- **Built as:** `modules/far-quotes/` and `ai/agents/far-price/` (smart tier, operations priority,
+  one tool bound to the quote). Statistical prices also pass the policy guard. Far jobs are
+  `delivery_jobs.special`: a driver *holds* them with `job:hold`, and normal accept and bonuses
+  refuse them. Far offers reach drivers in the chat only; a driver-board hold endpoint is a
+  follow-up.
 
 ---
 

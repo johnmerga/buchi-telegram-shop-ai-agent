@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto';
 import { Money, moneySchema, pricingModeSchema } from '@buchi/shared';
 import type { LanguageModel } from '@buchi/server/ai/language-model';
 import type { Database } from '@buchi/server/db/client';
 import { agentDecisions, products } from '@buchi/server/db/schema';
 import { withShop } from '@buchi/server/db/with-shop';
 import { z } from 'zod';
+import { caseUuid } from '../harness/case-uuid';
 import { defineSuite, type Suite } from '../harness/suite';
 import { createSalesShop } from './sales-shop';
 
@@ -35,16 +35,6 @@ interface Actual {
   acceptedPrices: string[];
   /** The unit price the customer's cart would be ordered at now. */
   cartPrice: string | null;
-}
-
-/**
- * A UUID derived from the case, because product IDs appear in the shop context that the model
- * reads, and a recorded request must hash the same on every run.
- */
-function caseUuid(caseKey: string): string {
-  const hex = createHash('sha256').update(caseKey).digest('hex');
-  const variant = ((parseInt(hex.charAt(16), 16) & 0x3) | 0x8).toString(16);
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
 /**

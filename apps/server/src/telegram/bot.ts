@@ -1,16 +1,17 @@
-import { Bot } from 'grammy';
+import { Bot, type Composer } from 'grammy';
 import type { UserFromGetMe } from 'grammy/types';
 import { actorMiddleware, type BuchiContext, type ResolveOwnedShops } from './actor';
 
 export interface BotDeps {
   token: string;
   ownedShopIds: ResolveOwnedShops;
-  /** Tests pass bot info to skip the `getMe` call that `bot.init()` makes. */
-  botInfo?: UserFromGetMe;
+  handlers: Composer<BuchiContext>[];
+  /** Fetched once at startup with `getMe`, because services also need the bot's ID and username. */
+  botInfo: UserFromGetMe;
 }
 
-export function createBot({ token, ownedShopIds, botInfo }: BotDeps): Bot<BuchiContext> {
-  const bot = new Bot<BuchiContext>(token, botInfo ? { botInfo } : {});
+export function createBot({ token, ownedShopIds, handlers, botInfo }: BotDeps): Bot<BuchiContext> {
+  const bot = new Bot<BuchiContext>(token, { botInfo });
   bot.use(actorMiddleware(ownedShopIds));
   bot.command('start', (ctx) =>
     ctx.reply(
@@ -19,5 +20,6 @@ export function createBot({ token, ownedShopIds, botInfo }: BotDeps): Bot<BuchiC
         : 'ሰላም! I am Buchi. Tap Buy on a channel post to start an order.',
     ),
   );
+  for (const handler of handlers) bot.use(handler);
   return bot;
 }

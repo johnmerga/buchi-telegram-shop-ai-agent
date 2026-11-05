@@ -98,7 +98,7 @@ buchi/
       src/
         config/          env.ts (zod-validated), logger.ts
         db/              client.ts, with-shop.ts, schema/<domain>.ts, migrations/
-        http/            app.ts, middleware/ (auth, errors, job secret), sse.ts
+        http/            app.ts, caller.ts, validate.ts, middleware/ (auth, shop owner, errors, secret header)
         telegram/        bot.ts, ingress.ts (store and dedupe), worker.ts, actor.ts, keyboards.ts
         modules/
           shops/  catalog/  orders/  payments/  delivery/  drivers/  owner/  jobs/  reports/
@@ -225,6 +225,8 @@ unpaid order expires and releases its stock.
   browser dashboard stays in Task 8.1.
 - **Acceptance:** tampered, stale, or unsigned `initData` returns 401. A valid token for a user who
   does not own the shop returns 403.
+- **Built as:** `modules/auth/` with `AUTH_TOKEN_SECRET`, 12-hour HS256 tokens from `jose`, and
+  `http/caller.ts` (`req.caller`, `callerOf`). Rotating the secret signs everyone out.
 
 ### 1.1 Shops and onboarding API
 

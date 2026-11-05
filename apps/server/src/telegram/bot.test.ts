@@ -35,6 +35,7 @@ async function replyTo(fromId: number, ownedShopIds: string[]): Promise<string> 
     token: 'test',
     botInfo,
     ownedShopIds: () => Promise.resolve(ownedShopIds),
+    handlers: [],
   });
   const sent: string[] = [];
   bot.api.config.use((_prev, method, payload) => {

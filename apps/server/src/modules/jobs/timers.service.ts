@@ -6,12 +6,20 @@ type TimerHandler = (timer: Timer) => Promise<void>;
 
 // A type alias, not an interface, so it fits the jobs' `Record<string, number>` summary type.
 type TickSummary = {
+  requeued: number;
   done: number;
   failed: number;
 };
 
 /** Keeps one tick well inside the HTTP timeout of the cron service that calls it. */
-const TICK_BATCH_SIZE = 50;
+export const TICK_BATCH_SIZE = 50;
+/**
+ * How long a claimed timer may run before another tick treats its tick as crashed. Far longer than
+ * any tick takes, so a slow handler is not run twice at the same time.
+ */
+const RUNNING_LEASE_MS = 10 * 60_000;
+/** Claims per timer, so a handler that crashes the process stops after a few restarts. */
+const MAX_ATTEMPTS = 3;
 
 /** Runs due timers through the handler registered for their kind. */
 export class TimerService {
@@ -40,8 +48,12 @@ export class TimerService {
   }
 
   async tick(): Promise<TickSummary> {
+    const { requeued, failed } = await this.repo.reclaimStuck(RUNNING_LEASE_MS, MAX_ATTEMPTS);
+    if (requeued + failed > 0) {
+      this.logger.warn({ requeued, failed }, 'reclaimed timers stuck in running');
+    }
     const claimed = await this.repo.claimDue(TICK_BATCH_SIZE);
-    const summary: TickSummary = { done: 0, failed: 0 };
+    const summary: TickSummary = { requeued, done: 0, failed };
     for (const timer of claimed) {
       if (await this.run(timer)) {
         summary.done += 1;
@@ -62,10 +74,10 @@ export class TimerService {
       await handler(timer);
     } catch (err) {
       this.logger.error({ err, timerId: timer.id, kind: timer.kind }, 'timer failed');
-      await this.repo.markFailed(timer.id, err instanceof Error ? err.message : String(err));
+      await this.repo.markFailed(timer, err instanceof Error ? err.message : String(err));
       return false;
     }
-    await this.repo.markDone(timer.id);
+    await this.repo.markDone(timer);
     return true;
   }
 }

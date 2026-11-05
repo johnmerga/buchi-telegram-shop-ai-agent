@@ -221,7 +221,7 @@ describe('payment deadline timers', () => {
     const variantId = await variantWithStock(2);
     const order = await placeOrder(variantId, minutesFromNow(-1));
 
-    expect(await timers.tick()).toEqual({ done: 1, failed: 0 });
+    expect(await timers.tick()).toEqual({ requeued: 0, done: 1, failed: 0 });
 
     expect((await orders.get(shopId, order.id)).status).toBe('expired');
     expect(await stockOf(variantId)).toEqual({ stock: 2, reserved: 0 });
@@ -238,7 +238,7 @@ describe('payment deadline timers', () => {
       await orders.transition(shopId, order.id, event, 'system', 'Test setup');
     }
 
-    expect(await timers.tick()).toEqual({ done: 1, failed: 0 });
+    expect(await timers.tick()).toEqual({ requeued: 0, done: 1, failed: 0 });
 
     expect((await orders.get(shopId, order.id)).status).toBe(status);
     expect(told.expiries).toEqual([]);
@@ -251,7 +251,7 @@ describe('payment deadline timers', () => {
     await fastForward(order.id, 'order.payment_reminder');
     now = new Date(deadline.getTime() - 90 * 60_000);
 
-    expect(await timers.tick()).toEqual({ done: 1, failed: 0 });
+    expect(await timers.tick()).toEqual({ requeued: 0, done: 1, failed: 0 });
 
     expect(told.reminders).toEqual([
       { chatId: buyer.id, orderId: order.id, total: '3000.00', minutesLeft: 90 },
@@ -263,7 +263,7 @@ describe('payment deadline timers', () => {
     await orders.transition(shopId, order.id, 'payment_submitted', 'customer', 'Screenshot sent');
     await fastForward(order.id, 'order.payment_reminder');
 
-    expect(await timers.tick()).toEqual({ done: 1, failed: 0 });
+    expect(await timers.tick()).toEqual({ requeued: 0, done: 1, failed: 0 });
 
     expect(told.reminders).toEqual([]);
   });

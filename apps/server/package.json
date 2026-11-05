@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./ai/*": "./src/ai/*.ts",
+    "./config/*": "./src/config/*.ts",
     "./db/schema": "./src/db/schema/index.ts",
     "./db/*": "./src/db/*.ts",
     "./modules/*": "./src/modules/*.ts",

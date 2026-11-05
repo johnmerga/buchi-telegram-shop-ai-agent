@@ -17,8 +17,8 @@ const variablesSchema = z.object({
   /** Signs the bearer tokens that Mini Apps send to the API. */
   AUTH_TOKEN_SECRET: z.string().min(32),
   GEMINI_API_KEY: z.string().min(1),
-  GEMINI_MODEL_FAST: z.string().min(1).default('gemini-2.5-flash-lite'),
-  GEMINI_MODEL_SMART: z.string().min(1).default('gemini-2.5-flash'),
+  GEMINI_MODEL_FAST: z.string().min(1).default('gemini-3.5-flash-lite'),
+  GEMINI_MODEL_SMART: z.string().min(1).default('gemini-3.5-flash'),
   GEMINI_MODEL_EMBED: z.string().min(1).default('gemini-embedding-001'),
   /** Requests per minute and per Pacific day. Defaults stay under the free tier's limits. */
   GEMINI_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
@@ -50,6 +50,14 @@ const variablesSchema = z.object({
     .min(1)
     .transform((key) => key.replaceAll('\\n', '\n'))
     .optional(),
+});
+
+/** The Gemini key and model IDs, with the server's defaults, for tools that call Gemini directly. */
+export const geminiVariablesSchema = variablesSchema.pick({
+  GEMINI_API_KEY: true,
+  GEMINI_MODEL_FAST: true,
+  GEMINI_MODEL_SMART: true,
+  GEMINI_MODEL_EMBED: true,
 });
 
 const envSchema = variablesSchema.refine(

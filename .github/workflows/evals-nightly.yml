@@ -45,9 +45,6 @@ jobs:
           --health-retries 15
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      GEMINI_MODEL_FAST: ${{ vars.GEMINI_MODEL_FAST }}
-      GEMINI_MODEL_SMART: ${{ vars.GEMINI_MODEL_SMART }}
-      GEMINI_MODEL_EMBED: ${{ vars.GEMINI_MODEL_EMBED }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

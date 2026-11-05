@@ -3,16 +3,21 @@ import express, { type Express, type Router } from 'express';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
 import { errorHandler, notFound } from './middleware/errors';
+import { securityHeaders } from './middleware/security-headers';
 
 export interface AppDeps {
   logger: Logger;
   routers: Router[];
+  /** Proxies in front of the server, so `req.ip` is the client's address and not a proxy's. */
+  trustProxyHops: number;
 }
 
-export function createApp({ logger, routers }: AppDeps): Express {
+export function createApp({ logger, routers, trustProxyHops }: AppDeps): Express {
   const app = express();
 
   app.disable('x-powered-by');
+  app.set('trust proxy', trustProxyHops);
+  app.use(securityHeaders);
   app.use(
     pinoHttp({
       logger,

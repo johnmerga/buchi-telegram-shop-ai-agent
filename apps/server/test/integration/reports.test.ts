@@ -100,6 +100,7 @@ const botToken = '123456:test-token';
 const auth = new AuthService({ botToken, tokenSecret: 't'.repeat(32), now: () => new Date() });
 const app = createApp({
   logger,
+  trustProxyHops: 0,
   routers: [
     createReportsRouter({
       insights: new InsightsService(db, new InsightsRepo(), dailyRepo, clock),

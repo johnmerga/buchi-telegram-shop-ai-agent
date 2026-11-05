@@ -28,6 +28,7 @@ import { createLogger } from './config/logger';
 import { connectDatabase } from './db/client';
 import { PRODUCT_EMBEDDING_DIMENSIONS } from './db/schema';
 import { createApp } from './http/app';
+import { limitSignedInUsers, publicRateLimits } from './http/rate-limits';
 import { createWebAppRouter } from './http/web-app';
 import { requireAuth } from './http/middleware/require-auth';
 import { requireShopOwner } from './http/middleware/require-shop-owner';
@@ -748,12 +749,18 @@ const auth = new AuthService({
   now: () => new Date(),
 });
 
-const signedIn = requireAuth((token) => auth.verifyToken(token));
+const signedIn = limitSignedInUsers(
+  requireAuth((token) => auth.verifyToken(token)),
+  () => new Date(),
+);
 const shopOwner = requireShopOwner((telegramUserId) => shops.ownedShopIds(telegramUserId));
 
 const app = createApp({
   logger,
+  trustProxyHops: env.TRUST_PROXY_HOPS,
   routers: [
+    // First, so a refused request costs no signature check or database query.
+    publicRateLimits(() => new Date()),
     createTelegramWebhookRouter({ secret: env.TELEGRAM_WEBHOOK_SECRET, ingress }),
     createJobsRouter(jobs, env.JOB_SECRET),
     createAuthRouter(auth, botInfo.username),

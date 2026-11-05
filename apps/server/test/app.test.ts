@@ -13,7 +13,7 @@ const jobSecret = 'test-job-secret-that-is-long-enough';
 
 function testApp() {
   const jobs = new JobService(new Map([['tick', () => Promise.resolve({ done: 2, failed: 1 })]]));
-  return createApp({ logger, routers: [createJobsRouter(jobs, jobSecret)] });
+  return createApp({ logger, trustProxyHops: 0, routers: [createJobsRouter(jobs, jobSecret)] });
 }
 
 describe('createApp', () => {
@@ -28,6 +28,23 @@ describe('createApp', () => {
     expect(res.status).toBe(404);
     expect(res.body).toMatchObject({ error: { code: 'NOT_FOUND' } });
     expect(res.headers['x-request-id']).toBeTruthy();
+  });
+});
+
+describe('security headers', () => {
+  it('lets no page run or frame an API response, and forbids content sniffing', async () => {
+    const res = await request(testApp()).get('/health');
+    expect(res.headers['content-security-policy']).toBe(
+      "default-src 'none'; frame-ancestors 'none'",
+    );
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+    expect(res.headers['strict-transport-security']).toBe('max-age=31536000');
+  });
+
+  it('sends them on errors too', async () => {
+    const res = await request(testApp()).get('/nope');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
   });
 });
 

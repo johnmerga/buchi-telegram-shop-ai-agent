@@ -20,6 +20,7 @@ function setUp(handle: UpdateHandler) {
   const worker = new UpdateWorker(repo, handle, logger);
   const app = createApp({
     logger,
+    trustProxyHops: 0,
     routers: [createTelegramWebhookRouter({ secret, ingress: new TelegramIngress(repo, worker) })],
   });
   const post = (update: Update) =>

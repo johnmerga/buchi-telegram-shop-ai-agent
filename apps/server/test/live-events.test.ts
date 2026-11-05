@@ -25,6 +25,7 @@ const auth = new AuthService({
 const live = new LiveEvents();
 const app = createApp({
   logger: pino({ level: 'silent' }),
+  trustProxyHops: 0,
   routers: [
     createLiveRouter({
       live,

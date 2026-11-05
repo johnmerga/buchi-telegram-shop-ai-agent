@@ -10,6 +10,7 @@ import { requireShopOwner } from '../src/http/middleware/require-shop-owner';
 import { createAuthRouter } from '../src/modules/auth/auth.routes';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { launchFields, signInitData } from './sign-init-data';
+import { signLoginWidget } from './sign-login-widget';
 
 const logger = pino({ level: 'silent' });
 const botToken = '123456:test-bot-token';
@@ -40,7 +41,7 @@ function testApp() {
       res.json(callerOf(req));
     },
   );
-  return createApp({ logger, routers: [createAuthRouter(auth), shopRouter] });
+  return createApp({ logger, routers: [createAuthRouter(auth, 'buchi_test_bot'), shopRouter] });
 }
 
 function signInRequest(initData: string) {
@@ -85,6 +86,54 @@ describe('POST /auth/mini-app', () => {
     const res = await request(testApp()).post('/auth/mini-app').send({});
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+  });
+});
+
+describe('Login Widget sign-in', () => {
+  const widgetFields = () => ({
+    id: owner,
+    first_name: 'Selam',
+    auth_date: Math.floor(now.getTime() / 1000) - 60,
+  });
+
+  it('names the bot that the widget signs in with', async () => {
+    const res = await request(testApp()).get('/auth/login-widget');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ botUsername: 'buchi_test_bot' });
+  });
+
+  it('returns a token that opens the owner routes', async () => {
+    const res = await request(testApp())
+      .post('/auth/login-widget')
+      .send(signLoginWidget(widgetFields(), botToken));
+    expect(res.status).toBe(200);
+    const { token } = sessionSchema.parse(res.body);
+    const shop = await request(testApp())
+      .get(`/shops/${shopId}/whoami`)
+      .auth(token, { type: 'bearer' });
+    expect(shop.body).toEqual({ telegramUserId: owner });
+  });
+
+  it('rejects tampered login data', async () => {
+    const tampered = {
+      ...signLoginWidget({ ...widgetFields(), id: stranger }, botToken),
+      id: owner,
+    };
+    const res = await request(testApp()).post('/auth/login-widget').send(tampered);
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects stale login data', async () => {
+    const stale = { ...widgetFields(), auth_date: Math.floor(now.getTime() / 1000) - 90_000 };
+    const res = await request(testApp())
+      .post('/auth/login-widget')
+      .send(signLoginWidget(stale, botToken));
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a body that is not an object of fields', async () => {
+    const res = await request(testApp()).post('/auth/login-widget').send([1, 2]);
+    expect(res.status).toBe(400);
   });
 });
 

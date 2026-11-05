@@ -7,7 +7,8 @@ services:
     branch: main
     autoDeployTrigger: checksPass
     # --prod=false installs devDependencies, which the build needs, even though NODE_ENV is production.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @buchi/server build
+    # Builds the server and the web app, which the server serves under /app.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm -r build
     # Runs pending migrations before the server starts. Plain node avoids fetching pnpm at runtime.
     startCommand: node apps/server/dist/migrate.js && node apps/server/dist/index.js
     healthCheckPath: /health
@@ -33,4 +34,7 @@ services:
       - key: RISK_HASH_SECRET
         sync: false
       - key: ORS_API_KEY
+        sync: false
+      # The service's public HTTPS address, for the chat's Mini App buttons.
+      - key: WEB_APP_URL
         sync: false

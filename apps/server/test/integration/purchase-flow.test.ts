@@ -286,6 +286,21 @@ describe('purchase flow with delivery', () => {
     expect(instructions).toContain('Telebirr: 0922345678');
   });
 
+  it('takes the pin that the map picker Mini App sends back', async () => {
+    road.meters = 5000;
+    const selam = { id: 464646, is_bot: false, first_name: 'Selam' };
+    await chooseSizeAndShareContact(selam);
+    const fromMap = (data: string) =>
+      message({ web_app_data: { button_text: 'Pick on the map', data } }, selam);
+
+    await bot.handleUpdate(fromMap('{"latitude":"nine"}'));
+    expect(sent.at(-1)).toContain('could not find a pin');
+
+    await bot.handleUpdate(fromMap(JSON.stringify({ latitude: 9.02, longitude: 38.79 })));
+    expect(sent.at(-1)).toContain('5.0 km by road');
+    expect(buttons[0]).toBe('🚚 ፈጣን / Express, today · 160.00 ብር');
+  });
+
   it('offers only pickup in the far range, and places a pickup order', async () => {
     road.meters = 15_000;
     await chooseSizeAndShareContact(meron);

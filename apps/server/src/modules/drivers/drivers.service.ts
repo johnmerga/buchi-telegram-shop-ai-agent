@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import type { DriverListItem } from '@buchi/shared';
 import type { Database } from '../../db/client';
 import { isUniqueViolation } from '../../db/errors';
 import { withShop } from '../../db/with-shop';
@@ -47,6 +48,19 @@ export class DriverService {
     if (!driver) throw new AppError('CONFLICT', 'This driver has already joined the shop');
     const link = `https://t.me/${this.botUsername}?start=${inviteStartPayload(token)}`;
     return { driverId: driver.id, link, expiresAt };
+  }
+
+  /** The shop's drivers for the owner. Phone numbers stay out until a driver takes a job. */
+  async list(shopId: string): Promise<DriverListItem[]> {
+    const rows = await withShop(this.db, shopId, (tx) => this.repo.list(tx));
+    return rows.map((row) => ({
+      id: row.id,
+      username: row.username,
+      name: row.name,
+      linked: row.telegramUserId !== null,
+      available: row.available,
+      inviteExpiresAt: row.inviteExpiresAt?.toISOString() ?? null,
+    }));
   }
 
   /** Links the invited username to the Telegram user ID of whoever opened the link. */

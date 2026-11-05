@@ -1,4 +1,5 @@
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { GoogleGenAI } from '@google/genai';
 import { Api } from 'grammy';
@@ -17,6 +18,7 @@ import { createLogger } from './config/logger';
 import { connectDatabase } from './db/client';
 import { PRODUCT_EMBEDDING_DIMENSIONS } from './db/schema';
 import { createApp } from './http/app';
+import { createWebAppRouter } from './http/web-app';
 import { requireAuth } from './http/middleware/require-auth';
 import { requireShopOwner } from './http/middleware/require-shop-owner';
 import { createCatalogHandlers } from './modules/catalog/catalog.handlers';
@@ -47,6 +49,9 @@ import { DispatchService } from './modules/drivers/dispatch.service';
 import { createDriverHandlers } from './modules/drivers/drivers.handlers';
 import { DriversRepo } from './modules/drivers/drivers.repo';
 import { createDriversRouter } from './modules/drivers/drivers.routes';
+import { createDriverAppRouter } from './modules/drivers/driver-app.routes';
+import { DriverBoardRepo } from './modules/drivers/driver-board.repo';
+import { DriverBoardService } from './modules/drivers/driver-board.service';
 import { DriverService } from './modules/drivers/drivers.service';
 import { JobOffers, OFFER_UNANSWERED_TIMER } from './modules/drivers/job-offers.service';
 import { OfferBonusService } from './modules/drivers/offer-bonus.service';
@@ -66,7 +71,11 @@ import { SessionsRepo } from './modules/customers/sessions.repo';
 import { CheckoutService } from './modules/orders/checkout.service';
 import { orderTimerKinds } from './modules/orders/orders.deadlines.domain';
 import { PaymentDeadlineService } from './modules/orders/orders.deadlines.service';
+import { OrderBoardRepo } from './modules/orders/order-board.repo';
+import { OrderBoardService } from './modules/orders/order-board.service';
+import { OrderTrackingService } from './modules/orders/order-tracking.service';
 import { OrdersRepo } from './modules/orders/orders.repo';
+import { createOrdersRouter } from './modules/orders/orders.routes';
 import { OrderService } from './modules/orders/orders.service';
 import { createReorderHandlers } from './modules/orders/orders.reorder.handlers';
 import { createPurchaseHandlers } from './modules/orders/purchase.handlers';
@@ -93,6 +102,8 @@ import { NegotiationsRepo } from './modules/sales/negotiations.repo';
 import { PriceEvidenceService } from './modules/sales/price-evidence.service';
 import { createSalesHandlers } from './modules/sales/sales.handlers';
 import { createShopsRouter } from './modules/shops/shops.routes';
+import { LiveEvents } from './modules/live/live-events.service';
+import { createLiveRouter } from './modules/live/live.routes';
 import { ShopsService } from './modules/shops/shops.service';
 import { TelegramChannels } from './telegram/channels';
 import { EventBus } from './shared/events';
@@ -105,12 +116,15 @@ import { TelegramCustomerChat } from './telegram/customer-chat';
 import { TelegramFiles } from './telegram/files';
 import { TelegramMessenger } from './telegram/messenger';
 import { TelegramIngress } from './telegram/ingress';
+import { MiniAppLinks } from './telegram/mini-app-links';
 import { TelegramOrderNotifier } from './telegram/order-notifier';
 import { TelegramUpdatesRepo } from './telegram/updates.repo';
 import { createTelegramWebhookRouter } from './telegram/webhook.routes';
 import { UpdateWorker } from './telegram/worker';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
+/** The same path from `src/` under tsx and from `dist/` after the build. */
+const WEB_DIST_DIR = fileURLToPath(new URL('../../web/dist', import.meta.url));
 /** Bank receipt pages are optional evidence, so a slow page must not hold up a customer's reply. */
 const RECEIPT_PAGE_TIMEOUT_MS = 8_000;
 
@@ -254,6 +268,15 @@ const dispatch = new DispatchService(
   () => new Date(),
 );
 events.subscribe('order.transitioned', (event) => dispatch.orderTransitioned(event));
+const live = new LiveEvents();
+events.subscribe('order.created', ({ shopId, orderId }) => {
+  live.publish(shopId, { type: 'order.created', orderId });
+  return Promise.resolve();
+});
+events.subscribe('order.transitioned', ({ shopId, orderId, from, to }) => {
+  live.publish(shopId, { type: 'order.transitioned', orderId, from, to });
+  return Promise.resolve();
+});
 const trips = new TripService(
   database.db,
   deliveryJobs,
@@ -336,7 +359,10 @@ const paymentReview = new PaymentReview(
   paymentNotifier,
 );
 
-const customerChat = new TelegramCustomerChat(telegramApi);
+const customerChat = new TelegramCustomerChat(
+  telegramApi,
+  env.WEB_APP_URL === undefined ? undefined : new MiniAppLinks(env.WEB_APP_URL),
+);
 const customerMemory = new CustomerMemoryService(database.db, new CustomerFactsRepo());
 const guard = new PolicyGuard(database.db, new DecisionsRepo());
 const registry = new ToolRegistry(
@@ -410,7 +436,7 @@ const auth = new AuthService({
   now: () => new Date(),
 });
 
-const ownerAuth = requireAuth((token) => auth.verifyToken(token));
+const signedIn = requireAuth((token) => auth.verifyToken(token));
 const shopOwner = requireShopOwner((telegramUserId) => shops.ownedShopIds(telegramUserId));
 
 const app = createApp({
@@ -418,16 +444,39 @@ const app = createApp({
   routers: [
     createTelegramWebhookRouter({ secret: env.TELEGRAM_WEBHOOK_SECRET, ingress }),
     createJobsRouter(jobs, env.JOB_SECRET),
-    createAuthRouter(auth),
-    createShopsRouter({ shops, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
-    createCatalogRouter({ catalog, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
+    createAuthRouter(auth, botInfo.username),
+    createShopsRouter({ shops, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createCatalogRouter({ catalog, requireAuth: signedIn, requireShopOwner: shopOwner }),
     createDeliveryRouter({
       delivery,
       saverSchedule,
-      requireAuth: ownerAuth,
+      requireAuth: signedIn,
       requireShopOwner: shopOwner,
     }),
-    createDriversRouter({ drivers, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
+    createDriversRouter({ drivers, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createOrdersRouter({
+      board: new OrderBoardService(database.db, new OrderBoardRepo()),
+      tracking: new OrderTrackingService(orders, shops),
+      requireAuth: signedIn,
+      requireShopOwner: shopOwner,
+    }),
+    createLiveRouter({ live, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createDriverAppRouter({
+      board: new DriverBoardService(
+        database.db,
+        new DriverBoardRepo(),
+        deliveryJobs,
+        driversRepo,
+        shops,
+        orders,
+        customers,
+      ),
+      dispatch,
+      trips,
+      requireAuth: signedIn,
+    }),
+    // Last, so the web app's fallback pages never shadow an API route.
+    createWebAppRouter(WEB_DIST_DIR),
   ],
 });
 const server = app.listen(env.PORT, () => {

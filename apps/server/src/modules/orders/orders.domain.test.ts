@@ -1,6 +1,6 @@
 import { orderStatusSchema, type OrderStatus } from '@buchi/shared';
 import { describe, expect, it } from 'vitest';
-import { nextState, type OrderEvent } from './orders.domain';
+import { nextState, orderReference, paymentInstructions, type OrderEvent } from './orders.domain';
 
 /** Every allowed move, written out independently of the table in the code under test. */
 const allowed: [OrderStatus, OrderEvent, OrderStatus, string][] = [
@@ -46,5 +46,34 @@ describe('nextState', () => {
         expect(nextState(from, event).allowed).toBe(false);
       }
     }
+  });
+});
+
+describe('orderReference', () => {
+  it('uses the first six characters of the order ID in uppercase', () => {
+    expect(orderReference('3f2a9c1e-0000-4000-8000-000000000000')).toBe('#3F2A9C');
+  });
+});
+
+describe('paymentInstructions', () => {
+  const text = paymentInstructions({
+    orderId: '3f2a9c1e-0000-4000-8000-000000000000',
+    total: '4500',
+    deadline: new Date('2026-11-05T15:30:00Z'),
+    accounts: [
+      { provider: 'telebirr', accountName: 'Selam Tesfaye', accountNumber: '0911234567' },
+      { provider: 'cbe_bank', accountName: 'Selam Tesfaye', accountNumber: '1000123456789' },
+    ],
+  });
+
+  it('lists the exact total and every account', () => {
+    expect(text).toContain('#3F2A9C');
+    expect(text).toContain('4,500.00 ብር');
+    expect(text).toContain('Telebirr: 0911234567 (Selam Tesfaye)');
+    expect(text).toContain('CBE (Commercial Bank of Ethiopia): 1000123456789');
+  });
+
+  it('shows the deadline in Addis Ababa time', () => {
+    expect(text).toContain('5 Nov, 18:30');
   });
 });

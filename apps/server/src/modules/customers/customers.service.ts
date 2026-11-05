@@ -1,12 +1,27 @@
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import type { CustomerRow, CustomersRepo } from './customers.repo';
+import type { CustomerSession, SessionsRepo } from './sessions.repo';
 
 export class CustomersService {
   constructor(
     private readonly db: Database,
     private readonly repo: CustomersRepo,
+    private readonly sessions: SessionsRepo,
   ) {}
+
+  /** Points the customer's chat at the shop whose Buy link they tapped. */
+  startSession(telegramUserId: number, shopId: string): Promise<void> {
+    return this.sessions.start(telegramUserId, shopId);
+  }
+
+  sessionOf(telegramUserId: number): Promise<CustomerSession | undefined> {
+    return this.sessions.find(telegramUserId);
+  }
+
+  rememberChosenVariant(telegramUserId: number, variantId: string | null): Promise<void> {
+    return this.sessions.setPendingVariant(telegramUserId, variantId);
+  }
 
   identify(shopId: string, telegramUserId: number, name: string): Promise<CustomerRow> {
     return withShop(this.db, shopId, (tx) =>

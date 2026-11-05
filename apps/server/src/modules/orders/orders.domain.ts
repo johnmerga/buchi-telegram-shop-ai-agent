@@ -1,4 +1,10 @@
-import type { OrderStatus } from '@buchi/shared';
+import {
+  formatBirr,
+  type MoneyString,
+  type OrderStatus,
+  type PaymentAccount,
+  type PaymentProvider,
+} from '@buchi/shared';
 
 export type OrderEvent =
   | 'quote_accepted'
@@ -51,4 +57,44 @@ export function nextState(current: OrderStatus, event: OrderEvent): TransitionRe
   return transition.from.includes(current)
     ? { allowed: true, to: transition.to, stock: transition.stock }
     : { allowed: false };
+}
+
+/** A short order number that customers can read out, such as "#3F2A9C". */
+export function orderReference(orderId: string): string {
+  return `#${orderId.slice(0, 6).toUpperCase()}`;
+}
+
+const providerNames: Record<PaymentProvider, string> = {
+  telebirr: 'Telebirr',
+  cbe_birr: 'CBE Birr',
+  cbe_bank: 'CBE (Commercial Bank of Ethiopia)',
+};
+
+const addisTime = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Africa/Addis_Ababa',
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/**
+ * Payment instructions come from this template, never from the model, so account numbers and
+ * amounts are always exactly what the shop configured.
+ */
+export function paymentInstructions(input: {
+  orderId: string;
+  total: MoneyString;
+  deadline: Date;
+  accounts: PaymentAccount[];
+}): string {
+  const accounts = input.accounts.map(
+    (a) => `• ${providerNames[a.provider]}: ${a.accountNumber} (${a.accountName})`,
+  );
+  return [
+    `✅ ትዕዛዝ ${orderReference(input.orderId)} ተይዞልዎታል / Order ${orderReference(input.orderId)} is reserved for you.`,
+    `ጠቅላላ / Total: ${formatBirr(input.total)}\nPickup at the shop.`,
+    ['ከእነዚህ በአንዱ ይክፈሉ / Pay to one of these accounts:', ...accounts].join('\n'),
+    `Pay before ${addisTime.format(input.deadline)} (Addis Ababa time), then send the payment screenshot here.`,
+  ].join('\n\n');
 }

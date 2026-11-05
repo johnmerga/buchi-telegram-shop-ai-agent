@@ -13,6 +13,8 @@ export interface BotDeps {
 export function createBot({ token, ownedShopIds, handlers, botInfo }: BotDeps): Bot<BuchiContext> {
   const bot = new Bot<BuchiContext>(token, { botInfo });
   bot.use(actorMiddleware(ownedShopIds));
+  // Handlers run before the greeting, so `/start` with a Buy link payload reaches its handler.
+  for (const handler of handlers) bot.use(handler);
   bot.command('start', (ctx) =>
     ctx.reply(
       ctx.actor.role === 'owner'
@@ -20,6 +22,5 @@ export function createBot({ token, ownedShopIds, handlers, botInfo }: BotDeps): 
         : 'ሰላም! I am Buchi. Tap Buy on a channel post to start an order.',
     ),
   );
-  for (const handler of handlers) bot.use(handler);
   return bot;
 }

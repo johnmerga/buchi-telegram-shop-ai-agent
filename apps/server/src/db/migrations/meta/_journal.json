@@ -57,6 +57,20 @@
       "when": 1793838557881,
       "tag": "0007_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793838790239,
+      "tag": "0008_customer_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793838791368,
+      "tag": "0009_channel_post_shop",
+      "breakpoints": true
     }
   ]
 }

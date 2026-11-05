@@ -1,4 +1,4 @@
-import { paymentProviderSchema } from '@buchi/shared';
+import { paymentProviders } from '@buchi/shared';
 import {
   bigint,
   doublePrecision,
@@ -38,7 +38,7 @@ export const shopMembers = pgTable(
   (t) => [primaryKey({ columns: [t.shopId, t.telegramUserId] }), shopIsolation(t.shopId)],
 );
 
-export const paymentProvider = pgEnum('payment_provider', paymentProviderSchema.options);
+export const paymentProvider = pgEnum('payment_provider', paymentProviders);
 
 /** Accounts that customers pay into. Rule R4 checks every receipt's receiver against them. */
 export const paymentAccounts = pgTable(

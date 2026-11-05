@@ -40,3 +40,9 @@ export class Money {
     return `${birr.toString()}.${fraction}`;
   }
 }
+
+/** Formats an amount the way Ethiopian shops write it, such as "3,500.00 ብር". */
+export function formatBirr(amount: MoneyString): string {
+  const [birr = '0', fraction = '00'] = Money.of(amount).toString().split('.');
+  return `${birr.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${fraction} ብር`;
+}

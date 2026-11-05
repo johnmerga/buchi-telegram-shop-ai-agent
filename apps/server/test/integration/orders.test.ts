@@ -9,6 +9,7 @@ import { CatalogRepo } from '../../src/modules/catalog/catalog.repo';
 import { CatalogService } from '../../src/modules/catalog/catalog.service';
 import { CustomersRepo } from '../../src/modules/customers/customers.repo';
 import { CustomersService } from '../../src/modules/customers/customers.service';
+import { SessionsRepo } from '../../src/modules/customers/sessions.repo';
 import { OrdersRepo } from '../../src/modules/orders/orders.repo';
 import { OrderService } from '../../src/modules/orders/orders.service';
 import { ShopsRepo } from '../../src/modules/shops/shops.repo';
@@ -25,7 +26,7 @@ const noTelegram = {
 };
 const shops = new ShopsService(db, new ShopsRepo(db), noTelegram);
 const catalog = new CatalogService(db, new CatalogRepo(), shops, noTelegram, 'bot');
-const customers = new CustomersService(db, new CustomersRepo());
+const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const bus = new EventBus(pino({ level: 'silent' }));
 const published: DomainEvents['order.transitioned'][] = [];
 bus.subscribe('order.transitioned', (event) => {

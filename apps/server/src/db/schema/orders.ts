@@ -1,4 +1,4 @@
-import { deliveryTypeSchema, orderStatusSchema } from '@buchi/shared';
+import { deliveryTypes, orderStatuses } from '@buchi/shared';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -17,9 +17,9 @@ import { customers } from './customers';
 import { shopIsolation } from './rls';
 import { shops } from './shops';
 
-export const orderStatus = pgEnum('order_status', orderStatusSchema.options);
+export const orderStatus = pgEnum('order_status', orderStatuses);
 
-export const deliveryType = pgEnum('delivery_type', deliveryTypeSchema.options);
+export const deliveryType = pgEnum('delivery_type', deliveryTypes);
 
 export const orderActor = pgEnum('order_actor', ['customer', 'owner', 'agent', 'system']);
 

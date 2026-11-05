@@ -16,9 +16,17 @@ import { JobService } from './modules/jobs/jobs.service';
 import { TimersRepo } from './modules/jobs/timers.repo';
 import { TimerService } from './modules/jobs/timers.service';
 import { ShopsRepo } from './modules/shops/shops.repo';
+import { CustomersRepo } from './modules/customers/customers.repo';
+import { CustomersService } from './modules/customers/customers.service';
+import { SessionsRepo } from './modules/customers/sessions.repo';
+import { CheckoutService } from './modules/orders/checkout.service';
+import { OrdersRepo } from './modules/orders/orders.repo';
+import { OrderService } from './modules/orders/orders.service';
+import { createPurchaseHandlers } from './modules/orders/purchase.handlers';
 import { createShopsRouter } from './modules/shops/shops.routes';
 import { ShopsService } from './modules/shops/shops.service';
 import { TelegramChannels } from './telegram/channels';
+import { EventBus } from './shared/events';
 import { createBot } from './telegram/bot';
 import { TelegramIngress } from './telegram/ingress';
 import { TelegramUpdatesRepo } from './telegram/updates.repo';
@@ -47,11 +55,23 @@ const catalog = new CatalogService(
   botInfo.username,
 );
 
+const events = new EventBus(logger);
+const customers = new CustomersService(
+  database.db,
+  new CustomersRepo(),
+  new SessionsRepo(database.db),
+);
+const orders = new OrderService(database.db, new OrdersRepo(), events);
+const checkout = new CheckoutService(customers, orders, shops, () => new Date());
+
 const bot = createBot({
   token: env.TELEGRAM_BOT_TOKEN,
   botInfo,
   ownedShopIds: (telegramUserId) => shops.ownedShopIds(telegramUserId),
-  handlers: [createCatalogHandlers(catalog)],
+  handlers: [
+    createPurchaseHandlers({ catalog, customers, checkout }),
+    createCatalogHandlers(catalog),
+  ],
 });
 
 const updatesRepo = new TelegramUpdatesRepo(database.db);

@@ -1,19 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  availableSizes,
-  buyLink,
-  formatBirr,
-  postContent,
-  postIdFromStartPayload,
-} from './catalog.domain';
-
-describe('formatBirr', () => {
-  it('groups thousands and keeps two decimals', () => {
-    expect(formatBirr('3500')).toBe('3,500.00 ብር');
-    expect(formatBirr('1234567.5')).toBe('1,234,567.50 ብር');
-    expect(formatBirr('99.99')).toBe('99.99 ብር');
-  });
-});
+import { availableSizes, buyLink, postContent, postIdFromStartPayload } from './catalog.domain';
 
 describe('availableSizes', () => {
   it('lists sizes with unreserved stock in natural order, once each', () => {

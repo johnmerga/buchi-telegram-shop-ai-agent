@@ -1,4 +1,4 @@
-import { pricingModeSchema } from '@buchi/shared';
+import { pricingModes } from '@buchi/shared';
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
@@ -18,7 +18,7 @@ import {
 import { shopIsolation } from './rls';
 import { shops } from './shops';
 
-export const pricingMode = pgEnum('pricing_mode', pricingModeSchema.options);
+export const pricingMode = pgEnum('pricing_mode', pricingModes);
 
 /**
  * Child rows reference their product by (product, shop). Foreign key checks ignore row-level

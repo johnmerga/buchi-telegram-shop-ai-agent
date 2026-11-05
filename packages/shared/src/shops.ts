@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const paymentProviderSchema = z.enum(['telebirr', 'cbe_birr', 'cbe_bank']);
+export const paymentProviders = ['telebirr', 'cbe_birr', 'cbe_bank'] as const;
+export const paymentProviderSchema = z.enum(paymentProviders);
 export type PaymentProvider = z.infer<typeof paymentProviderSchema>;
 
 export const createShopSchema = z.object({ name: z.string().trim().min(2).max(80) });

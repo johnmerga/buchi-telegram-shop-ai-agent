@@ -1,4 +1,4 @@
-import { Money, type MoneyString, type PricingMode } from '@buchi/shared';
+import { formatBirr, type MoneyString, type PricingMode } from '@buchi/shared';
 
 export interface PostableProduct {
   title: string;
@@ -19,12 +19,6 @@ export interface PostContent {
 }
 
 const START_PREFIX = 'p_';
-
-/** Formats an amount the way Ethiopian shops write it, such as "3,500.00 ብር". */
-export function formatBirr(amount: MoneyString): string {
-  const [birr = '0', fraction = '00'] = Money.of(amount).toString().split('.');
-  return `${birr.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${fraction} ብር`;
-}
 
 /** Sizes that a customer can still buy, in natural order such as 39, 40, 41, M, L. */
 export function availableSizes(variants: VariantStock[]): string[] {

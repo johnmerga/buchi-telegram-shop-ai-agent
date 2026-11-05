@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Order states from the state machine in docs/SOLUTION_DESIGN.md (Key workflows). */
-export const orderStatusSchema = z.enum([
+export const orderStatuses = [
   'quoting',
   'awaiting_payment',
   'verifying',
@@ -14,18 +14,23 @@ export const orderStatusSchema = z.enum([
   'delivered',
   'expired',
   'cancelled',
-]);
+] as const;
+export const orderStatusSchema = z.enum(orderStatuses);
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 
-export const deliveryTypeSchema = z.enum(['free', 'express', 'saver', 'far', 'pickup']);
+export const deliveryTypes = ['free', 'express', 'saver', 'far', 'pickup'] as const;
+export const deliveryTypeSchema = z.enum(deliveryTypes);
 export type DeliveryType = z.infer<typeof deliveryTypeSchema>;
 
-export const pricingModeSchema = z.enum(['fixed', 'negotiable']);
+export const pricingModes = ['fixed', 'negotiable'] as const;
+export const pricingModeSchema = z.enum(pricingModes);
 export type PricingMode = z.infer<typeof pricingModeSchema>;
 
 /** Actions at the "code only" level have no agent tool, so they need no value here. */
-export const autonomyLevelSchema = z.enum(['automatic', 'owner_confirms']);
+export const autonomyLevels = ['automatic', 'owner_confirms'] as const;
+export const autonomyLevelSchema = z.enum(autonomyLevels);
 export type AutonomyLevel = z.infer<typeof autonomyLevelSchema>;
 
-export const actorRoleSchema = z.enum(['customer', 'driver', 'owner']);
+export const actorRoles = ['customer', 'driver', 'owner'] as const;
+export const actorRoleSchema = z.enum(actorRoles);
 export type ActorRole = z.infer<typeof actorRoleSchema>;

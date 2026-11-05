@@ -12,7 +12,7 @@ const shopB = '00000000-0000-4000-8000-00000000000b';
  * Tables that have `shop_id` but are platform-wide on purpose. The tick claims due timers across
  * every shop, and `shop_id` only tells a timer handler which shop to run in.
  */
-const platformWideTables = ['timers'];
+const platformWideTables = ['timers', 'customer_sessions'];
 /** Postgres reports a row-level security violation with this SQLSTATE. */
 const insufficientPrivilege = '42501';
 

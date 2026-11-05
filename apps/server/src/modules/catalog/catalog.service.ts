@@ -25,6 +25,11 @@ export interface ProductWithVariants extends ProductRow {
   variants: VariantRow[];
 }
 
+export interface VariantForSale {
+  variant: VariantRow;
+  product: ProductRow;
+}
+
 export class CatalogService {
   constructor(
     private readonly db: Database,
@@ -71,6 +76,31 @@ export class CatalogService {
       }
       throw err;
     }
+  }
+
+  /** Opens a Buy link: finds the post's shop and product, and counts the tap. */
+  async openPost(
+    postId: string,
+  ): Promise<{ shopId: string; product: ProductWithVariants } | undefined> {
+    const shopId = await this.repo.shopOfPost(this.db, postId);
+    if (!shopId) return undefined;
+    return withShop(this.db, shopId, async (tx) => {
+      const productId = await this.repo.tapPost(tx, postId);
+      const product = productId ? await this.repo.findProduct(tx, productId) : undefined;
+      if (!product?.active) return undefined;
+      return {
+        shopId,
+        product: { ...product, variants: await this.repo.listVariants(tx, product.id) },
+      };
+    });
+  }
+
+  variantForSale(shopId: string, variantId: string): Promise<VariantForSale | undefined> {
+    return withShop(this.db, shopId, async (tx) => {
+      const variant = await this.repo.findVariant(tx, variantId);
+      const product = variant ? await this.repo.findProduct(tx, variant.productId) : undefined;
+      return variant && product?.active ? { variant, product } : undefined;
+    });
   }
 
   /** The most recent products across an owner's shops, for choosing where a photo goes. */

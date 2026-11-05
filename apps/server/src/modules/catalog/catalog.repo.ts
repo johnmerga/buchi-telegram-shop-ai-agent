@@ -1,6 +1,6 @@
 import type { ProductInput, VariantInput } from '@buchi/shared';
 import { eq, sql } from 'drizzle-orm';
-import type { Transaction } from '../../db/client';
+import type { Database, Transaction } from '../../db/client';
 import { channelPosts, products, productVariants } from '../../db/schema';
 
 export type ProductRow = typeof products.$inferSelect;
@@ -74,6 +74,29 @@ export class CatalogRepo {
       .where(eq(products.id, productId))
       .returning({ id: products.id });
     return updated.length > 0;
+  }
+
+  /** Resolves a Buy link's post to its shop through the `channel_post_shop_id` function. */
+  async shopOfPost(db: Database, postId: string): Promise<string | undefined> {
+    const [row] = await db.execute<{ shop_id: string | null }>(
+      sql`select channel_post_shop_id(${postId}) as shop_id`,
+    );
+    return row?.shop_id ?? undefined;
+  }
+
+  /** Counts a Buy tap and returns the post's product. */
+  async tapPost(tx: Transaction, postId: string): Promise<string | undefined> {
+    const [row] = await tx
+      .update(channelPosts)
+      .set({ taps: sql`${channelPosts.taps} + 1` })
+      .where(eq(channelPosts.id, postId))
+      .returning({ productId: channelPosts.productId });
+    return row?.productId;
+  }
+
+  async findVariant(tx: Transaction, variantId: string): Promise<VariantRow | undefined> {
+    const [row] = await tx.select().from(productVariants).where(eq(productVariants.id, variantId));
+    return row;
   }
 
   async insertPost(

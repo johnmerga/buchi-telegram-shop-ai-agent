@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Money, moneySchema } from './money';
+import { formatBirr, Money, moneySchema } from './money';
 
 describe('moneySchema', () => {
   it.each(['0', '100', '100.00', '12.23', '12.5'])('accepts %s', (value) => {
@@ -31,5 +31,13 @@ describe('Money', () => {
     expect(Money.of('3000').compare(Money.of('3500.00'))).toBe(-1);
     expect(Money.of('3500').compare(Money.of('3500.00'))).toBe(0);
     expect(Money.of('3500.01').compare(Money.of('3500'))).toBe(1);
+  });
+});
+
+describe('formatBirr', () => {
+  it('groups thousands and keeps two decimals', () => {
+    expect(formatBirr('3500')).toBe('3,500.00 ብር');
+    expect(formatBirr('1234567.5')).toBe('1,234,567.50 ብር');
+    expect(formatBirr('99.99')).toBe('99.99 ብር');
   });
 });

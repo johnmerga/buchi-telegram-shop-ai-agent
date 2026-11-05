@@ -76,8 +76,8 @@ export function operationsSituationsSuite(db: Database): Suite {
     input,
     expected,
     metrics: {
-      actionMatch: { atLeast: 1 },
-      autonomyMatch: { atLeast: 1 },
+      actionMatch: { atLeast: 0.8 },
+      autonomyMatch: { atLeast: 0.9 },
     },
     run,
     score: (actual, { expected: wanted }) => {

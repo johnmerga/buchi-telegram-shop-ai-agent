@@ -2,7 +2,7 @@
 {"id":"pay-after-work-amharic","input":{"situation":"payment_deadline","message":"ከስራ በኋላ እከፍላለሁ","extensionsMade":0},"expected":{"automatic":["extend_deadline"],"ownerConfirms":[]}}
 {"id":"second-extension-goes-to-owner","input":{"situation":"payment_deadline","message":"Sorry, I need 30 more minutes","extensionsMade":1},"expected":{"automatic":[],"ownerConfirms":["extend_deadline"]}}
 {"id":"question-near-deadline-left-to-sales","input":{"situation":"payment_deadline","message":"Is it real leather?","extensionsMade":0},"expected":{"automatic":[],"ownerConfirms":[]}}
-{"id":"customer-not-answering","input":{"situation":"driver_report","message":"ደንበኛው ስልክ አያነሳም"},"expected":{"automatic":["message_customer","reschedule_delivery"],"ownerConfirms":[]}}
+{"id":"customer-not-answering","input":{"situation":"driver_report","message":"ደንበኛው ስልክ አያነሳም"},"expected":{"automatic":["message_customer","message_driver","reschedule_delivery"],"ownerConfirms":[]}}
 {"id":"driver-stuck-in-traffic","input":{"situation":"driver_report","message":"Stuck at Megenagna, 30 minutes late"},"expected":{"automatic":["update_eta","save_area_note"],"ownerConfirms":[]}}
 {"id":"late-trip-without-report","input":{"situation":"delivery_late"},"expected":{"automatic":["message_driver","update_eta"],"ownerConfirms":[]}}
 {"id":"no-driver-accepted","input":{"situation":"no_driver_accepted"},"expected":{"automatic":[],"ownerConfirms":["propose_bonus"]}}

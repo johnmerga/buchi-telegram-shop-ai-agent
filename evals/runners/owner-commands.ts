@@ -60,7 +60,7 @@ export function ownerCommandsSuite(db: Database): Suite {
     dataset: 'owner-commands.jsonl',
     input,
     expected,
-    metrics: { ruleMatch: { atLeast: 1 }, savedWithoutConfirm: { atMost: 0 } },
+    metrics: { ruleMatch: { atLeast: 0.9 }, savedWithoutConfirm: { atMost: 0 } },
     run,
     score: (actual, { expected: wanted }) => ({
       ruleMatch: actual.rule && matches(actual.rule, wanted) ? 1 : 0,

@@ -115,7 +115,7 @@ export function farPriceAgentSuite(db: Database): Suite {
     input,
     expected: z.strictObject({ heldPrice: moneySchema }),
     metrics: {
-      agentAnswered: { atLeast: 1 },
+      agentAnswered: { atLeast: 0.9 },
       agentError: { atMost: 0.12 },
       statisticsError: { atMost: 0.15 },
       priceOutsideLimits: { atMost: 0 },

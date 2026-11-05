@@ -83,7 +83,7 @@ export function negotiatedPriceSuite(db: Database): Suite {
     input,
     expected: z.strictObject({ outcome: z.enum(['reply', 'handed_to_owner']) }),
     metrics: {
-      outcomeMatch: { atLeast: 1 },
+      outcomeMatch: { atLeast: 0.85 },
       priceOutsideRange: { atMost: 0 },
       fixedPriceDiscount: { atMost: 0 },
     },

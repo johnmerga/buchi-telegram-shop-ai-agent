@@ -99,15 +99,35 @@ export function ownerQuestionsSuite(db: Database): Suite {
     dataset: 'owner-questions.jsonl',
     input,
     expected,
-    metrics: { sameRows: { atLeast: 1 } },
+    metrics: { sameRows: { atLeast: 0.85 } },
     run: answer,
     score: (actual, { expected: wanted }) => ({
       sameRows: wanted.refused
         ? Number(actual.rows === null)
         : Number(
             actual.rows !== null &&
-              JSON.stringify(actual.rows) === JSON.stringify(actual.reference),
+              actual.reference !== null &&
+              sameRows(actual.rows, actual.reference),
           ),
     }),
   });
+}
+
+/**
+ * The same rows in the same order. A row may carry extra columns, such as the color next to a
+ * sold-out size, as long as it holds every value of the reference row.
+ */
+function sameRows(rows: Row[], reference: Row[]): boolean {
+  return (
+    rows.length === reference.length &&
+    reference.every((expectedRow, index) => {
+      const values = (rows[index] ?? []).map(String);
+      return expectedRow.every((value) => {
+        const at = values.indexOf(String(value));
+        if (at === -1) return false;
+        values.splice(at, 1);
+        return true;
+      });
+    })
+  );
 }

@@ -5,8 +5,8 @@ import { connectDatabase, type Transaction } from '../../src/db/client';
 import { agentDecisions, agentTraces, deliveryJobs, drivers, jobStops } from '../../src/db/schema';
 import { withReportReader } from '../../src/db/with-report-reader';
 import { withShop } from '../../src/db/with-shop';
-import { InsightsRepo } from '../../src/modules/insights/insights.repo';
-import { InsightsService } from '../../src/modules/insights/insights.service';
+import { ReportingRepo } from '../../src/modules/reporting/reporting.repo';
+import { ReportingService } from '../../src/modules/reporting/reporting.service';
 import { buttonsOf, calls, text, userOf } from '../fakes/operations-fixtures';
 import { createOwnerBot, type Clock } from '../fakes/owner-bot';
 import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
@@ -19,7 +19,7 @@ const clock: Clock = { now: new Date() };
 const script: ScriptedTurn[] = [];
 const model = new ScriptedModel(script);
 const { bot, sent, charts, services } = createOwnerBot(db, model, clock);
-const { shops, catalog, customers, orders, delivery, insights, weekly } = services;
+const { shops, catalog, customers, orders, delivery, reporting, weekly } = services;
 
 const owner = userOf(890001, 'Selam');
 const otherOwner = userOf(890002, 'Mulu');
@@ -113,7 +113,7 @@ const bestSellers =
 
 describe('ask_data', () => {
   it("answers from the shop's own rows only", async () => {
-    const result = await insights.ask(shopId, bestSellers);
+    const result = await reporting.ask(shopId, bestSellers);
     expect(result).toEqual({
       columns: ['product_title', 'units'],
       rows: [
@@ -121,7 +121,7 @@ describe('ask_data', () => {
         { product_title: 'Adidas Samba', units: '1' },
       ],
     });
-    const other = await insights.ask(otherShopId, bestSellers);
+    const other = await reporting.ask(otherShopId, bestSellers);
     expect(other.rows).toEqual([{ product_title: 'Red dress', units: '9' }]);
   });
 
@@ -134,19 +134,19 @@ describe('ask_data', () => {
     ['a function outside the allowlist', 'select pg_sleep(5) from report_orders'],
   ])('rejects %s before it reaches the database', async (_case, query) => {
     let reached = 0;
-    class CountingRepo extends InsightsRepo {
+    class CountingRepo extends ReportingRepo {
       override checkedQuery(tx: Transaction, checkedSql: string) {
         reached += 1;
         return super.checkedQuery(tx, checkedSql);
       }
     }
-    const counted = new InsightsService(db, new CountingRepo(db), () => clock.now);
+    const counted = new ReportingService(db, new CountingRepo(db), () => clock.now);
     await expect(counted.ask(shopId, query)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(reached).toBe(0);
   });
 
   it('turns a query mistake into an error the model can fix', async () => {
-    await expect(insights.ask(shopId, 'select no_such_column from report_sales')).rejects.toThrow(
+    await expect(reporting.ask(shopId, 'select no_such_column from report_sales')).rejects.toThrow(
       'column "no_such_column" does not exist',
     );
   });
@@ -214,8 +214,8 @@ describe("the owner's questions", () => {
 describe('weekly suggestions', () => {
   it('send only suggestions whose numbers came from the analysis, each as a rule preview', async () => {
     // Other test files' shops have orders too; only this shop's week is left to run.
-    for (const other of await insights.shopsForWeeklySuggestions()) {
-      if (other !== shopId) await insights.claimWeek(other);
+    for (const other of await reporting.shopsForWeeklySuggestions()) {
+      if (other !== shopId) await reporting.claimWeek(other);
     }
     script.push(calls(['weekly_analysis', {}]), {
       text: JSON.stringify({

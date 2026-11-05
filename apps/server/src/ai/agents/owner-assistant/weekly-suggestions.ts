@@ -1,5 +1,5 @@
 import type { Logger } from 'pino';
-import type { InsightsService } from '../../../modules/insights/insights.service';
+import type { ReportingService } from '../../../modules/reporting/reporting.service';
 import type { OwnerAlerts } from '../../../modules/owner/owner-alerts.service';
 import { ruleProposalSchema } from '../../../modules/rules/rules.schemas';
 import type { OwnerApprovals } from '../../approvals/owner-approvals.service';
@@ -31,7 +31,7 @@ type WeeklySummary = { shops: number; suggestions: number; dropped: number };
 export class WeeklySuggestions {
   constructor(
     private readonly runtime: Pick<AgentRuntime, 'run'>,
-    private readonly insights: Pick<InsightsService, 'shopsForWeeklySuggestions' | 'claimWeek'>,
+    private readonly reporting: Pick<ReportingService, 'shopsForWeeklySuggestions' | 'claimWeek'>,
     private readonly guard: Pick<PolicyGuard, 'requestOwnerConfirmation'>,
     private readonly approvals: Pick<OwnerApprovals, 'requestFor'>,
     private readonly alerts: Pick<OwnerAlerts, 'send'>,
@@ -41,8 +41,8 @@ export class WeeklySuggestions {
 
   async run(): Promise<WeeklySummary> {
     const summary: WeeklySummary = { shops: 0, suggestions: 0, dropped: 0 };
-    for (const shopId of await this.insights.shopsForWeeklySuggestions()) {
-      if (!(await this.insights.claimWeek(shopId))) continue;
+    for (const shopId of await this.reporting.shopsForWeeklySuggestions()) {
+      if (!(await this.reporting.claimWeek(shopId))) continue;
       const sent = await this.runShop(shopId);
       summary.shops += 1;
       summary.suggestions += sent.suggestions;

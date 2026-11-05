@@ -31,6 +31,13 @@ export const ownerKeys = {
   products: (shopId: string) => ['shops', shopId, 'products'] as const,
   drivers: (shopId: string) => ['shops', shopId, 'drivers'] as const,
   delivery: (shopId: string) => ['shops', shopId, 'delivery'] as const,
+  paymentReviews: (shopId: string) => ['shops', shopId, 'payment-reviews'] as const,
+  conversations: (shopId: string) => ['shops', shopId, 'conversations'] as const,
+  aiDecisions: (shopId: string) => ['shops', shopId, 'ai-decisions'] as const,
+  deliveries: (shopId: string) => ['shops', shopId, 'deliveries'] as const,
+  zones: (shopId: string) => ['shops', shopId, 'zones'] as const,
+  insights: (shopId: string) => ['shops', shopId, 'insights'] as const,
+  ledger: (shopId: string) => ['shops', shopId, 'ledger'] as const,
 };
 
 export function useShops() {

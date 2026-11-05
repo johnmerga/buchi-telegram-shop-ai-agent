@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { agentDecisions } from '../../db/schema';
 
@@ -39,6 +39,19 @@ export class DecisionsRepo {
       .where(and(eq(agentDecisions.id, decisionId), eq(agentDecisions.ownerStatus, 'pending')))
       .returning();
     return row;
+  }
+
+  /** The latest decisions, with requests that still wait for the owner first. */
+  recent(tx: Transaction, limit: number): Promise<DecisionRow[]> {
+    return tx
+      .select()
+      .from(agentDecisions)
+      .orderBy(
+        // A decision without an owner status compares as null, which `desc` would put first.
+        desc(sql`coalesce(${agentDecisions.ownerStatus} = 'pending', false)`),
+        desc(agentDecisions.createdAt),
+      )
+      .limit(limit);
   }
 
   async find(tx: Transaction, decisionId: string): Promise<DecisionRow | undefined> {

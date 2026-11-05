@@ -133,19 +133,3 @@ GRANT USAGE ON SCHEMA public TO report_reader;
 --> statement-breakpoint
 GRANT SELECT ON report_orders, report_sales, report_stock, report_deliveries, report_drivers,
   report_demand, report_waitlist TO report_reader;
---> statement-breakpoint
--- The weekly suggestions run for shops with orders in the analysed weeks, which row-level
--- security hides before a shop is selected. This returns only shop IDs.
-CREATE FUNCTION weekly_suggestion_shop_ids(p_since timestamptz)
-RETURNS SETOF uuid
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT DISTINCT shop_id FROM orders WHERE created_at >= p_since
-$$;
---> statement-breakpoint
-REVOKE ALL ON FUNCTION weekly_suggestion_shop_ids(timestamptz) FROM PUBLIC;
---> statement-breakpoint
-GRANT EXECUTE ON FUNCTION weekly_suggestion_shop_ids(timestamptz) TO app_user;

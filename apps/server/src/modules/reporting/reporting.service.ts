@@ -3,8 +3,8 @@ import { isQueryTimeout, queryMistake } from '../../db/errors';
 import { withReportReader } from '../../db/with-report-reader';
 import { withShop } from '../../db/with-shop';
 import { AppError } from '../../shared/errors';
-import { weekOf, type QueryRows } from './insights.domain';
-import type { InsightsRepo } from './insights.repo';
+import { weekOf, type QueryRows } from './reporting.domain';
+import type { ReportingRepo } from './reporting.repo';
 import { checkQuery, MAX_ROWS } from './sql-guard.domain';
 
 /** The weekly analysis looks back four weeks, enough trips and sales for an average. */
@@ -24,10 +24,10 @@ export interface WeeklyFindings {
  * Read-only answers about a shop's business. Every query runs as `report_reader` in a read-only
  * transaction with a three-second timeout, and a model-written one only after `checkQuery`.
  */
-export class InsightsService {
+export class ReportingService {
   constructor(
     private readonly db: Database,
-    private readonly repo: InsightsRepo,
+    private readonly repo: ReportingRepo,
     private readonly now: () => Date,
   ) {}
 
@@ -62,9 +62,8 @@ export class InsightsService {
     }));
   }
 
-  /** Shops with orders in the analysed period; a shop without them has nothing to learn from. */
   shopsForWeeklySuggestions(): Promise<string[]> {
-    return this.repo.shopsWithOrdersSince(this.periodStart());
+    return this.repo.shopIds();
   }
 
   /** Returns false when this week's suggestions for the shop already ran, so they run once. */

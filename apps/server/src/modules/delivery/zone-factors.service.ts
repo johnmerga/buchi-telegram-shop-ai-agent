@@ -1,3 +1,4 @@
+import type { ZoneMap } from '@buchi/shared';
 import type { Coordinates } from './location.domain';
 import {
   learnFactors,
@@ -9,7 +10,7 @@ import {
   type TimeBand,
 } from './factors.domain';
 import type { TripLegRow, ZoneFactorsRepo } from './zone-factors.repo';
-import { timeFactorZones, zoneOf } from './zones.domain';
+import { isZone, timeFactorZones, zoneBoundary, zoneOf } from './zones.domain';
 
 const DAY_MS = 24 * 60 * 60_000;
 /** Older trips weigh less than 1/4000 of a new one, so they no longer change a factor. */
@@ -57,6 +58,42 @@ export class ZoneFactorService {
     const band = timeBand(this.now());
     const rows = await this.repo.timeFactors(zones, band);
     return { ...lookupFactor(zones, new Map(rows.map((row) => [row.zone, row]))), band };
+  }
+
+  /**
+   * Every resolution-7 zone with a learned factor, as hexagons for the owner's map, and how far
+   * the last 14 days of real trips were from their estimates. Platform-wide, like the factors.
+   */
+  async zoneMap(): Promise<ZoneMap> {
+    const now = this.now();
+    const [factors, legs] = await Promise.all([
+      this.repo.allTimeFactors(),
+      this.repo.legsSince(new Date(now.getTime() - ERROR_WINDOW_MS)),
+    ]);
+    const zones = new Map<string, ZoneMap['zones'][number]>();
+    for (const { zone, band, factor, trips } of factors.filter((row) => isZone(row.zone))) {
+      const entry = zones.get(zone) ?? {
+        zone,
+        boundary: zoneBoundary(zone),
+        peak: null,
+        offPeak: null,
+      };
+      entry[band === 'peak' ? 'peak' : 'offPeak'] = { factor, trips };
+      zones.set(zone, entry);
+    }
+    const real = legs.filter((leg) => !leg.synthetic);
+    return {
+      zones: [...zones.values()],
+      estimateError:
+        real.length === 0
+          ? null
+          : {
+              trips: real.length,
+              errorPercent: percent(
+                real.map((leg) => ({ estimate: leg.expectedSeconds, actual: leg.actualSeconds })),
+              ),
+            },
+    };
   }
 
   /** Keeps only the leg's zone and times, never the pin. */

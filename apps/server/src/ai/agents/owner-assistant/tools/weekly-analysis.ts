@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import type { DeliveryService } from '../../../../modules/delivery/delivery.service';
-import type { InsightsService } from '../../../../modules/insights/insights.service';
+import type { ReportingService } from '../../../../modules/reporting/reporting.service';
 import { defineTool, type Tool } from '../../../tool';
 
 export interface WeeklyAnalysisDeps {
-  insights: Pick<InsightsService, 'weeklyFindings'>;
+  reporting: Pick<ReportingService, 'weeklyFindings'>;
   delivery: Pick<DeliveryService, 'savedSettings'>;
 }
 
@@ -20,7 +20,7 @@ export function weeklyAnalysisTool(deps: WeeklyAnalysisDeps): Tool {
     input: z.object({}),
     handle: async (_input, context) => {
       const [findings, { settings }] = await Promise.all([
-        deps.insights.weeklyFindings(context.shopId),
+        deps.reporting.weeklyFindings(context.shopId),
         deps.delivery.savedSettings(context.shopId),
       ]);
       return { status: 'ok', output: { ...findings, deliverySettings: settings } };

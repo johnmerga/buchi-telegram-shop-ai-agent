@@ -1,22 +1,15 @@
-import type { QueryRows } from '../../../modules/insights/insights.domain';
+import type { QueryRows } from '../../../modules/reporting/reporting.domain';
+import { addisDateTime } from '../../../shared/time';
 import { numbersIn, unverifiedPrices } from '../sales/reply-prices.domain';
 
-const addisNow = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Africa/Addis_Ababa',
-  weekday: 'long',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
+const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'UTC' });
 
 /** The first line of each owner turn, so the model can resolve "tomorrow" and "this weekend". */
 export function todayLine(now: Date): string {
-  const parts = Object.fromEntries(addisNow.formatToParts(now).map((p) => [p.type, p.value]));
-  const { weekday = '', year = '', month = '', day = '', hour = '', minute = '' } = parts;
-  return `[Today in Addis Ababa: ${weekday} ${year}-${month}-${day}, ${hour}:${minute}]`;
+  const [day = '', time = ''] = addisDateTime(now).split(' ');
+  // The date is the Addis calendar day, so its weekday at UTC midnight is the Addis weekday.
+  const dayName = weekday.format(new Date(`${day}T00:00:00Z`));
+  return `[Today in Addis Ababa: ${dayName} ${day}, ${time}]`;
 }
 
 /**

@@ -145,15 +145,42 @@ payments of up to 1,000 birr without the bank check and sends larger ones to own
 
 [cron-job.org](https://cron-job.org) calls the scheduled job endpoints, which also keeps the free
 Render instance awake. Each job endpoint is `POST /jobs/<name>` and requires the `x-job-secret`
-header. The only job so far is `tick`, which runs the timers that are due.
+header. Every job is safe to call twice.
 
 1. Generate a secret of at least 32 characters, for example with `openssl rand -hex 32`.
 1. In Render, set `JOB_SECRET` to that secret.
-1. In cron-job.org, click **Create cronjob** and set the URL to
-   `https://<your-render-service>.onrender.com/jobs/tick`.
-1. Set the schedule to every minute.
-1. In the **Advanced** tab, set the request method to `POST` and add the header `x-job-secret` with
-   the same secret.
-1. Save the job. Each run returns a summary such as `{"done":3,"failed":0}`.
+1. In cron-job.org, create one cronjob for each row of the following table. Set the URL to
+   `https://<your-render-service>.onrender.com/jobs/<name>`, the time zone to
+   `Africa/Addis_Ababa`, and the schedule to the cron expression.
+1. In the **Advanced** tab of each, set the request method to `POST` and add the header
+   `x-job-secret` with the same secret.
 
-A missing or wrong secret returns `401`, and an unknown job name returns `404`.
+| Job                | Cron expression (Africa/Addis_Ababa) | What it does                                                                                                                                        |
+| ------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tick`             | `* * * * *`                          | Runs due timers and sends queued Google Sheets ledger rows. Returns a summary such as `{"done":3,"failed":0,"ledgerSent":2,"ledgerFailed":0}`.      |
+| `nightly-learning` | `0 2 * * *`                          | Learns the zone time factors and forgets delivery pins older than seven days.                                                                       |
+| `morning-brief`    | `0 8 * * *`                          | Sends each shop's owners low stock, open reviews, and waitlist demand.                                                                              |
+| `evening-summary`  | `0 18 * * *`                         | Sends each shop's owners the day's orders, revenue, delivery cost, Saver savings, fraud blocked, and open reviews, and queues the day's ledger row. |
+
+The daily reports go out once per shop and day, so a repeated call sends nothing twice. Owners can
+send their own shop's report at any time with **Run now** in **Settings**, which needs no job
+secret. A missing or wrong job secret returns `401`, and an unknown job name returns `404`.
+
+### Google Sheets ledger
+
+Buchi can keep each shop's sales ledger in a Google Sheet: one row in the `Sales` tab for each paid
+order, and one row in the `Daily` tab with each evening summary. Rows wait in Postgres and the tick
+sends them, so a Sheets outage only delays them. Without Google credentials the server still starts,
+and rows wait until the credentials are set.
+
+1. In the [Google Cloud console](https://console.cloud.google.com), create a project, and enable
+   the **Google Sheets API** for it. Neither needs a billing account.
+1. Under **IAM & Admin > Service accounts**, create a service account. It needs no project role.
+1. Open the service account, select **Keys > Add key > Create new key**, and download the JSON key.
+1. In Render, set `GOOGLE_SERVICE_ACCOUNT_EMAIL` to the key's `client_email` and
+   `GOOGLE_SERVICE_ACCOUNT_KEY` to its `private_key`. A one-line value with `\n` for each line
+   break works.
+
+Each owner then creates a sheet with two tabs named `Sales` and `Daily`, shares it as **Editor**
+with the service account's email, and pastes the sheet's ID in **Settings**. The ID is the part of
+the sheet's address between `/d/` and `/edit`.

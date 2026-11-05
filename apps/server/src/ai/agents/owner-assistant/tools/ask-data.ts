@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import type { InsightsService } from '../../../../modules/insights/insights.service';
+import type { ReportingService } from '../../../../modules/reporting/reporting.service';
 import { defineTool, type Tool } from '../../../tool';
 
 export interface AskDataDeps {
-  insights: Pick<InsightsService, 'ask'>;
+  reporting: Pick<ReportingService, 'ask'>;
 }
 
 /** What `ask_data` returns, which the assistant reads back to draw a chart. */
@@ -26,7 +26,7 @@ export function askDataTool(deps: AskDataDeps): Tool {
       title: z.string().trim().min(2).max(80).describe('A short title for a chart of the result.'),
     }),
     handle: async ({ sql, title }, context) => {
-      const result = await deps.insights.ask(context.shopId, sql);
+      const result = await deps.reporting.ask(context.shopId, sql);
       return { status: 'ok', output: { title, ...result } };
     },
   });

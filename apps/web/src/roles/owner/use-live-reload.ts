@@ -2,19 +2,22 @@ import { liveEventSchema } from '@buchi/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useApi } from '../../components/api-context';
-import { ownerKeys } from './owner-api';
 
 /**
- * Reloads the order board whenever the server reports an order change, and after every reconnect,
- * because events sent while disconnected are lost.
+ * Reloads a screen's query, such as `['shops', shopId, 'orders']`, whenever the server reports an
+ * order change, and after every reconnect, because events sent while disconnected are lost.
  */
-export function useLiveOrders(shopId: string): void {
+export function useLiveReload(
+  shopId: string,
+  section: 'orders' | 'payment-reviews' | 'deliveries',
+): void {
   const api = useApi();
   const queryClient = useQueryClient();
 
   useEffect(() => {
     const abort = new AbortController();
-    const reload = () => void queryClient.invalidateQueries({ queryKey: ownerKeys.orders(shopId) });
+    const reload = () =>
+      void queryClient.invalidateQueries({ queryKey: ['shops', shopId, section] });
     void api.events(
       `/shops/${shopId}/events`,
       {
@@ -28,7 +31,7 @@ export function useLiveOrders(shopId: string): void {
     return () => {
       abort.abort();
     };
-  }, [api, queryClient, shopId]);
+  }, [api, queryClient, shopId, section]);
 }
 
 function parseJson(text: string): unknown {

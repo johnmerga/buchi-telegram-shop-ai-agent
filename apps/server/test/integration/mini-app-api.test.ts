@@ -3,6 +3,7 @@ import {
   deliverySettingsViewSchema,
   driverBoardSchema,
   driverListItemSchema,
+  holdResultSchema,
   Money,
   orderBoardItemSchema,
   productInputSchema,
@@ -42,6 +43,8 @@ import { createDriversRouter } from '../../src/modules/drivers/drivers.routes';
 import { DriverService } from '../../src/modules/drivers/drivers.service';
 import { JobOffers } from '../../src/modules/drivers/job-offers.service';
 import { DeliveryOwnerAlerts } from '../../src/modules/drivers/owner-alerts.service';
+import { SpecialJobsRepo } from '../../src/modules/drivers/special-jobs.repo';
+import { SpecialOffers } from '../../src/modules/drivers/special-offers.service';
 import { TripService } from '../../src/modules/drivers/trips.service';
 import { TimersRepo } from '../../src/modules/jobs/timers.repo';
 import { TimerService } from '../../src/modules/jobs/timers.service';
@@ -156,6 +159,17 @@ const trips = new TripService(
   clock,
 );
 
+const specialOffers = new SpecialOffers(
+  db,
+  jobsRepo,
+  new SpecialJobsRepo(),
+  driversRepo,
+  offers,
+  timers,
+  events,
+  clock,
+);
+
 const botToken = '123456:test-token';
 const auth = new AuthService({ botToken, tokenSecret: 't'.repeat(32), now: clock });
 const guards = {
@@ -189,6 +203,7 @@ const app = createApp({
         customers,
       ),
       dispatch,
+      specialOffers,
       trips,
       requireAuth: guards.requireAuth,
     }),
@@ -344,7 +359,12 @@ describe('orders across the Mini Apps', () => {
     const res = await get('/driver/board', driver);
     const board = driverBoardSchema.parse(res.body);
     expect(board.offers).toHaveLength(1);
-    expect(board.offers[0]).toMatchObject({ shopName: 'Selam Shoes', stops: 1, special: false });
+    expect(board.offers[0]).toMatchObject({
+      shopName: 'Selam Shoes',
+      stops: 1,
+      far: false,
+      raised: false,
+    });
     expect(JSON.stringify(res.body)).not.toContain('+251911000111');
     offerId = board.offers[0]?.offerId ?? '';
   });
@@ -388,5 +408,54 @@ describe('orders across the Mini Apps', () => {
     expect(after.earnings).toEqual([
       { shopName: 'Selam Shoes', deliveredTrips: 1, payout: trip?.payout },
     ]);
+  });
+});
+
+describe('far-area offers on the driver board', () => {
+  let offerId = '';
+
+  beforeAll(async () => {
+    const row = await customers.identify(shopId, 880103, 'Selam');
+    const order = await orders.create(
+      shopId,
+      {
+        customerId: row.id,
+        items: [{ variantId, quantity: 1 }],
+        delivery: { type: 'far', fee: Money.of('400'), destination: customerPin },
+        paymentDeadline: new Date(Date.now() + 3 * 60 * 60_000),
+      },
+      'customer',
+    );
+    await specialOffers.open(
+      shopId,
+      {
+        stop: { orderId: order.id, routingSeconds: 1800, expectedSeconds: 2100 },
+        routeMeters: 18_000,
+        estimatedMinutes: 35,
+      },
+      Money.of('350'),
+      false,
+    );
+  });
+
+  it('lists the far-area offer as far, so the app holds it instead of accepting it', async () => {
+    const board = driverBoardSchema.parse((await get('/driver/board', driver)).body);
+    const far = board.offers.find((offer) => offer.far);
+    expect(far).toMatchObject({ price: '350.00', routeMeters: 18_000, far: true });
+    offerId = far?.offerId ?? '';
+  });
+
+  it('lets the first driver hold it and lists it under their held offers only', async () => {
+    const first = await post(`/driver/offers/${offerId}/hold`, driver);
+    expect(holdResultSchema.parse(first.body).result).toBe('held');
+    const second = await post(`/driver/offers/${offerId}/hold`, secondDriver);
+    expect(holdResultSchema.parse(second.body).result).toBe('closed');
+    expect((await post(`/driver/offers/${offerId}/hold`, stranger)).status).toBe(404);
+
+    const holder = driverBoardSchema.parse((await get('/driver/board', driver)).body);
+    expect(holder.held.map((offer) => offer.offerId)).toEqual([offerId]);
+    expect(holder.offers.some((offer) => offer.offerId === offerId)).toBe(false);
+    const other = driverBoardSchema.parse((await get('/driver/board', secondDriver)).body);
+    expect(other.held).toEqual([]);
   });
 });

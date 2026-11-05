@@ -1,5 +1,5 @@
 import type { MoneyString } from '@buchi/shared';
-import { and, count, eq, inArray, sum } from 'drizzle-orm';
+import { and, count, eq, inArray, sum, type SQL } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { deliveryJobs, jobOffers, jobStops } from '../../db/schema';
 
@@ -7,6 +7,7 @@ export interface OpenOfferRow {
   offerId: string;
   price: MoneyString;
   raiseStep: number;
+  far: boolean;
   routeMeters: number;
   estimatedMinutes: number;
   stops: number;
@@ -20,32 +21,17 @@ export interface ActiveJobRow {
 
 /** Read-only queries for the driver Mini App. */
 export class DriverBoardRepo {
-  /**
-   * Far-area offers stay in the chat for now: accepting one only holds it, and the Mini App's
-   * accept endpoint takes a paid job.
-   */
+  /** Open offers, far-area ones included: the driver holds those instead of accepting them. */
   openOffers(tx: Transaction): Promise<OpenOfferRow[]> {
-    return tx
-      .select({
-        offerId: jobOffers.id,
-        price: jobOffers.price,
-        raiseStep: jobOffers.raiseStep,
-        routeMeters: deliveryJobs.routeMeters,
-        estimatedMinutes: deliveryJobs.estimatedMinutes,
-        stops: count(jobStops.id),
-      })
-      .from(jobOffers)
-      .innerJoin(deliveryJobs, eq(deliveryJobs.id, jobOffers.jobId))
-      .innerJoin(jobStops, eq(jobStops.jobId, deliveryJobs.id))
-      .where(
-        and(
-          eq(jobOffers.status, 'open'),
-          eq(deliveryJobs.status, 'offered'),
-          eq(deliveryJobs.special, false),
-        ),
-      )
-      .groupBy(jobOffers.id, deliveryJobs.id)
-      .orderBy(jobOffers.createdAt);
+    return this.offers(tx, and(eq(jobOffers.status, 'open'), eq(deliveryJobs.status, 'offered')));
+  }
+
+  /** Far-area offers that the driver holds while the customer decides and pays. */
+  heldOffers(tx: Transaction, driverId: string): Promise<OpenOfferRow[]> {
+    return this.offers(
+      tx,
+      and(eq(jobOffers.status, 'held'), eq(jobOffers.takenByDriverId, driverId)),
+    );
   }
 
   async activeJobs(tx: Transaction, driverId: string): Promise<ActiveJobRow[]> {
@@ -64,6 +50,25 @@ export class DriverBoardRepo {
         ? [{ ...row, status: row.status }]
         : [],
     );
+  }
+
+  private offers(tx: Transaction, where: SQL | undefined): Promise<OpenOfferRow[]> {
+    return tx
+      .select({
+        offerId: jobOffers.id,
+        price: jobOffers.price,
+        raiseStep: jobOffers.raiseStep,
+        far: deliveryJobs.special,
+        routeMeters: deliveryJobs.routeMeters,
+        estimatedMinutes: deliveryJobs.estimatedMinutes,
+        stops: count(jobStops.id),
+      })
+      .from(jobOffers)
+      .innerJoin(deliveryJobs, eq(deliveryJobs.id, jobOffers.jobId))
+      .innerJoin(jobStops, eq(jobStops.jobId, deliveryJobs.id))
+      .where(where)
+      .groupBy(jobOffers.id, deliveryJobs.id)
+      .orderBy(jobOffers.createdAt);
   }
 
   async deliveredTotals(

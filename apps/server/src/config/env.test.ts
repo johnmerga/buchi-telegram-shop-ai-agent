@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { loadDatabaseUrl, loadEnv } from './env';
 
-describe('loadEnv', () => {
-  const required = {
-    DATABASE_URL: 'postgres://user:pass@localhost:5432/db',
-    TELEGRAM_BOT_TOKEN: '123:abc',
-    TELEGRAM_WEBHOOK_SECRET: 'a'.repeat(32),
-    JOB_SECRET: 'x'.repeat(32),
-    AUTH_TOKEN_SECRET: 'y'.repeat(32),
-    GEMINI_API_KEY: 'gemini-key',
-    RISK_HASH_SECRET: 'z'.repeat(32),
-    ORS_API_KEY: 'ors-key',
-  };
+const required = {
+  DATABASE_URL: 'postgres://user:pass@localhost:5432/db',
+  TELEGRAM_BOT_TOKEN: '123:abc',
+  TELEGRAM_WEBHOOK_SECRET: 'a'.repeat(32),
+  JOB_SECRET: 'x'.repeat(32),
+  AUTH_TOKEN_SECRET: 'y'.repeat(32),
+  GEMINI_API_KEY: 'gemini-key',
+  RISK_HASH_SECRET: 'z'.repeat(32),
+  ORS_API_KEY: 'ors-key',
+};
 
+describe('loadEnv', () => {
   it('applies defaults', () => {
     expect(loadEnv(required)).toEqual({
       ...required,
@@ -51,6 +51,29 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...required, RISK_HASH_SECRET: 'z'.repeat(31) })).toThrow(
       /RISK_HASH_SECRET/,
     );
+  });
+});
+
+describe('Google service account', () => {
+  it('restores the key’s line breaks from its one-line form', () => {
+    const env = loadEnv({
+      ...required,
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: 'ledger@buchi.iam.gserviceaccount.com',
+      GOOGLE_SERVICE_ACCOUNT_KEY:
+        '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n',
+    });
+    expect(env.GOOGLE_SERVICE_ACCOUNT_KEY).toBe(
+      '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n',
+    );
+  });
+
+  it('rejects an email without a key', () => {
+    expect(() =>
+      loadEnv({
+        ...required,
+        GOOGLE_SERVICE_ACCOUNT_EMAIL: 'ledger@buchi.iam.gserviceaccount.com',
+      }),
+    ).toThrow(/GOOGLE_SERVICE_ACCOUNT_KEY/);
   });
 });
 

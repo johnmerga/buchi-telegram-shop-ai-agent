@@ -1,3 +1,5 @@
+import { addisDay } from '../../shared/time';
+
 type Cell = string | number | boolean | null;
 
 /** Query rows as plain JSON values, which the model and the chart can read. */
@@ -6,18 +8,14 @@ export interface QueryRows {
   rows: Record<string, Cell>[];
 }
 
-const addisDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' });
-const addisWeekday = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'Africa/Addis_Ababa',
-  weekday: 'short',
-});
-const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_MS = 24 * 60 * 60_000;
 
 /** The Monday of the week that `now` falls in, in Addis Ababa, as YYYY-MM-DD. */
 export function weekOf(now: Date): string {
-  const daysSinceMonday = weekdays.indexOf(addisWeekday.format(now));
-  return addisDate.format(new Date(now.getTime() - daysSinceMonday * DAY_MS));
+  const today = addisDay(now);
+  // The day's UTC weekday is its Addis weekday, because `day` is the Addis calendar date.
+  const daysSinceMonday = (new Date(`${today.day}T00:00:00Z`).getUTCDay() + 6) % 7;
+  return addisDay(new Date(today.start.getTime() - daysSinceMonday * DAY_MS)).day;
 }
 
 /** The Chart.js configuration that QuickChart renders. */

@@ -1,6 +1,6 @@
 import type { Logger } from 'pino';
 import type { ChartRenderer } from '../../../integrations/quickchart';
-import { seriesChart, type QueryRows } from '../../../modules/insights/insights.domain';
+import { seriesChart, type QueryRows } from '../../../modules/reporting/reporting.domain';
 import type { OwnerApprovals } from '../../approvals/owner-approvals.service';
 import { ownerAssistantPrompt } from '../../prompts/owner-assistant';
 import type { AgentDefinition, AgentRuntime, RunResult } from '../../runtime';

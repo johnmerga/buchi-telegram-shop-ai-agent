@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ChartConfig } from '../modules/insights/insights.domain';
+import type { ChartConfig } from '../modules/reporting/reporting.domain';
 import { urlOf } from '../../test/fakes/fetch';
 import { QuickChart } from './quickchart';
 

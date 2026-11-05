@@ -7,6 +7,7 @@ import { FarPriceEstimator } from './ai/agents/far-price/far-price-estimator';
 import { OperationsAgent } from './ai/agents/operations/operations-agent';
 import { operationsApprovals, operationsTools } from './ai/agents/operations/operations-tools';
 import { SituationBuilder } from './ai/agents/operations/situation-builder';
+import { DecisionLog } from './ai/approvals/decision-log.service';
 import { OwnerApprovals } from './ai/approvals/owner-approvals.service';
 import { OwnerAssistant } from './ai/agents/owner-assistant/owner-assistant';
 import { ownerAssistantTools } from './ai/agents/owner-assistant/owner-assistant-tools';
@@ -41,10 +42,12 @@ import {
 } from './modules/catalog/product-embeddings.service';
 import { createAuthRouter } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
+import { GoogleServiceAccount } from './integrations/google-auth';
 import { Nominatim } from './integrations/nominatim';
 import { HttpRedirects } from './integrations/redirects';
 import { OpenRouteService } from './integrations/ors';
 import { QuickChart } from './integrations/quickchart';
+import { GoogleSheets } from './integrations/sheets';
 import { AreaNotesRepo } from './modules/delivery/area-notes.repo';
 import { AreaNoteService } from './modules/delivery/area-notes.service';
 import { DeliverySettingsRepo } from './modules/delivery/delivery-settings.repo';
@@ -57,7 +60,11 @@ import { RouteService } from './modules/delivery/route.service';
 import { SaverScheduleService, SAVER_RUN_TIMER } from './modules/delivery/saver-schedule.service';
 import { ZoneFactorsRepo } from './modules/delivery/zone-factors.repo';
 import { ZoneFactorService } from './modules/delivery/zone-factors.service';
+import { createZonesRouter } from './modules/delivery/zones.routes';
 import { DeliveryJobsRepo } from './modules/drivers/delivery-jobs.repo';
+import { DeliveryMapRepo } from './modules/drivers/delivery-map.repo';
+import { createDeliveryMapRouter } from './modules/drivers/delivery-map.routes';
+import { DeliveryMapService } from './modules/drivers/delivery-map.service';
 import { createDispatchHandlers } from './modules/drivers/dispatch.handlers';
 import { DispatchService } from './modules/drivers/dispatch.service';
 import { createDriverHandlers } from './modules/drivers/drivers.handlers';
@@ -115,24 +122,28 @@ import { createPurchaseHandlers } from './modules/orders/purchase.handlers';
 import { ImageIntake } from './modules/payments/image-intake.service';
 import { PaymentNotifier } from './modules/payments/payment-notifier.service';
 import { PaymentProofsRepo } from './modules/payments/payment-proofs.repo';
+import { PaymentRecords } from './modules/payments/payment-records.service';
 import { PaymentRefsRepo } from './modules/payments/payment-refs.repo';
 import { PaymentReview } from './modules/payments/payment-review.service';
 import { PaymentVerification } from './modules/payments/payment-verification.service';
 import { createPaymentHandlers } from './modules/payments/payments.handlers';
+import { createPaymentsRouter } from './modules/payments/payments.routes';
 import { ReceiptReader } from './modules/payments/receipt-reader.service';
 import { RiskSignalsRepo } from './modules/payments/risk-signals.repo';
 import { RiskService } from './modules/payments/risk.service';
+import { createAiDecisionsRouter } from './modules/owner/ai-decisions.routes';
 import { createApprovalHandlers } from './modules/owner/approvals.handlers';
 import { createConversationHandlers } from './modules/owner/conversations.handlers';
 import { ConversationsRepo } from './modules/owner/conversations.repo';
+import { createConversationsRouter } from './modules/owner/conversations.routes';
 import { ConversationService, HAND_BACK_TIMER } from './modules/owner/conversations.service';
 import { OrderAlerts } from './modules/owner/order-alerts.service';
 import { OwnerAlerts } from './modules/owner/owner-alerts.service';
 import { OwnerNotifier } from './modules/owner/owner-notifier.service';
 import { createDemandHandlers } from './modules/demand/demand.handlers';
 import { WaitlistNotifier } from './modules/demand/waitlist-notifier.service';
-import { InsightsRepo } from './modules/insights/insights.repo';
-import { InsightsService } from './modules/insights/insights.service';
+import { ReportingRepo } from './modules/reporting/reporting.repo';
+import { ReportingService } from './modules/reporting/reporting.service';
 import { createListingHandlers } from './modules/listings/listings.handlers';
 import { ListingsRepo } from './modules/listings/listings.repo';
 import { ListingService } from './modules/listings/listings.service';
@@ -143,6 +154,14 @@ import { NegotiationService } from './modules/sales/negotiation.service';
 import { NegotiationsRepo } from './modules/sales/negotiations.repo';
 import { PriceEvidenceService } from './modules/sales/price-evidence.service';
 import { createSalesHandlers } from './modules/sales/sales.handlers';
+import { DailyReportsRepo } from './modules/reports/daily-reports.repo';
+import { DailyReports } from './modules/reports/daily-reports.service';
+import { InsightsRepo } from './modules/reports/insights.repo';
+import { InsightsService } from './modules/reports/insights.service';
+import { LedgerRepo } from './modules/reports/ledger.repo';
+import { LedgerService } from './modules/reports/ledger.service';
+import { createReportsRouter } from './modules/reports/reports.routes';
+import { SalesLedger } from './modules/reports/sales-ledger.service';
 import { createShopsRouter } from './modules/shops/shops.routes';
 import { LiveEvents } from './modules/live/live-events.service';
 import { createLiveRouter } from './modules/live/live.routes';
@@ -423,6 +442,8 @@ const paymentReview = new PaymentReview(
   paymentNotifier,
 );
 
+const paymentRecords = new PaymentRecords(database.db, paymentProofs, orders, customers, risk);
+
 const customerChat = new TelegramCustomerChat(
   telegramApi,
   env.WEB_APP_URL === undefined ? undefined : new MiniAppLinks(env.WEB_APP_URL),
@@ -468,12 +489,16 @@ const listings = new ListingService(
   catalog,
   logger,
 );
-const insights = new InsightsService(database.db, new InsightsRepo(database.db), () => new Date());
+const reporting = new ReportingService(
+  database.db,
+  new ReportingRepo(database.db),
+  () => new Date(),
+);
 const ownerTools = ownerAssistantTools({
   rules: ownerRules,
   delivery,
   catalog,
-  insights,
+  reporting,
   now: () => new Date(),
 });
 const operationsToolDeps = {
@@ -564,6 +589,30 @@ timers.register(orderTimerKinds.quoteExpire, (timer) => farQuoteOutcomes.holdExp
 events.subscribe('delivery.offer_held', (event) => farQuoteOutcomes.driverHeld(event));
 events.subscribe('order.transitioned', (event) => farQuoteOutcomes.orderTransitioned(event));
 
+const ledger = new LedgerService(
+  database.db,
+  new LedgerRepo(),
+  env.GOOGLE_SERVICE_ACCOUNT_EMAIL !== undefined && env.GOOGLE_SERVICE_ACCOUNT_KEY !== undefined
+    ? {
+        serviceAccountEmail: env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        sheets: googleSheets(env.GOOGLE_SERVICE_ACCOUNT_EMAIL, env.GOOGLE_SERVICE_ACCOUNT_KEY),
+      }
+    : undefined,
+  logger,
+  () => new Date(),
+);
+const salesLedger = new SalesLedger(orders, paymentRecords, ledger, () => new Date());
+events.subscribe('order.transitioned', (event) => salesLedger.orderTransitioned(event));
+const dailyReportsRepo = new DailyReportsRepo();
+const dailyReports = new DailyReports(
+  database.db,
+  dailyReportsRepo,
+  ownerAlerts,
+  ledger,
+  logger,
+  () => new Date(),
+);
+
 const updatesRepo = new TelegramUpdatesRepo(database.db);
 const nightlyLearning = new NightlyLearningService(
   zoneFactors,
@@ -576,9 +625,12 @@ const nightlyLearning = new NightlyLearningService(
 );
 const jobs = new JobService(
   new Map<string, Job>([
-    ['tick', () => timers.tick()],
+    // The tick also retries the Sheets ledger, so a Sheets outage needs no cron job of its own.
+    ['tick', async () => ({ ...(await timers.tick()), ...(await ledger.flush()) })],
     ['saver-run', () => saverRuns.runAll()],
     ['nightly-learning', () => nightlyLearning.run()],
+    ['evening-summary', () => dailyReports.eveningSummaries()],
+    ['morning-brief', () => dailyReports.morningBriefs()],
     ['weekly-suggestions', () => weeklySuggestions.run()],
   ]),
 );
@@ -600,12 +652,12 @@ const ownerAssistantAgent = new OwnerAssistant(
 const weeklySuggestions = new WeeklySuggestions(
   new AgentRuntime(
     model,
-    new ToolRegistry([weeklyAnalysisTool({ insights, delivery })], guard, logger),
+    new ToolRegistry([weeklyAnalysisTool({ reporting, delivery })], guard, logger),
     database.db,
     traces,
     () => performance.now(),
   ),
-  insights,
+  reporting,
   guard,
   approvals,
   ownerAlerts,
@@ -714,6 +766,42 @@ const app = createApp({
       requireShopOwner: shopOwner,
     }),
     createDriversRouter({ drivers, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createZonesRouter({ zoneFactors, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createDeliveryMapRouter({
+      deliveryMap: new DeliveryMapService(database.db, new DeliveryMapRepo(), shops),
+      requireAuth: signedIn,
+      requireShopOwner: shopOwner,
+    }),
+    createPaymentsRouter({
+      records: paymentRecords,
+      review: paymentReview,
+      files: telegramFiles,
+      requireAuth: signedIn,
+      requireShopOwner: shopOwner,
+    }),
+    createConversationsRouter({
+      conversations,
+      requireAuth: signedIn,
+      requireShopOwner: shopOwner,
+    }),
+    createAiDecisionsRouter({
+      log: new DecisionLog(database.db, decisions, approvals),
+      approvals,
+      requireAuth: signedIn,
+      requireShopOwner: shopOwner,
+    }),
+    createReportsRouter({
+      insights: new InsightsService(
+        database.db,
+        new InsightsRepo(),
+        dailyReportsRepo,
+        () => new Date(),
+      ),
+      ledger,
+      reports: dailyReports,
+      requireAuth: signedIn,
+      requireShopOwner: shopOwner,
+    }),
     createOrdersRouter({
       board: new OrderBoardService(database.db, new OrderBoardRepo()),
       tracking: new OrderTrackingService(orders, shops),
@@ -732,6 +820,7 @@ const app = createApp({
         customers,
       ),
       dispatch,
+      specialOffers,
       trips,
       requireAuth: signedIn,
     }),
@@ -745,6 +834,11 @@ const server = app.listen(env.PORT, () => {
 
 await updatesRepo.requeueInterrupted();
 worker.wake();
+
+function googleSheets(email: string, privateKey: string): GoogleSheets {
+  const account = new GoogleServiceAccount({ email, privateKey }, fetch, () => new Date());
+  return new GoogleSheets(() => account.accessToken(), fetch);
+}
 
 function shutdown(signal: string): void {
   logger.info({ signal }, 'shutting down');

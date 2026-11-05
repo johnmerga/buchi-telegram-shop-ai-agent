@@ -1,4 +1,4 @@
-import { and, eq, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, lte, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { conversations, relayedMessages, type ConversationTurn } from '../../db/schema';
 
@@ -40,6 +40,15 @@ export class ConversationsRepo {
       .from(conversations)
       .where(eq(conversations.customerTelegramUserId, customerTelegramUserId));
     return row;
+  }
+
+  /** The latest chats, with owner-run ones first, because those wait for an owner reply. */
+  recent(tx: Transaction, limit: number): Promise<Conversation[]> {
+    return tx
+      .select()
+      .from(conversations)
+      .orderBy(desc(sql`${conversations.mode} = 'human'`), desc(conversations.updatedAt))
+      .limit(limit);
   }
 
   async find(tx: Transaction, id: string): Promise<Conversation | undefined> {

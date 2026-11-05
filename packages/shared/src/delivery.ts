@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { coordinatesSchema } from './geo';
 import { moneySchema } from './money';
 
 const kilometres = z.number().min(0).max(200);
@@ -45,3 +46,32 @@ export const deliverySettingsViewSchema = z.object({
   saverRunTimes: saverRunTimesSchema.shape.times,
 });
 export type DeliverySettingsView = z.infer<typeof deliverySettingsViewSchema>;
+
+const zoneBandSchema = z.object({
+  factor: z.number().positive(),
+  trips: z.number().int().min(0),
+});
+
+/**
+ * One H3 zone of the learned time factors, with its hexagon's corners. A band is null when no
+ * trips taught the zone a factor for that time of day yet.
+ */
+const zoneFactorSchema = z.object({
+  zone: z.string(),
+  boundary: z.array(coordinatesSchema),
+  peak: zoneBandSchema.nullable(),
+  offPeak: zoneBandSchema.nullable(),
+});
+export type ZoneFactor = z.infer<typeof zoneFactorSchema>;
+
+/** How far the trip-time estimates of the last 14 days were from the real trip times. */
+const estimateErrorSchema = z.object({
+  trips: z.number().int().min(0),
+  errorPercent: z.number().min(0),
+});
+
+export const zoneMapSchema = z.object({
+  zones: z.array(zoneFactorSchema),
+  estimateError: estimateErrorSchema.nullable(),
+});
+export type ZoneMap = z.infer<typeof zoneMapSchema>;

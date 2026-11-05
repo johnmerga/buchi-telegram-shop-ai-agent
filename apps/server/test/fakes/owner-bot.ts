@@ -31,9 +31,9 @@ import { RouteService } from '../../src/modules/delivery/route.service';
 import { DemandRepo } from '../../src/modules/demand/demand.repo';
 import { DemandService } from '../../src/modules/demand/demand.service';
 import { WaitlistNotifier } from '../../src/modules/demand/waitlist-notifier.service';
-import type { ChartConfig } from '../../src/modules/insights/insights.domain';
-import { InsightsRepo } from '../../src/modules/insights/insights.repo';
-import { InsightsService } from '../../src/modules/insights/insights.service';
+import type { ChartConfig } from '../../src/modules/reporting/reporting.domain';
+import { ReportingRepo } from '../../src/modules/reporting/reporting.repo';
+import { ReportingService } from '../../src/modules/reporting/reporting.service';
 import { TimersRepo } from '../../src/modules/jobs/timers.repo';
 import { TimerService } from '../../src/modules/jobs/timers.service';
 import { createListingHandlers } from '../../src/modules/listings/listings.handlers';
@@ -214,11 +214,11 @@ export function createOwnerBot(db: Database, model: LanguageModel, clock: Clock)
   events.subscribe('product.embedded', (event) => waitlist.productEmbedded(event));
   timers.register(orderTimerKinds.holdExpire, (timer) => waitlist.holdExpired(timer));
 
-  const insights = new InsightsService(db, new InsightsRepo(db), now);
+  const reporting = new ReportingService(db, new ReportingRepo(db), now);
   const ownerAlerts = new OwnerAlerts(shops, messenger, logger);
   const decisions = new DecisionsRepo();
   const guard = new PolicyGuard(db, decisions);
-  const ownerTools = ownerAssistantTools({ rules, delivery, catalog, insights, now });
+  const ownerTools = ownerAssistantTools({ rules, delivery, catalog, reporting, now });
   const traces = new TracesRepo();
   let monotonic = 0;
   const runtimeWith = (tools: Tool[]) =>
@@ -249,8 +249,8 @@ export function createOwnerBot(db: Database, model: LanguageModel, clock: Clock)
     now,
   );
   const weekly = new WeeklySuggestions(
-    runtimeWith([weeklyAnalysisTool({ insights, delivery })]),
-    insights,
+    runtimeWith([weeklyAnalysisTool({ reporting, delivery })]),
+    reporting,
     guard,
     approvals,
     ownerAlerts,
@@ -299,7 +299,7 @@ export function createOwnerBot(db: Database, model: LanguageModel, clock: Clock)
       delivery,
       demand,
       rules,
-      insights,
+      reporting,
       weekly,
       listings,
       conversations,

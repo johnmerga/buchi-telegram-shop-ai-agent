@@ -1,5 +1,5 @@
 {
-  "id": "d2a19399-85bc-4af3-bd9d-410692534049",
+  "id": "417f47bc-2ef4-4e0b-92f5-452ed0761c79",
   "prevId": "0940c429-e39f-4a02-8b4c-0a94b3f090b8",
   "version": "7",
   "dialect": "postgresql",
@@ -1540,18 +1540,6 @@
           "notNull": true,
           "default": false
         },
-        "embedding": {
-          "name": "embedding",
-          "type": "vector(768)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "notified_at": {
-          "name": "notified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2707,213 +2695,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.weekly_suggestion_runs": {
-      "name": "weekly_suggestion_runs",
-      "schema": "",
-      "columns": {
-        "shop_id": {
-          "name": "shop_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "week": {
-          "name": "week",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "weekly_suggestion_runs_shop_id_shops_id_fk": {
-          "name": "weekly_suggestion_runs_shop_id_shops_id_fk",
-          "tableFrom": "weekly_suggestion_runs",
-          "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "weekly_suggestion_runs_shop_id_week_pk": {
-          "name": "weekly_suggestion_runs_shop_id_week_pk",
-          "columns": [
-            "shop_id",
-            "week"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {
-        "shop_isolation": {
-          "name": "shop_isolation",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "app_user"
-          ],
-          "using": "\"weekly_suggestion_runs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"weekly_suggestion_runs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.listing_drafts": {
-      "name": "listing_drafts",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "shop_id": {
-          "name": "shop_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "owner_text": {
-          "name": "owner_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "photo_file_ids": {
-          "name": "photo_file_ids",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "media_group_id": {
-          "name": "media_group_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "draft": {
-          "name": "draft",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "pricing_mode": {
-          "name": "pricing_mode",
-          "type": "pricing_mode",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "price": {
-          "name": "price",
-          "type": "numeric(12, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "lowest_price": {
-          "name": "lowest_price",
-          "type": "numeric(12, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stock_per_size": {
-          "name": "stock_per_size",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "listing_draft_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'draft'"
-        },
-        "preview_chat_id": {
-          "name": "preview_chat_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "preview_message_id": {
-          "name": "preview_message_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "product_id": {
-          "name": "product_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "listing_drafts_shop_id_shops_id_fk": {
-          "name": "listing_drafts_shop_id_shops_id_fk",
-          "tableFrom": "listing_drafts",
-          "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "shop_isolation": {
-          "name": "shop_isolation",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "app_user"
-          ],
-          "using": "\"listing_drafts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"listing_drafts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
-        }
-      },
-      "checkConstraints": {
-        "listing_drafts_prices_match_mode": {
-          "name": "listing_drafts_prices_match_mode",
-          "value": "(\"listing_drafts\".\"pricing_mode\" = 'fixed' and \"listing_drafts\".\"lowest_price\" is null)\n        or (\"listing_drafts\".\"pricing_mode\" = 'negotiable' and (\"listing_drafts\".\"lowest_price\" is null) = (\"listing_drafts\".\"price\" is null))"
-        },
-        "listing_drafts_stock_positive": {
-          "name": "listing_drafts_stock_positive",
-          "value": "\"listing_drafts\".\"stock_per_size\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.delivery_problems": {
       "name": "delivery_problems",
       "schema": "",
@@ -3532,148 +3313,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.stock_holds": {
-      "name": "stock_holds",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "shop_id": {
-          "name": "shop_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "variant_id": {
-          "name": "variant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "customer_id": {
-          "name": "customer_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "stock_hold_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'held'"
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "stock_holds_customer_variant_idx": {
-          "name": "stock_holds_customer_variant_idx",
-          "columns": [
-            {
-              "expression": "customer_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "variant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "stock_holds_shop_id_shops_id_fk": {
-          "name": "stock_holds_shop_id_shops_id_fk",
-          "tableFrom": "stock_holds",
-          "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "stock_holds_variant_id_shop_id_product_variants_id_shop_id_fk": {
-          "name": "stock_holds_variant_id_shop_id_product_variants_id_shop_id_fk",
-          "tableFrom": "stock_holds",
-          "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "stock_holds_customer_id_shop_id_customers_id_shop_id_fk": {
-          "name": "stock_holds_customer_id_shop_id_customers_id_shop_id_fk",
-          "tableFrom": "stock_holds",
-          "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "shop_isolation": {
-          "name": "shop_isolation",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "app_user"
-          ],
-          "using": "\"stock_holds\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"stock_holds\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.payment_proofs": {
       "name": "payment_proofs",
       "schema": "",
@@ -3979,8 +3618,81 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.owner_rules": {
-      "name": "owner_rules",
+    "public.daily_report_runs": {
+      "name": "daily_report_runs",
+      "schema": "",
+      "columns": {
+        "shop_id": {
+          "name": "shop_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "daily_report_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "daily_report_runs_shop_id_shops_id_fk": {
+          "name": "daily_report_runs_shop_id_shops_id_fk",
+          "tableFrom": "daily_report_runs",
+          "tableTo": "shops",
+          "columnsFrom": [
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "daily_report_runs_shop_id_kind_day_pk": {
+          "name": "daily_report_runs_shop_id_kind_day_pk",
+          "columns": [
+            "shop_id",
+            "kind",
+            "day"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {
+        "shop_isolation": {
+          "name": "shop_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "app_user"
+          ],
+          "using": "\"daily_report_runs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"daily_report_runs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ledger_rows": {
+      "name": "ledger_rows",
       "schema": "",
       "columns": {
         "id": {
@@ -3996,36 +3708,57 @@
           "primaryKey": false,
           "notNull": true
         },
-        "type": {
-          "name": "type",
-          "type": "owner_rule_type",
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tab": {
+          "name": "tab",
+          "type": "ledger_tab",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
-        "parameters": {
-          "name": "parameters",
+        "cells": {
+          "name": "cells",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },
-        "starts_at": {
-          "name": "starts_at",
+        "status": {
+          "name": "status",
+          "type": "ledger_row_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },
-        "ends_at": {
-          "name": "ends_at",
-          "type": "timestamp with time zone",
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "confirmed_by": {
-          "name": "confirmed_by",
-          "type": "bigint",
+        "sent_at": {
+          "name": "sent_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -4036,38 +3769,99 @@
         }
       },
       "indexes": {
-        "owner_rules_active_idx": {
-          "name": "owner_rules_active_idx",
+        "ledger_rows_due_idx": {
+          "name": "ledger_rows_due_idx",
           "columns": [
             {
-              "expression": "shop_id",
+              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "starts_at",
+              "expression": "next_attempt_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
+          "where": "\"ledger_rows\".\"status\" = 'pending'",
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
-        "owner_rules_shop_id_shops_id_fk": {
-          "name": "owner_rules_shop_id_shops_id_fk",
-          "tableFrom": "owner_rules",
+        "ledger_rows_shop_id_shops_id_fk": {
+          "name": "ledger_rows_shop_id_shops_id_fk",
+          "tableFrom": "ledger_rows",
+          "tableTo": "shops",
+          "columnsFrom": [
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ledger_rows_shop_key_unique": {
+          "name": "ledger_rows_shop_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "shop_id",
+            "key"
+          ]
+        }
+      },
+      "policies": {
+        "shop_isolation": {
+          "name": "shop_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "app_user"
+          ],
+          "using": "\"ledger_rows\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"ledger_rows\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sheet_ledgers": {
+      "name": "sheet_ledgers",
+      "schema": "",
+      "columns": {
+        "shop_id": {
+          "name": "shop_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "spreadsheet_id": {
+          "name": "spreadsheet_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sheet_ledgers_shop_id_shops_id_fk": {
+          "name": "sheet_ledgers_shop_id_shops_id_fk",
+          "tableFrom": "sheet_ledgers",
           "tableTo": "shops",
           "columnsFrom": [
             "shop_id"
@@ -4089,16 +3883,11 @@
           "to": [
             "app_user"
           ],
-          "using": "\"owner_rules\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"owner_rules\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+          "using": "\"sheet_ledgers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"sheet_ledgers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
       },
-      "checkConstraints": {
-        "owner_rules_period": {
-          "name": "owner_rules_period",
-          "value": "\"owner_rules\".\"ends_at\" is null or \"owner_rules\".\"ends_at\" > \"owner_rules\".\"starts_at\""
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.negotiations": {
@@ -4842,15 +4631,6 @@
         "pickup"
       ]
     },
-    "public.listing_draft_status": {
-      "name": "listing_draft_status",
-      "schema": "public",
-      "values": [
-        "draft",
-        "posted",
-        "discarded"
-      ]
-    },
     "public.delivery_problem_kind": {
       "name": "delivery_problem_kind",
       "schema": "public",
@@ -4900,15 +4680,6 @@
         "cancelled"
       ]
     },
-    "public.stock_hold_status": {
-      "name": "stock_hold_status",
-      "schema": "public",
-      "values": [
-        "held",
-        "used",
-        "released"
-      ]
-    },
     "public.bank_check": {
       "name": "bank_check",
       "schema": "public",
@@ -4947,13 +4718,28 @@
         "owner_rejected"
       ]
     },
-    "public.owner_rule_type": {
-      "name": "owner_rule_type",
+    "public.daily_report_kind": {
+      "name": "daily_report_kind",
       "schema": "public",
       "values": [
-        "delivery_pause",
-        "promotion",
-        "delivery_settings"
+        "evening_summary",
+        "morning_brief"
+      ]
+    },
+    "public.ledger_row_status": {
+      "name": "ledger_row_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "sent"
+      ]
+    },
+    "public.ledger_tab": {
+      "name": "ledger_tab",
+      "schema": "public",
+      "values": [
+        "Sales",
+        "Daily"
       ]
     },
     "public.payment_provider": {

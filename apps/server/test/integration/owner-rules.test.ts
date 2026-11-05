@@ -18,8 +18,8 @@ const script: ScriptedTurn[] = [];
 const { bot, sent, services } = createOwnerBot(db, new ScriptedModel(script), clock);
 const { shops, catalog, customers, orders, delivery } = services;
 
-const owner = userOf(880001, 'Selam');
-const buyer = userOf(880101, 'Hana');
+const owner = userOf(970001, 'Selam');
+const buyer = userOf(970101, 'Hana');
 let shopId = '';
 let sneakerSize42 = '';
 let bootsSize40 = '';
@@ -184,7 +184,7 @@ describe('a delivery settings change', () => {
 
 describe('the owner assistant', () => {
   it('is not reachable for a customer, whose words go to the sales agent', async () => {
-    const stranger = userOf(880202, 'Abel');
+    const stranger = userOf(970202, 'Abel');
     await customers.identify(shopId, stranger.id, 'Abel');
     await customers.startSession(stranger.id, shopId, null);
     await bot.handleUpdate(text(stranger, 'Pause deliveries tomorrow'));

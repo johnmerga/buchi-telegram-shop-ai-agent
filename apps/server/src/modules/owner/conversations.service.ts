@@ -13,6 +13,9 @@ import {
 
 export const HAND_BACK_TIMER = 'conversation.hand_back';
 
+/** The **Conversations** screen shows this many chats. Older ones are a tap away in Telegram. */
+const LISTED_CONVERSATIONS = 50;
+
 interface TimerScheduler {
   schedule(
     tx: Transaction,
@@ -49,6 +52,10 @@ export class ConversationService {
 
   open(shopId: string, customer: ConversationCustomer): Promise<Conversation> {
     return withShop(this.db, shopId, (tx) => this.upsert(tx, shopId, customer));
+  }
+
+  list(shopId: string): Promise<Conversation[]> {
+    return withShop(this.db, shopId, (tx) => this.repo.recent(tx, LISTED_CONVERSATIONS));
   }
 
   /** The customer's conversation with the shop, if an owner is answering it. */

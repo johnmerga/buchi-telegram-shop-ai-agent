@@ -38,3 +38,8 @@ services:
       # The service's public HTTPS address, for the chat's Mini App buttons.
       - key: WEB_APP_URL
         sync: false
+      # Optional: the Google service account for the owners' Sheets ledgers.
+      - key: GOOGLE_SERVICE_ACCOUNT_EMAIL
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_KEY
+        sync: false

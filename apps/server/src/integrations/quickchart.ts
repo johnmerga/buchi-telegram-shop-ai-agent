@@ -1,4 +1,4 @@
-import type { ChartConfig } from '../modules/insights/insights.domain';
+import type { ChartConfig } from '../modules/reporting/reporting.domain';
 
 /** QuickChart's free Community service. Its license is AGPL v3; see the design doc. */
 const BASE_URL = 'https://quickchart.io';

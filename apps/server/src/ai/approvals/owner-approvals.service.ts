@@ -59,6 +59,11 @@ export class OwnerApprovals {
     for (const action of actions) this.actions.set(action.tool, action);
   }
 
+  /** Whether approving a request of this tool runs an action here, rather than in its own flow. */
+  canRun(tool: string): boolean {
+    return this.actions.has(tool);
+  }
+
   /** Sends the owners every request that one agent run left pending. */
   async requestFor(shopId: string, runId: string): Promise<void> {
     const pending = await withShop(this.db, shopId, (tx) => this.repo.pendingOfRun(tx, runId));
@@ -75,13 +80,15 @@ export class OwnerApprovals {
     const status = choice === 'approve' ? 'approved' : 'declined';
     for (const shopId of owner.shopIds) {
       const outcome = await withShop(this.db, shopId, async (tx) => {
+        // A request of another flow, such as a far-area price, is answered with that flow's buttons.
+        const found = await this.repo.find(tx, decisionId);
+        if (!found || !this.canRun(found.tool)) return undefined;
         const decided = await this.repo.decide(tx, decisionId, {
           status,
           decidedBy: owner.telegramUserId,
           decidedAt: this.now(),
         });
-        if (decided) return { decided };
-        return (await this.repo.find(tx, decisionId)) ? 'already_decided' : undefined;
+        return decided ? { decided } : 'already_decided';
       });
       if (outcome === undefined) continue;
       if (outcome === 'already_decided') return { status: outcome };

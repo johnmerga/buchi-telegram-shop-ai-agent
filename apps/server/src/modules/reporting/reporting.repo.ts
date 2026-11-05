@@ -1,11 +1,11 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type { Database, Transaction } from '../../db/client';
 import { weeklySuggestionRuns } from '../../db/schema';
-import type { QueryRows } from './insights.domain';
+import type { QueryRows } from './reporting.domain';
 
 type Cell = QueryRows['rows'][number][string];
 
-export class InsightsRepo {
+export class ReportingRepo {
   constructor(private readonly db: Database) {}
 
   /** Runs a query that `checkQuery` accepted. Nothing else may reach this method. */
@@ -74,10 +74,10 @@ export class InsightsRepo {
     );
   }
 
-  /** Shops with orders since `since`, through a function that returns only their IDs. */
-  async shopsWithOrdersSince(since: Date): Promise<string[]> {
+  /** Every shop, through the `report_shop_ids` function, which returns only their IDs. */
+  async shopIds(): Promise<string[]> {
     const rows = await this.db.execute<{ shop_id: string }>(
-      sql`select weekly_suggestion_shop_ids(${iso(since)}) as shop_id`,
+      sql`select shop_id from report_shop_ids() as shop_id`,
     );
     return rows.map((row) => row.shop_id);
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { seriesChart, weekOf } from './insights.domain';
+import { seriesChart, weekOf } from './reporting.domain';
 
 describe('weekOf', () => {
   it('is the Monday of the week in Addis Ababa', () => {

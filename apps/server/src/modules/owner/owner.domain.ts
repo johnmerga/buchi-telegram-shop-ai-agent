@@ -1,4 +1,4 @@
-import { formatBirr, type MoneyString } from '@buchi/shared';
+import { formatBirr, type ConversationItem, type MoneyString } from '@buchi/shared';
 import { orderReference } from '../orders/orders.domain';
 
 /** The design doc's rule: Buchi takes a chat back after two hours without an owner reply. */
@@ -20,6 +20,28 @@ export function modeButton(conversation: { id: string; mode: ConversationMode })
   return conversation.mode === 'human'
     ? { text: '↩️ መልስ / Hand back', data: `handback:${conversation.id}` }
     : { text: '🙋 ተረከብ / Take over', data: `takeover:${conversation.id}` };
+}
+
+/** The dashboard shows the last few turns, enough to see what a chat is about. */
+const LISTED_TURNS = 3;
+
+/** A conversation as the owner's dashboard shows it, without the customer's Telegram ID. */
+export function conversationItem(conversation: {
+  id: string;
+  customerName: string;
+  mode: ConversationMode;
+  handBackAt: Date | null;
+  updatedAt: Date;
+  recentTurns: ConversationItem['lastTurns'];
+}): ConversationItem {
+  return {
+    id: conversation.id,
+    customerName: conversation.customerName,
+    mode: conversation.mode,
+    handBackAt: conversation.handBackAt?.toISOString() ?? null,
+    updatedAt: conversation.updatedAt.toISOString(),
+    lastTurns: conversation.recentTurns.slice(-LISTED_TURNS),
+  };
 }
 
 /** The first line of every owner message, so owners of several shops know whose chat it is. */

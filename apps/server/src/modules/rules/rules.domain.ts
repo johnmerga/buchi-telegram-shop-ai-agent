@@ -1,6 +1,7 @@
 import { formatBirr, Money, type DeliverySettings, type PricingMode } from '@buchi/shared';
 import type { z } from 'zod';
 import { AppError } from '../../shared/errors';
+import { addisInstant } from '../../shared/time';
 import { ethiopianClockText, westernTime } from './ethiopian-time.domain';
 import type {
   DeliveryPauseProposal,
@@ -20,20 +21,13 @@ export type ResolvedRule = { startsAt: Date; endsAt: Date | null } & (
   | { type: 'delivery_settings'; parameters: SettingsChange }
 );
 
-/** Addis Ababa is UTC+3 all year, without daylight saving time. */
-const ADDIS_UTC_OFFSET_HOURS = 3;
 const DAY_MS = 24 * 60 * 60_000;
-
-/** The instant of a time of day on a date in Addis Ababa, `plusDays` days later. */
-function addisInstant(date: string, hour: number, minute: number, plusDays = 0): Date {
-  const [year = 0, month = 1, day = 1] = date.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day + plusDays, hour - ADDIS_UTC_OFFSET_HOURS, minute));
-}
+const END_OF_DAY_HOUR = 24;
 
 function instantOf(date: string, time: TimeOfDay): Date {
   if (time.clock === 'western') return addisInstant(date, time.hour, time.minute);
   const western = westernTime(time);
-  return addisInstant(date, western.hour, western.minute, western.nextDay ? 1 : 0);
+  return addisInstant(date, western.hour + (western.nextDay ? 24 : 0), western.minute);
 }
 
 /**
@@ -56,7 +50,9 @@ export function resolveRule(proposal: RuleProposal, now: Date): ResolvedRule {
 export function pausePeriod(pause: DeliveryPauseProposal): { startsAt: Date; endsAt: Date } {
   const startsAt = pause.from ? instantOf(pause.date, pause.from) : addisInstant(pause.date, 0, 0);
   const lastDate = pause.untilDate ?? pause.date;
-  const endsAt = pause.until ? instantOf(lastDate, pause.until) : addisInstant(lastDate, 0, 0, 1);
+  const endsAt = pause.until
+    ? instantOf(lastDate, pause.until)
+    : addisInstant(lastDate, END_OF_DAY_HOUR, 0);
   return { startsAt, endsAt };
 }
 
@@ -65,7 +61,7 @@ function resolvePromotion(promotion: PromotionProposal): ResolvedRule {
   return {
     type: 'promotion',
     startsAt: addisInstant(startDate, 0, 0),
-    endsAt: addisInstant(endDate, 0, 0, 1),
+    endsAt: addisInstant(endDate, END_OF_DAY_HOUR, 0),
     parameters: { percentOff, keywords },
   };
 }
@@ -112,7 +108,7 @@ export function promotedPrice(
   return product.price.subtract(discount);
 }
 
-const addisDay = new Intl.DateTimeFormat('en-GB', {
+const dayFormat = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Africa/Addis_Ababa',
   weekday: 'short',
   day: 'numeric',
@@ -130,12 +126,12 @@ const addisHourMinute = new Intl.DateTimeFormat('en-GB', {
 function whenText(instant: Date): string {
   const [hour = 0, minute = 0] = addisHourMinute.format(instant).split(':').map(Number);
   const clock = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-  return `${addisDay.format(instant)}, ${clock} (${ethiopianClockText(hour, minute)})`;
+  return `${dayFormat.format(instant)}, ${clock} (${ethiopianClockText(hour, minute)})`;
 }
 
 /** The last day of a period that ends at midnight, such as a promotion's last day. */
 function lastDayText(endsAt: Date): string {
-  return addisDay.format(new Date(endsAt.getTime() - DAY_MS / 2));
+  return dayFormat.format(new Date(endsAt.getTime() - DAY_MS / 2));
 }
 
 export function pausePreview(rule: { startsAt: Date; endsAt: Date | null }): string {
@@ -162,7 +158,7 @@ export function promotionPreview(
   const more = matchingTitles.length > SHOWN_MATCHES ? ', …' : '';
   return [
     `🏷 ቅናሽ / Promotion: ${String(percentOff)}% off ${scope}`,
-    `From ${addisDay.format(rule.startsAt)} to ${rule.endsAt ? lastDayText(rule.endsAt) : 'further notice'}`,
+    `From ${dayFormat.format(rule.startsAt)} to ${rule.endsAt ? lastDayText(rule.endsAt) : 'further notice'}`,
     `Matches now: ${String(matchingTitles.length)}${matchingTitles.length > 0 ? ` (${shown}${more})` : ''}`,
     'Negotiable products keep their own price range.',
   ].join('\n');

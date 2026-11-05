@@ -2,7 +2,8 @@ export type DeadlineExtensionDecision =
   | { result: 'accepted'; reason: 'within_limits'; value: number }
   | { result: 'needs_owner'; reason: 'already_extended' | 'too_long' };
 
-const MAX_AUTOMATIC_MINUTES = 120;
+/** The design doc's limit: one extension of up to two hours runs without the owner. */
+export const MAX_AUTOMATIC_MINUTES = 120;
 
 /** An agent may extend a payment deadline once per order, by up to two hours. */
 export function checkDeadlineExtension(

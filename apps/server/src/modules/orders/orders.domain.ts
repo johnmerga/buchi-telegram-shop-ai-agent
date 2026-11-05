@@ -20,6 +20,7 @@ export type OrderEvent =
   | 'picked_up'
   | 'ready_for_pickup'
   | 'delivered'
+  | 'rescheduled'
   | 'expired'
   | 'cancelled';
 
@@ -48,6 +49,8 @@ const transitions: Record<OrderEvent, Transition> = {
   picked_up: { from: ['assigned'], to: 'out_for_delivery', stock: 'none' },
   ready_for_pickup: { from: ['paid'], to: 'ready_for_pickup', stock: 'none' },
   delivered: { from: ['out_for_delivery', 'ready_for_pickup'], to: 'delivered', stock: 'none' },
+  // The customer could not be reached, so the paid order waits for the next Saver run.
+  rescheduled: { from: ['out_for_delivery'], to: 'paid', stock: 'none' },
   expired: { from: ['quoting', 'awaiting_payment'], to: 'expired', stock: 'release' },
   cancelled: { from: ['quoting', 'awaiting_payment'], to: 'cancelled', stock: 'release' },
 };

@@ -1,22 +1,19 @@
-import { formatBirr } from '@buchi/shared';
 import { Composer, Keyboard } from 'grammy';
 import type { BuchiContext } from '../../telegram/actor';
 import {
   acceptedNotice,
   deliveredReply,
-  problemReply,
+  driverProblemPrompt,
   receivedThanks,
   shareLocationPrompt,
 } from './dispatch-messages.domain';
 import type { AcceptResult, DispatchService } from './dispatch.service';
 import { jobCallbackSchema, receiptCallbackSchema } from './drivers.schemas';
-import type { OfferBonusService } from './offer-bonus.service';
 import type { TripService } from './trips.service';
 
 interface DispatchDeps {
   dispatch: Pick<DispatchService, 'accept'>;
   trips: TripService;
-  bonuses: Pick<OfferBonusService, 'raise'>;
 }
 
 const acceptAnswers: Record<AcceptResult, string> = {
@@ -27,11 +24,11 @@ const acceptAnswers: Record<AcceptResult, string> = {
 
 /**
  * Job buttons for drivers (**Accept**, **Picked up**, **Delivered** and the location that
- * confirms it), the owners' **Add bonus**, and the customer's answer after a delivery. Buttons on
- * these messages act on an order, so they run before the takeover guard that relays customer chats.
+ * confirms it, and **Problem**), and the customer's answer after a delivery. Buttons on these
+ * messages act on an order, so they run before the takeover guard that relays customer chats.
  */
 export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContext> {
-  const { dispatch, trips, bonuses } = deps;
+  const { dispatch, trips } = deps;
   const handlers = new Composer<BuchiContext>();
 
   handlers.callbackQuery(/^job:/, async (ctx) => {
@@ -73,18 +70,10 @@ export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContex
         });
         return;
       }
-      case 'bonus': {
-        const shopIds = ctx.actor.role === 'owner' ? ctx.actor.shopIds : [];
-        const result = await bonuses.raise(shopIds, id);
-        await ctx.answerCallbackQuery({
-          text:
-            result.status === 'raised'
-              ? `Offered again at ${formatBirr(result.price)}.`
-              : result.status === 'closed'
-                ? 'A driver already took this job.'
-                : "Only this shop's owners can do this.",
-        });
-        if (result.status !== 'not_found') await ctx.editMessageReplyMarkup();
+      case 'problem': {
+        // The driver's next message reaches the operations agent while the trip is active.
+        await ctx.answerCallbackQuery();
+        await ctx.reply(driverProblemPrompt);
         return;
       }
     }
@@ -111,8 +100,9 @@ export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContex
     }
     await ctx.answerCallbackQuery();
     await ctx.editMessageReplyMarkup();
-    if (result === 'recorded') {
-      await ctx.reply(parsed.data.action === 'received' ? receivedThanks : problemReply);
+    // A problem report continues with the questions the operations module asks.
+    if (result === 'recorded' && parsed.data.action === 'received') {
+      await ctx.reply(receivedThanks);
     }
   });
 

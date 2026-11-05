@@ -3,5 +3,9 @@
     "outcomeMatch": 1,
     "priceOutsideRange": 0,
     "fixedPriceDiscount": 0
+  },
+  "operations-situations": {
+    "actionMatch": 1,
+    "autonomyMatch": 1
   }
 }

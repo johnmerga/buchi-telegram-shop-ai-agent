@@ -41,14 +41,7 @@ export class PaymentDeadlineService {
 
   async expire(timer: OrderTimer): Promise<void> {
     const shopId = shopOf(timer);
-    const expired = await this.orders.transitionIfStill(
-      shopId,
-      timer.targetId,
-      'awaiting_payment',
-      'expired',
-      'system',
-      'Payment deadline passed',
-    );
+    const expired = await this.orders.expireIfOverdue(shopId, timer.targetId, this.now());
     if (!expired) return;
     const order = await this.orders.get(shopId, timer.targetId);
     const chatId = await this.customers.telegramUserId(shopId, order.customerId);

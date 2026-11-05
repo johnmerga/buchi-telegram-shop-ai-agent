@@ -3,6 +3,10 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { GoogleGenAI } from '@google/genai';
 import { Api } from 'grammy';
+import { OperationsAgent } from './ai/agents/operations/operations-agent';
+import { operationsApprovals, operationsTools } from './ai/agents/operations/operations-tools';
+import { SituationBuilder } from './ai/agents/operations/situation-builder';
+import { OwnerApprovals } from './ai/approvals/owner-approvals.service';
 import { SalesAgent } from './ai/agents/sales/sales-agent';
 import { SalesContext } from './ai/agents/sales/sales-context';
 import { salesTools } from './ai/agents/sales/sales-tools';
@@ -35,6 +39,8 @@ import { AuthService } from './modules/auth/auth.service';
 import { Nominatim } from './integrations/nominatim';
 import { HttpRedirects } from './integrations/redirects';
 import { OpenRouteService } from './integrations/ors';
+import { AreaNotesRepo } from './modules/delivery/area-notes.repo';
+import { AreaNoteService } from './modules/delivery/area-notes.service';
 import { DeliverySettingsRepo } from './modules/delivery/delivery-settings.repo';
 import { createDeliveryRouter } from './modules/delivery/delivery.routes';
 import { DeliveryService } from './modules/delivery/delivery.service';
@@ -57,7 +63,14 @@ import { JobOffers, OFFER_UNANSWERED_TIMER } from './modules/drivers/job-offers.
 import { OfferBonusService } from './modules/drivers/offer-bonus.service';
 import { DeliveryOwnerAlerts } from './modules/drivers/owner-alerts.service';
 import { SaverRunService } from './modules/drivers/saver-runs.service';
-import { RECEIPT_TIMER, TripService } from './modules/drivers/trips.service';
+import { TripDetails } from './modules/drivers/trip-details.service';
+import { DELIVERY_LATE_TIMER, RECEIPT_TIMER, TripService } from './modules/drivers/trips.service';
+import { CustomerMessages } from './modules/operations/customer-messages.service';
+import { CustomerProblems } from './modules/operations/customer-problems.service';
+import { DeliveryProblemsRepo } from './modules/operations/delivery-problems.repo';
+import { createOperationsHandlers } from './modules/operations/operations.handlers';
+import { OperationsTriggers } from './modules/operations/operations-triggers.service';
+import { DeliveryRescheduler, RESCHEDULE_TIMER } from './modules/operations/rescheduling.service';
 import { createJobsRouter } from './modules/jobs/jobs.routes';
 import { JobService, type Job } from './modules/jobs/jobs.service';
 import { TimersRepo } from './modules/jobs/timers.repo';
@@ -89,10 +102,12 @@ import { createPaymentHandlers } from './modules/payments/payments.handlers';
 import { ReceiptReader } from './modules/payments/receipt-reader.service';
 import { RiskSignalsRepo } from './modules/payments/risk-signals.repo';
 import { RiskService } from './modules/payments/risk.service';
+import { createApprovalHandlers } from './modules/owner/approvals.handlers';
 import { createConversationHandlers } from './modules/owner/conversations.handlers';
 import { ConversationsRepo } from './modules/owner/conversations.repo';
 import { ConversationService, HAND_BACK_TIMER } from './modules/owner/conversations.service';
 import { OrderAlerts } from './modules/owner/order-alerts.service';
+import { OwnerAlerts } from './modules/owner/owner-alerts.service';
 import { OwnerNotifier } from './modules/owner/owner-notifier.service';
 import { createDemandHandlers } from './modules/demand/demand.handlers';
 import { DemandRepo } from './modules/demand/demand.repo';
@@ -285,13 +300,13 @@ const trips = new TripService(
   customers,
   messenger,
   deliveryAlerts,
-  conversations,
-  notifier,
+  events,
   timers,
   logger,
   () => new Date(),
 );
-const bonuses = new OfferBonusService(database.db, deliveryJobs, jobOffers, deliveryAlerts);
+const bonuses = new OfferBonusService(database.db, deliveryJobs, jobOffers);
+const tripDetails = new TripDetails(database.db, deliveryJobs, driversRepo);
 const saverRuns = new SaverRunService(
   orders,
   shops,
@@ -301,7 +316,6 @@ const saverRuns = new SaverRunService(
   dispatch,
   logger,
 );
-timers.register(OFFER_UNANSWERED_TIMER, (timer) => bonuses.offerUnanswered(timer));
 timers.register(RECEIPT_TIMER, (timer) => trips.receiptTimeout(timer));
 timers.register(SAVER_RUN_TIMER, (timer) => saverRuns.runScheduled(timer));
 
@@ -332,7 +346,7 @@ const verification = new PaymentVerification(
   customers,
   paymentNotifier,
 );
-const demand = new DemandService(database.db, new DemandRepo());
+const demand = new DemandService(database.db, new DemandRepo(), events);
 const photoSearch = new PhotoSearchService(
   database.db,
   catalogRepo,
@@ -364,22 +378,59 @@ const customerChat = new TelegramCustomerChat(
   env.WEB_APP_URL === undefined ? undefined : new MiniAppLinks(env.WEB_APP_URL),
 );
 const customerMemory = new CustomerMemoryService(database.db, new CustomerFactsRepo());
-const guard = new PolicyGuard(database.db, new DecisionsRepo());
+const decisions = new DecisionsRepo();
+const guard = new PolicyGuard(database.db, decisions);
+const ownerAlerts = new OwnerAlerts(shops, messenger, logger);
+const areaNotes = new AreaNoteService(database.db, new AreaNotesRepo(), () => new Date());
+const customerMessages = new CustomerMessages(orders, customers, conversations, messenger);
+const rescheduler = new DeliveryRescheduler(
+  database.db,
+  orders,
+  customers,
+  trips,
+  conversations,
+  customerMessages,
+  messenger,
+  timers,
+  logger,
+  () => new Date(),
+);
+timers.register(RESCHEDULE_TIMER, (timer) => rescheduler.rescheduleIfSilent(timer));
+const operationsToolDeps = {
+  customerMessages,
+  trips: tripDetails,
+  messenger,
+  now: () => new Date(),
+  rescheduler,
+  orders,
+  areaNotes,
+  guard,
+  catalog,
+  ownerAlerts,
+  customers,
+  demand,
+  bonuses,
+  conversations,
+};
+const opsTools = operationsTools(operationsToolDeps);
 const registry = new ToolRegistry(
-  salesTools({
-    catalog,
-    customers,
-    orders,
-    checkout,
-    chat: customerChat,
-    evidence: new PriceEvidenceService(customers, orders, negotiations, () => new Date()),
-    demand,
-    negotiations,
-    guard,
-    landmarks,
-    memory: customerMemory,
-    conversations,
-  }),
+  [
+    ...salesTools({
+      catalog,
+      customers,
+      orders,
+      checkout,
+      chat: customerChat,
+      evidence: new PriceEvidenceService(customers, orders, negotiations, () => new Date()),
+      demand,
+      negotiations,
+      guard,
+      landmarks,
+      memory: customerMemory,
+      conversations,
+    }),
+    ...opsTools,
+  ],
   guard,
   logger,
 );
@@ -395,6 +446,52 @@ const salesAgent = new SalesAgent(
   logger,
 );
 
+const approvals = new OwnerApprovals(
+  database.db,
+  decisions,
+  operationsApprovals(opsTools, operationsToolDeps),
+  ownerAlerts,
+  logger,
+  () => new Date(),
+);
+const operationsAgent = new OperationsAgent(
+  runtime,
+  approvals,
+  ownerAlerts,
+  logger,
+  () => new Date(),
+);
+const situations = new SituationBuilder(
+  orders,
+  catalog,
+  conversations,
+  areaNotes,
+  () => new Date(),
+);
+const operations = new OperationsTriggers(
+  operationsAgent,
+  situations,
+  orders,
+  tripDetails,
+  conversations,
+  () => new Date(),
+);
+const problems = new CustomerProblems(
+  database.db,
+  new DeliveryProblemsRepo(),
+  orders,
+  customers,
+  catalog,
+  messenger,
+  conversations,
+  situations,
+  operationsAgent,
+);
+timers.register(OFFER_UNANSWERED_TIMER, (timer) => operations.offerUnanswered(timer));
+timers.register(DELIVERY_LATE_TIMER, (timer) => operations.deliveryLate(timer));
+events.subscribe('waitlist.joined', (event) => operations.waitlistJoined(event));
+events.subscribe('delivery.problem_reported', (event) => problems.problemReported(event));
+
 const bot = createBot({
   token: env.TELEGRAM_BOT_TOKEN,
   botInfo,
@@ -402,7 +499,8 @@ const bot = createBot({
   driverShopIds: (telegramUserId) => drivers.shopIds(telegramUserId),
   handlers: [
     createDriverHandlers(drivers),
-    createDispatchHandlers({ dispatch, trips, bonuses }),
+    createDispatchHandlers({ dispatch, trips }),
+    createApprovalHandlers(approvals),
     createConversationHandlers({ conversations, customers }),
     createPurchaseHandlers({
       catalog,
@@ -421,6 +519,7 @@ const bot = createBot({
     createReorderHandlers(checkout),
     createCatalogHandlers(catalog),
     createDemandHandlers({ demand, customers }),
+    createOperationsHandlers({ triggers: operations, problems, customers }),
     // Last, so every button and code path answers before the model does.
     createSalesHandlers({ agent: salesAgent, customers }),
   ],

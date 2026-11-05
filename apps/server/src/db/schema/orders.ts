@@ -45,6 +45,8 @@ export const orders = pgTable(
     deliveryLatitude: doublePrecision('delivery_latitude'),
     deliveryLongitude: doublePrecision('delivery_longitude'),
     paymentDeadline: timestamp('payment_deadline', { withTimezone: true }),
+    /** How often an agent or the owner moved the deadline. The policy guard allows one automatically. */
+    deadlineExtensions: integer('deadline_extensions').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -105,6 +107,38 @@ export const orderEvents = pgTable(
       columns: [t.orderId, t.shopId],
       foreignColumns: [orders.id, orders.shopId],
     }).onDelete('cascade'),
+    shopIsolation(t.shopId),
+  ],
+);
+
+/**
+ * A size exchange for a delivered order. The new size stays reserved for the customer until the
+ * shop swaps the pair, so it cannot be sold to someone else meanwhile. One exchange per order.
+ */
+export const orderExchanges = pgTable(
+  'order_exchanges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    shopId: shopId(),
+    orderId: uuid('order_id').notNull().unique(),
+    fromVariantId: uuid('from_variant_id').notNull(),
+    toVariantId: uuid('to_variant_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.orderId, t.shopId],
+      foreignColumns: [orders.id, orders.shopId],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.fromVariantId, t.shopId],
+      foreignColumns: [productVariants.id, productVariants.shopId],
+    }),
+    foreignKey({
+      columns: [t.toVariantId, t.shopId],
+      foreignColumns: [productVariants.id, productVariants.shopId],
+    }),
+    check('order_exchanges_other_size', sql`${t.fromVariantId} <> ${t.toVariantId}`),
     shopIsolation(t.shopId),
   ],
 );

@@ -26,6 +26,7 @@ import { ShopsService } from '../../src/modules/shops/shops.service';
 import { AppError } from '../../src/shared/errors';
 import { TelegramCustomerChat } from '../../src/telegram/customer-chat';
 import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
+import { EventBus } from '../../src/shared/events';
 import { testDatabaseUrl } from './test-database';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
@@ -66,7 +67,7 @@ const noTelegram = {
 const shops = new ShopsService(db, new ShopsRepo(db), noTelegram);
 const catalog = new CatalogService(db, catalogRepo, shops, noTelegram, 'bot', embeddings);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
-const demand = new DemandService(db, new DemandRepo());
+const demand = new DemandService(db, new DemandRepo(), new EventBus(logger));
 const photos = new PhotoSearchService(db, catalogRepo, catalog, model, demand, logger);
 
 const fixtures = [

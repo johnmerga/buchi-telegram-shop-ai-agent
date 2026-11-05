@@ -51,9 +51,6 @@ import { OrderTrackingService } from '../../src/modules/orders/order-tracking.se
 import { OrdersRepo } from '../../src/modules/orders/orders.repo';
 import { createOrdersRouter } from '../../src/modules/orders/orders.routes';
 import { OrderService } from '../../src/modules/orders/orders.service';
-import { ConversationsRepo } from '../../src/modules/owner/conversations.repo';
-import { ConversationService } from '../../src/modules/owner/conversations.service';
-import { OwnerNotifier } from '../../src/modules/owner/owner-notifier.service';
 import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
 import { NegotiationService } from '../../src/modules/sales/negotiation.service';
 import { ShopsRepo } from '../../src/modules/shops/shops.repo';
@@ -113,16 +110,6 @@ const routes = new RouteService(
 );
 const deliverySettings = new DeliverySettingsRepo();
 const delivery = new DeliveryService(db, deliverySettings, shops, routes, () => Promise.resolve(1));
-const conversationsRepo = new ConversationsRepo();
-const notifier = new OwnerNotifier(db, conversationsRepo, shops, messenger, logger);
-const conversations = new ConversationService(
-  db,
-  conversationsRepo,
-  notifier,
-  messenger,
-  timers,
-  clock,
-);
 const driversRepo = new DriversRepo();
 const jobsRepo = new DeliveryJobsRepo();
 const drivers = new DriverService(db, driversRepo, shops, 'buchi_test_bot', clock);
@@ -148,8 +135,7 @@ const trips = new TripService(
   customers,
   messenger,
   new DeliveryOwnerAlerts(shops, messenger, logger),
-  conversations,
-  notifier,
+  events,
   timers,
   logger,
   clock,

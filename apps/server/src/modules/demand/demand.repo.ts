@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { demandSignals, waitlist } from '../../db/schema';
 
@@ -22,11 +22,26 @@ export class DemandRepo {
     return updated.length > 0;
   }
 
-  /** Joining twice keeps the first place in the line. */
+  /** Joining twice keeps the first place in the line, and returns false. */
   async joinWaitlist(
     tx: Transaction,
     entry: { shopId: string; customerId: string; variantId: string },
-  ): Promise<void> {
-    await tx.insert(waitlist).values(entry).onConflictDoNothing();
+  ): Promise<boolean> {
+    const inserted = await tx
+      .insert(waitlist)
+      .values(entry)
+      .onConflictDoNothing()
+      .returning({ id: waitlist.id });
+    return inserted.length > 0;
+  }
+
+  /** Customers still waiting for the variant, in the order they joined. */
+  async waiting(tx: Transaction, variantId: string): Promise<string[]> {
+    const rows = await tx
+      .select({ customerId: waitlist.customerId })
+      .from(waitlist)
+      .where(and(eq(waitlist.variantId, variantId), isNull(waitlist.notifiedAt)))
+      .orderBy(waitlist.joinedAt);
+    return rows.map((row) => row.customerId);
   }
 }

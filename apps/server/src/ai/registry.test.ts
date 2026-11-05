@@ -153,6 +153,54 @@ describe('ToolRegistry', () => {
     });
   });
 
+  describe('in a situation run', () => {
+    const inSituation = '3f2a9c00-0000-4000-8000-000000000001';
+    const elsewhere = 'aa000000-0000-4000-8000-000000000002';
+    const operations: RunContext = {
+      ...sales,
+      agent: 'operations',
+      actor: { kind: 'situation', recordIds: [inSituation] },
+    };
+
+    function orderTool(autonomy: 'automatic' | 'owner_confirms') {
+      const handler = vi.fn(() => Promise.resolve(ok));
+      const definition = defineTool({
+        name: 'message_customer',
+        description: 'Messages a customer',
+        agents: ['operations'],
+        autonomy,
+        input: z.object({ orderId: z.uuid(), text: z.string() }),
+        handle: handler,
+      });
+      return { definition, handler };
+    }
+
+    it('runs a tool on a record that the situation names', async () => {
+      const message = orderTool('automatic');
+      const { registry } = registryWith(message);
+      const args = { orderId: inSituation, text: 'Hello' };
+
+      expect(await registry.execute({ name: 'message_customer', args }, operations)).toEqual(ok);
+      expect(message.handler).toHaveBeenCalled();
+    });
+
+    it.each(['automatic', 'owner_confirms'] as const)(
+      'refuses an %s tool on any other record',
+      async (autonomy) => {
+        const message = orderTool(autonomy);
+        const { registry, guard } = registryWith(message);
+        const args = { orderId: elsewhere, text: 'Hello' };
+
+        expect(await registry.execute({ name: 'message_customer', args }, operations)).toEqual({
+          status: 'error',
+          error: 'You can act only on the records of this situation.',
+        });
+        expect(message.handler).not.toHaveBeenCalled();
+        expect(guard.requestOwnerConfirmation).not.toHaveBeenCalled();
+      },
+    );
+  });
+
   it('refuses two tools with the same name', () => {
     expect(() =>
       registryWith(tool('escalate', ['sales']), tool('escalate', ['operations'])),

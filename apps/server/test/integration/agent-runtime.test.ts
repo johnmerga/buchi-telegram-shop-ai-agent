@@ -310,7 +310,12 @@ describe('PolicyGuard', () => {
     const scoped = { ...context, shopId };
     const proposal = { value: 30, reason: 'Pays after work', evidenceIds: ['msg:9'] };
 
-    const outcome = await guard.checkDeadlineExtension(scoped, proposal, 1);
+    const orderId = '00000000-0000-4000-8000-0000000000e1';
+
+    const outcome = await guard.checkDeadlineExtension(scoped, proposal, {
+      orderId,
+      extensionsMade: 1,
+    });
 
     expect(outcome).toEqual({
       decision: { result: 'needs_owner', reason: 'already_extended' },
@@ -318,7 +323,7 @@ describe('PolicyGuard', () => {
     });
     expect(await decisionsOf(context.runId)).toMatchObject([
       {
-        proposed: { value: 30 },
+        proposed: { orderId, value: 30 },
         limits: { extensionsMade: 1 },
         result: 'needs_owner',
         counteroffer: null,

@@ -1,6 +1,16 @@
 import { agentNames } from '@buchi/shared';
 import { sql } from 'drizzle-orm';
-import { check, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  check,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { shopIsolation } from './rls';
 import { shops } from './shops';
 
@@ -60,12 +70,19 @@ export const agentDecisions = pgTable(
       .notNull()
       .default(sql`'{}'`),
     ownerStatus: ownerConfirmationStatus('owner_status'),
+    /** The owner who tapped **Approve** or **Decline**, and when. */
+    decidedBy: bigint('decided_by', { mode: 'number' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check(
       'agent_decisions_owner_status_iff_needs_owner',
       sql`(${t.result} = 'needs_owner') = (${t.ownerStatus} is not null)`,
+    ),
+    check(
+      'agent_decisions_decided_iff_answered',
+      sql`(${t.ownerStatus} in ('approved', 'declined')) = (${t.decidedAt} is not null and ${t.decidedBy} is not null)`,
     ),
     check(
       'agent_decisions_counteroffer_iff_rejected',

@@ -1,0 +1,12 @@
+{"id":"pay-after-work","input":{"situation":"payment_deadline","message":"I'll pay after work, around 6","extensionsMade":0},"expected":{"automatic":["extend_deadline"],"ownerConfirms":[]}}
+{"id":"pay-after-work-amharic","input":{"situation":"payment_deadline","message":"ከስራ በኋላ እከፍላለሁ","extensionsMade":0},"expected":{"automatic":["extend_deadline"],"ownerConfirms":[]}}
+{"id":"second-extension-goes-to-owner","input":{"situation":"payment_deadline","message":"Sorry, I need 30 more minutes","extensionsMade":1},"expected":{"automatic":[],"ownerConfirms":["extend_deadline"]}}
+{"id":"question-near-deadline-left-to-sales","input":{"situation":"payment_deadline","message":"Is it real leather?","extensionsMade":0},"expected":{"automatic":[],"ownerConfirms":[]}}
+{"id":"customer-not-answering","input":{"situation":"driver_report","message":"ደንበኛው ስልክ አያነሳም"},"expected":{"automatic":["message_customer","reschedule_delivery"],"ownerConfirms":[]}}
+{"id":"driver-stuck-in-traffic","input":{"situation":"driver_report","message":"Stuck at Megenagna, 30 minutes late"},"expected":{"automatic":["update_eta","save_area_note"],"ownerConfirms":[]}}
+{"id":"late-trip-without-report","input":{"situation":"delivery_late"},"expected":{"automatic":["message_driver","update_eta"],"ownerConfirms":[]}}
+{"id":"no-driver-accepted","input":{"situation":"no_driver_accepted"},"expected":{"automatic":[],"ownerConfirms":["propose_bonus"]}}
+{"id":"wrong-size-in-stock","input":{"situation":"delivery_problem","problem":"wrong_size","wantedSizeInStock":true},"expected":{"automatic":["start_exchange"],"ownerConfirms":[]}}
+{"id":"wrong-size-sold-out","input":{"situation":"delivery_problem","problem":"wrong_size","wantedSizeInStock":false},"expected":{"automatic":[],"ownerConfirms":["propose_refund"]}}
+{"id":"damaged-item","input":{"situation":"delivery_problem","problem":"damaged","wantedSizeInStock":false},"expected":{"automatic":["message_customer"],"ownerConfirms":["escalate"]}}
+{"id":"waitlist-threshold","input":{"situation":"waitlist"},"expected":{"automatic":[],"ownerConfirms":["propose_restock"]}}

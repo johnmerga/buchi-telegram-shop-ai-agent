@@ -161,7 +161,7 @@ const photoSearch = new PhotoSearchService(
   new CatalogRepo(),
   catalog,
   model,
-  new DemandService(db, new DemandRepo()),
+  new DemandService(db, new DemandRepo(), new EventBus(logger)),
   logger,
 );
 const intake = new ImageIntake(

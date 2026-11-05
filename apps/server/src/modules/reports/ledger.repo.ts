@@ -5,7 +5,7 @@ import type { LedgerRow } from './ledger.domain';
 
 export type QueuedLedgerRow = typeof ledgerRows.$inferSelect;
 
-export interface LedgerQueueState {
+interface LedgerQueueState {
   pending: number;
   lastSentAt: Date | null;
   lastError: string | null;

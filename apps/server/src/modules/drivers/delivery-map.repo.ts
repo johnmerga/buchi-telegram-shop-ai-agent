@@ -10,7 +10,7 @@ function isOpen(status: string): status is OpenStatus {
   return openStatuses.some((open) => open === status);
 }
 
-export interface OpenJobRow {
+interface OpenJobRow {
   jobId: string;
   status: OpenStatus;
   far: boolean;
@@ -18,7 +18,7 @@ export interface OpenJobRow {
   driverName: string | null;
 }
 
-export interface MapStopRow {
+interface MapStopRow {
   jobId: string;
   orderId: string;
   position: number;

@@ -17,7 +17,7 @@ import type { LowStockItem, WaitlistDemand } from './daily-reports.domain';
 
 type DailyReportKind = (typeof dailyReportRuns.$inferInsert)['kind'];
 
-export interface Period {
+interface Period {
   start: Date;
   end: Date;
 }

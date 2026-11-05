@@ -18,7 +18,7 @@ export interface LedgerSheets {
 }
 
 /** Google Sheets with the service account that owners share their sheet with. */
-export interface LedgerGoogle {
+interface LedgerGoogle {
   sheets: LedgerSheets;
   serviceAccountEmail: string;
 }

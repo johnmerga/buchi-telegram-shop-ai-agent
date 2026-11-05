@@ -9,7 +9,7 @@ import type { PaymentProofRow, PaymentProofsRepo } from './payment-proofs.repo';
 import type { RiskService } from './risk.service';
 
 /** How an order was paid, for the sales ledger. Empty when the owner approved an unread receipt. */
-export interface PaidWith {
+interface PaidWith {
   provider: PaymentProvider | null;
   txRef: string | null;
   bankVerified: boolean;

@@ -41,7 +41,7 @@ export const ledgerHeaders: Record<LedgerTab, string[]> = {
   ],
 };
 
-export interface Sale {
+interface Sale {
   orderId: string;
   orderReference: string;
   paidAt: Date;

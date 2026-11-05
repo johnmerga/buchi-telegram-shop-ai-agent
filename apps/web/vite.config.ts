@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 
 /** The API server, which the dev server forwards API calls to. */
 const apiServer = 'http://localhost:3000';
-const apiPaths = ['/auth', '/shops', '/driver', '/customer'];
+const apiPaths = ['/auth', '/shops', '/driver', '/customer', '/places'];
 
 export default defineConfig({
   // The server serves the pages under /app, apart from the API's paths.

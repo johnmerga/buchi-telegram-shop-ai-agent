@@ -1,5 +1,6 @@
 import type { Coordinates } from '@buchi/shared';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { fakeTelegram, renderAt } from '../../test/fakes';
 import PinPickerScreen from './pin-picker-screen';
@@ -28,5 +29,28 @@ describe('customer map picker', () => {
     fakeTelegram({ initData: '' });
     renderAt('/pin?lat=123&lng=38.79', <PinPickerScreen />);
     expect(screen.getByTestId('pin').textContent).toBe('9.0108,38.7613');
+  });
+
+  it('warns that a location from far off is approximate', async () => {
+    fakeTelegram({
+      initData: '',
+      LocationManager: {
+        isInited: true,
+        isLocationAvailable: true,
+        init: vi.fn(),
+        getLocation: (callback) => {
+          callback({ latitude: 8.99, longitude: 38.78, horizontal_accuracy: 12_000 });
+        },
+      },
+    });
+    renderAt('/pin', <PinPickerScreen />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Use my location/ }));
+    expect(screen.getByTestId('pin').textContent).toBe('8.99,38.78');
+    expect(
+      screen.getByText(
+        'This location is approximate (about 12 km). Drag the pin to where the order should arrive.',
+      ),
+    ).toBeTruthy();
   });
 });

@@ -52,8 +52,8 @@ function StopRow({ stop, onTheWay }: { stop: TripStop; onTheWay: boolean }) {
   const deliver = () => {
     setLocationError(undefined);
     currentLocation().then(
-      (location) => {
-        delivered.mutate({ stopId: stop.stopId, location });
+      ({ coordinates }) => {
+        delivered.mutate({ stopId: stop.stopId, location: coordinates });
       },
       (err: unknown) => {
         setLocationError(err instanceof Error ? err.message : 'No location.');

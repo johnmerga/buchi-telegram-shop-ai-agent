@@ -2,10 +2,11 @@ import type { Coordinates, Shop } from '@buchi/shared';
 import { useState } from 'react';
 import { ADDIS_ABABA } from '../../components/map/default-center';
 import { LazyPinPickerMap } from '../../components/map/lazy-maps';
+import { PlaceSearch } from '../../components/map/place-search';
 import { Alert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import { currentLocation } from '../../lib/location';
+import { approximateKm, currentLocation } from '../../lib/location';
 import { useSetLocation } from './owner-api';
 import { StepTitle } from './step-title';
 
@@ -21,9 +22,9 @@ export function LocationStep({ shopId, shop }: { shopId: string; shop: Shop }) {
   const useMine = () => {
     setLocating('Finding your location…');
     currentLocation().then(
-      (point) => {
-        setPin(point);
-        setLocating(undefined);
+      (location) => {
+        setPin(location.coordinates);
+        setLocating(approximateNotice(approximateKm(location)));
       },
       (err: unknown) => {
         setLocating(err instanceof Error ? err.message : 'Location is not available.');
@@ -37,6 +38,7 @@ export function LocationStep({ shopId, shop }: { shopId: string; shop: Shop }) {
       <p className="text-sm text-muted-foreground">
         Drag the pin to your shop’s door. Drivers start here, and delivery prices count from here.
       </p>
+      <PlaceSearch onChoose={setPin} />
       <LazyPinPickerMap value={pin} onChange={setPin} />
       <p className="text-xs text-muted-foreground">
         {pin.latitude.toFixed(5)}, {pin.longitude.toFixed(5)}
@@ -60,4 +62,10 @@ export function LocationStep({ shopId, shop }: { shopId: string; shop: Shop }) {
       </div>
     </Card>
   );
+}
+
+function approximateNotice(km: number | undefined): string | undefined {
+  return km === undefined
+    ? undefined
+    : `This location is approximate (about ${String(km)} km). Search your area or drag the pin.`;
 }

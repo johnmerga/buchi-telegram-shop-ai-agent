@@ -17,12 +17,20 @@ interface BackButton {
   offClick(callback: () => void): void;
 }
 
+/** Bot API 8.0's LocationData, with only the fields Buchi reads. */
+interface LocationData {
+  latitude: number;
+  longitude: number;
+  /** Meters, or `null` when the device does not report it. */
+  horizontal_accuracy: number | null;
+}
+
 /** Bot API 8.0. A missing location is `null`, for example when the user declines access. */
 interface LocationManager {
   isInited: boolean;
   isLocationAvailable: boolean;
   init(callback?: () => void): void;
-  getLocation(callback: (location: { latitude: number; longitude: number } | null) => void): void;
+  getLocation(callback: (location: LocationData | null) => void): void;
 }
 
 export interface WebApp {

@@ -6,7 +6,7 @@ import { LazyPinPickerMap } from '../../components/map/lazy-maps';
 import { MainAction } from '../../components/telegram-buttons';
 import { Alert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
-import { currentLocation } from '../../lib/location';
+import { approximateKm, currentLocation } from '../../lib/location';
 import { telegramWebApp } from '../../lib/telegram';
 
 /** The suggested pin from the link, such as a landmark the customer named in the chat. */
@@ -32,9 +32,9 @@ export default function PinPickerScreen() {
   const useMine = () => {
     setNotice('Finding your location…');
     currentLocation().then(
-      (point) => {
-        setPin(point);
-        setNotice(undefined);
+      (location) => {
+        setPin(location.coordinates);
+        setNotice(approximateNotice(approximateKm(location)));
       },
       (err: unknown) => {
         setNotice(err instanceof Error ? err.message : 'Location is not available.');
@@ -66,4 +66,10 @@ export default function PinPickerScreen() {
       )}
     </>
   );
+}
+
+function approximateNotice(km: number | undefined): string | undefined {
+  return km === undefined
+    ? undefined
+    : `This location is approximate (about ${String(km)} km). Drag the pin to where the order should arrive.`;
 }

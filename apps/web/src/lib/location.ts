@@ -8,11 +8,20 @@ export class LocationUnavailableError extends Error {
   }
 }
 
+/** Worse than this, the pin can be in the wrong neighborhood or the wrong town. */
+const APPROXIMATE_METERS = 1000;
+
+/** `accuracyMeters` is undefined when the device does not report it. */
+export interface DeviceLocation {
+  coordinates: Coordinates;
+  accuracyMeters: number | undefined;
+}
+
 /**
  * The device's location. Inside Telegram it uses the Mini App LocationManager, which asks for
  * access in Telegram's own words; elsewhere, or on older Telegram apps, the browser's geolocation.
  */
-export function currentLocation(): Promise<Coordinates> {
+export function currentLocation(): Promise<DeviceLocation> {
   const manager = telegramWebApp()?.LocationManager;
   if (!manager) return browserLocation();
   return new Promise((resolve, reject) => {
@@ -22,8 +31,13 @@ export function currentLocation(): Promise<Coordinates> {
         return;
       }
       manager.getLocation((location) => {
-        if (location) resolve({ latitude: location.latitude, longitude: location.longitude });
-        else reject(new LocationUnavailableError());
+        if (location) {
+          const { latitude, longitude, horizontal_accuracy } = location;
+          resolve({
+            coordinates: { latitude, longitude },
+            accuracyMeters: horizontal_accuracy ?? undefined,
+          });
+        } else reject(new LocationUnavailableError());
       });
     };
     if (manager.isInited) read();
@@ -31,7 +45,7 @@ export function currentLocation(): Promise<Coordinates> {
   });
 }
 
-function browserLocation(): Promise<Coordinates> {
+function browserLocation(): Promise<DeviceLocation> {
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) {
       reject(new LocationUnavailableError());
@@ -39,7 +53,10 @@ function browserLocation(): Promise<Coordinates> {
     }
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        resolve({ latitude: coords.latitude, longitude: coords.longitude });
+        resolve({
+          coordinates: { latitude: coords.latitude, longitude: coords.longitude },
+          accuracyMeters: coords.accuracy,
+        });
       },
       () => {
         reject(new LocationUnavailableError());
@@ -47,4 +64,13 @@ function browserLocation(): Promise<Coordinates> {
       { enableHighAccuracy: true, timeout: 15_000 },
     );
   });
+}
+
+/**
+ * How far off a location too rough to trust can be, in whole kilometers, such as Telegram
+ * Desktop's, which comes from the internet address and can be a town away.
+ */
+export function approximateKm({ accuracyMeters }: DeviceLocation): number | undefined {
+  if (accuracyMeters === undefined || accuracyMeters <= APPROXIMATE_METERS) return undefined;
+  return Math.round(accuracyMeters / 1000);
 }

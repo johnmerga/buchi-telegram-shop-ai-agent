@@ -35,6 +35,12 @@ export class CustomersService {
     await withShop(this.db, shopId, (tx) => this.repo.setPhone(tx, customerId, phone));
   }
 
+  async get(shopId: string, customerId: string): Promise<CustomerRow> {
+    const customer = await withShop(this.db, shopId, (tx) => this.repo.find(tx, customerId));
+    if (!customer) throw new AppError('NOT_FOUND', 'Customer not found');
+    return customer;
+  }
+
   /** Keeps the pin for the order being placed, and clears it once the order holds it. */
   async setDeliveryPin(shopId: string, customerId: string, pin: Coordinates | null): Promise<void> {
     await withShop(this.db, shopId, (tx) => this.repo.setDeliveryPin(tx, customerId, pin));

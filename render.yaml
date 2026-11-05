@@ -28,5 +28,9 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RISK_HASH_SECRET
+        sync: false
       - key: ORS_API_KEY
         sync: false

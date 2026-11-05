@@ -157,6 +157,11 @@ export class OrderService {
     });
   }
 
+  /** The customer's latest order in this shop that waits for a payment or has one being checked. */
+  latestUnpaid(shopId: string, telegramUserId: number): Promise<OrderRow | undefined> {
+    return withShop(this.db, shopId, (tx) => this.repo.latestUnpaid(tx, telegramUserId));
+  }
+
   /** Finds an order of the customer with this Telegram user ID, in whichever shop it was placed. */
   async getForCustomer(telegramUserId: number, orderId: string): Promise<OrderWithItems> {
     const shopId = await this.repo.customerOrderShopId(this.db, orderId, telegramUserId);

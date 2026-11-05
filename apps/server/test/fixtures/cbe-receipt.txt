@@ -1,0 +1,16 @@
+Commercial Bank of Ethiopia
+VAT Invoice / Customer Receipt
+Company Address & Other Information          Customer Information
+Tin: 0000006966   VAT Receipt No: FT26189X24XP   Customer Name: HANA BEKELE
+Payment / Transaction Information
+Payer                                        HANA BEKELE
+Account                                      1****5361
+Receiver                                     SELAM TESFAYE ALEMU
+Account                                      1****6789
+Payment Date & Time                          11/5/2026, 3:10:00 PM
+Reference No. (VAT Invoice No)               FT26189X24XP
+Reason / Type of service                     Pay done via Mobile
+Transferred Amount                           20,000.00 ETB
+Commission or Service Charge                 0.00 ETB
+15% VAT on Commission                        0.00 ETB
+Total amount debited from customers account  20,000.00 ETB

@@ -26,6 +26,11 @@ export class CustomersRepo {
     await tx.update(customers).set({ phone }).where(eq(customers.id, customerId));
   }
 
+  async find(tx: Transaction, customerId: string): Promise<CustomerRow | undefined> {
+    const [row] = await tx.select().from(customers).where(eq(customers.id, customerId));
+    return row;
+  }
+
   async setDeliveryPin(
     tx: Transaction,
     customerId: string,

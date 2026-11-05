@@ -123,6 +123,24 @@ server checks Telegram's signature with the bot token, rejects launch data older
 returns a bearer token that is valid for 12 hours. In Render, set `AUTH_TOKEN_SECRET` to a secret of
 at least 32 characters, for example from `openssl rand -hex 32`. Changing it signs out every user.
 
+### Gemini and payment checks
+
+Buchi reads payment screenshots with the Gemini API. Create a key in
+[Google AI Studio](https://aistudio.google.com/apikey), which needs no payment method, and set
+`GEMINI_API_KEY` in Render. The model IDs default to `gemini-2.5-flash-lite`,
+`gemini-2.5-flash`, and `gemini-embedding-001`. Check them in AI Studio and override
+`GEMINI_MODEL_FAST`, `GEMINI_MODEL_SMART`, and `GEMINI_MODEL_EMBED` if they change.
+`GEMINI_REQUESTS_PER_MINUTE` and `GEMINI_REQUESTS_PER_DAY` keep Buchi under the free tier's limits.
+When they run out, payment screenshots go to owner review.
+
+Set `RISK_HASH_SECRET` to a secret of at least 32 characters, for example from
+`openssl rand -hex 32`. It keys the hashes that identify payers in the shared risk signals.
+Changing it makes Buchi forget every earlier signal.
+
+Buchi also checks each receipt on the public Telebirr and CBE receipt pages. These pages are not
+official APIs and may block servers outside Ethiopia. When a page cannot be reached, Buchi approves
+payments of up to 1,000 birr without the bank check and sends larger ones to owner review.
+
 ### cron-job.org
 
 [cron-job.org](https://cron-job.org) calls the scheduled job endpoints, which also keeps the free

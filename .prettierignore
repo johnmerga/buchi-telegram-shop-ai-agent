@@ -1,4 +1,6 @@
 pnpm-lock.yaml
 docs/
 apps/server/src/db/migrations/meta/
+# Saved bank pages keep their original, malformed markup.
+apps/server/test/fixtures
 evals/recordings/

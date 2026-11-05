@@ -8,6 +8,8 @@ describe('loadEnv', () => {
     TELEGRAM_WEBHOOK_SECRET: 'a'.repeat(32),
     JOB_SECRET: 'x'.repeat(32),
     AUTH_TOKEN_SECRET: 'y'.repeat(32),
+    GEMINI_API_KEY: 'gemini-key',
+    RISK_HASH_SECRET: 'z'.repeat(32),
     ORS_API_KEY: 'ors-key',
   };
 
@@ -17,6 +19,12 @@ describe('loadEnv', () => {
       NODE_ENV: 'development',
       PORT: 3000,
       LOG_LEVEL: 'info',
+      GEMINI_MODEL_FAST: 'gemini-2.5-flash-lite',
+      GEMINI_MODEL_SMART: 'gemini-2.5-flash',
+      GEMINI_MODEL_EMBED: 'gemini-embedding-001',
+      GEMINI_EMBEDDING_DIMENSIONS: 768,
+      GEMINI_REQUESTS_PER_MINUTE: 10,
+      GEMINI_REQUESTS_PER_DAY: 250,
       ORS_BASE_URL: 'https://api.heigit.org',
       NOMINATIM_USER_AGENT: 'Buchi/1.0 (contact via GitHub johnmerga/buchi-telegram-shop-ai-agent)',
     });
@@ -37,6 +45,12 @@ describe('loadEnv', () => {
   it('rejects an auth token secret shorter than 32 characters', () => {
     expect(() => loadEnv({ ...required, AUTH_TOKEN_SECRET: 'y'.repeat(31) })).toThrow(
       /AUTH_TOKEN_SECRET/,
+    );
+  });
+
+  it('rejects a risk hash secret shorter than 32 characters', () => {
+    expect(() => loadEnv({ ...required, RISK_HASH_SECRET: 'z'.repeat(31) })).toThrow(
+      /RISK_HASH_SECRET/,
     );
   });
 });

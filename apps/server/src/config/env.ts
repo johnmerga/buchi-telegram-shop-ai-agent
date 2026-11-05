@@ -11,6 +11,16 @@ const envSchema = z.object({
   JOB_SECRET: z.string().min(32),
   /** Signs the bearer tokens that Mini Apps send to the API. */
   AUTH_TOKEN_SECRET: z.string().min(32),
+  GEMINI_API_KEY: z.string().min(1),
+  GEMINI_MODEL_FAST: z.string().min(1).default('gemini-2.5-flash-lite'),
+  GEMINI_MODEL_SMART: z.string().min(1).default('gemini-2.5-flash'),
+  GEMINI_MODEL_EMBED: z.string().min(1).default('gemini-embedding-001'),
+  GEMINI_EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(768),
+  /** Requests per minute and per Pacific day. Defaults stay under the free tier's limits. */
+  GEMINI_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  GEMINI_REQUESTS_PER_DAY: z.coerce.number().int().positive().default(250),
+  /** Keys the payer hashes in the shared risk signals. Changing it forgets every signal. */
+  RISK_HASH_SECRET: z.string().min(32),
   /** HeiGIT basic key for OpenRouteService, sent as the raw `Authorization` header. */
   ORS_API_KEY: z.string().min(1),
   ORS_BASE_URL: z.url().default('https://api.heigit.org'),

@@ -4,6 +4,7 @@ export * from './conversations';
 export * from './customers';
 export * from './delivery';
 export * from './orders';
+export * from './payments';
 export * from './sessions';
 export * from './shops';
 export * from './telegram';

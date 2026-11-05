@@ -1,4 +1,7 @@
+import { GoogleGenAI } from '@google/genai';
 import { Api } from 'grammy';
+import { GeminiModel } from './ai/gemini';
+import { QuotaManager } from './ai/quota';
 import { loadEnv } from './config/env';
 import { createLogger } from './config/logger';
 import { connectDatabase } from './db/client';
@@ -33,6 +36,16 @@ import { OrdersRepo } from './modules/orders/orders.repo';
 import { OrderService } from './modules/orders/orders.service';
 import { createReorderHandlers } from './modules/orders/orders.reorder.handlers';
 import { createPurchaseHandlers } from './modules/orders/purchase.handlers';
+import { ImageIntake } from './modules/payments/image-intake.service';
+import { PaymentNotifier } from './modules/payments/payment-notifier.service';
+import { PaymentProofsRepo } from './modules/payments/payment-proofs.repo';
+import { PaymentRefsRepo } from './modules/payments/payment-refs.repo';
+import { PaymentReview } from './modules/payments/payment-review.service';
+import { PaymentVerification } from './modules/payments/payment-verification.service';
+import { createPaymentHandlers } from './modules/payments/payments.handlers';
+import { ReceiptReader } from './modules/payments/receipt-reader.service';
+import { RiskSignalsRepo } from './modules/payments/risk-signals.repo';
+import { RiskService } from './modules/payments/risk.service';
 import { createConversationHandlers } from './modules/owner/conversations.handlers';
 import { ConversationsRepo } from './modules/owner/conversations.repo';
 import { ConversationService, HAND_BACK_TIMER } from './modules/owner/conversations.service';
@@ -42,7 +55,12 @@ import { createShopsRouter } from './modules/shops/shops.routes';
 import { ShopsService } from './modules/shops/shops.service';
 import { TelegramChannels } from './telegram/channels';
 import { EventBus } from './shared/events';
+import { BankReceipts } from './integrations/receipts/bank-receipts';
+import { CbeReceipts } from './integrations/receipts/cbe';
+import { timedFetch } from './integrations/receipts/fetch-page';
+import { TelebirrReceipts } from './integrations/receipts/telebirr';
 import { createBot } from './telegram/bot';
+import { TelegramFiles } from './telegram/files';
 import { TelegramMessenger } from './telegram/messenger';
 import { TelegramIngress } from './telegram/ingress';
 import { TelegramOrderNotifier } from './telegram/order-notifier';
@@ -51,6 +69,8 @@ import { createTelegramWebhookRouter } from './telegram/webhook.routes';
 import { UpdateWorker } from './telegram/worker';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
+/** Bank receipt pages are optional evidence, so a slow page must not hold up a customer's reply. */
+const RECEIPT_PAGE_TIMEOUT_MS = 8_000;
 
 const env = loadEnv(process.env);
 const logger = createLogger(env);
@@ -114,6 +134,61 @@ timers.register(HAND_BACK_TIMER, (timer) => conversations.handBackIfSilent(timer
 const orderAlerts = new OrderAlerts(orders, conversations, notifier);
 events.subscribe('order.created', (event) => orderAlerts.orderCreated(event));
 
+const model = new GeminiModel(
+  new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }).models,
+  {
+    models: {
+      fast: env.GEMINI_MODEL_FAST,
+      smart: env.GEMINI_MODEL_SMART,
+      embedding: env.GEMINI_MODEL_EMBED,
+    },
+    embeddingDimensions: env.GEMINI_EMBEDDING_DIMENSIONS,
+  },
+  new QuotaManager(
+    {
+      requestsPerMinute: env.GEMINI_REQUESTS_PER_MINUTE,
+      requestsPerDay: env.GEMINI_REQUESTS_PER_DAY,
+    },
+    () => new Date(),
+  ),
+);
+const receiptPage = timedFetch(RECEIPT_PAGE_TIMEOUT_MS);
+const receiptReader = new ReceiptReader(model, logger);
+const paymentProofs = new PaymentProofsRepo();
+const paymentRefs = new PaymentRefsRepo(database.db);
+const risk = new RiskService(new RiskSignalsRepo(database.db), env.RISK_HASH_SECRET);
+const paymentNotifier = new PaymentNotifier(shops, orders, messenger, logger);
+const verification = new PaymentVerification(
+  database.db,
+  paymentProofs,
+  paymentRefs,
+  receiptReader,
+  new BankReceipts({
+    telebirr: new TelebirrReceipts(receiptPage),
+    cbe_bank: new CbeReceipts(receiptPage),
+  }),
+  risk,
+  orders,
+  shops,
+  customers,
+  paymentNotifier,
+);
+const imageIntake = new ImageIntake(
+  new TelegramFiles(telegramApi, env.TELEGRAM_BOT_TOKEN),
+  receiptReader,
+  orders,
+  verification,
+);
+const paymentReview = new PaymentReview(
+  database.db,
+  paymentProofs,
+  paymentRefs,
+  risk,
+  orders,
+  customers,
+  paymentNotifier,
+);
+
 const bot = createBot({
   token: env.TELEGRAM_BOT_TOKEN,
   botInfo,
@@ -121,6 +196,7 @@ const bot = createBot({
   handlers: [
     createConversationHandlers({ conversations, customers }),
     createPurchaseHandlers({ catalog, customers, checkout, conversations, locations }),
+    createPaymentHandlers({ intake: imageIntake, review: paymentReview, customers }),
     createReorderHandlers(checkout),
     createCatalogHandlers(catalog),
   ],

@@ -45,7 +45,7 @@ import { TelegramMessenger } from '../../src/telegram/messenger';
 import { noEmbeddings } from './no-embeddings';
 import { pickupOnlyDelivery } from './pickup-only-delivery';
 
-export interface SentMessage {
+interface SentMessage {
   method: string;
   chatId: number | undefined;
   text: string | undefined;
@@ -198,7 +198,7 @@ const privateChat = (user: User): Chat.PrivateChat => ({
 
 export const userOf = (id: number, name: string): User => ({ id, is_bot: false, first_name: name });
 
-export const message = (from: User, extra: Record<string, unknown>): Update => ({
+const message = (from: User, extra: Record<string, unknown>): Update => ({
   update_id: updateId++,
   message: { message_id: updateId, date: 0, chat: privateChat(from), from, ...extra },
 });

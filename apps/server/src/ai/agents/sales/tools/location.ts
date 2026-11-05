@@ -7,7 +7,7 @@ import { defineTool, type Tool } from '../../../tool';
 import { customerOf } from './customer';
 
 /** Shows a found place for the customer to confirm, or asks for a pin. */
-export interface PlaceChat {
+interface PlaceChat {
   confirmPlace(chatId: number, place: PlaceCandidate): Promise<void>;
   askForPin(chatId: number, text: string): Promise<void>;
 }

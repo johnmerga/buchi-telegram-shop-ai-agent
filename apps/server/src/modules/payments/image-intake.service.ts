@@ -17,7 +17,7 @@ export interface ImageFiles {
 }
 
 /** A text reply, or the result of searching the catalog for a product photo. */
-export type IntakeReply =
+type IntakeReply =
   { kind: 'text'; text: string } | { kind: 'photo_search'; result: PhotoSearchAnswer };
 
 export interface IncomingImage {

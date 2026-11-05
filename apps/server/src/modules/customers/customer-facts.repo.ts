@@ -2,7 +2,7 @@ import { asc, eq, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { customerFacts } from '../../db/schema';
 
-export type CustomerFactRow = typeof customerFacts.$inferSelect;
+type CustomerFactRow = typeof customerFacts.$inferSelect;
 
 export class CustomerFactsRepo {
   /** A new fact under a key the customer already has replaces it, such as a changed shoe size. */

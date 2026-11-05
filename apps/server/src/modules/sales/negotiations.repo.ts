@@ -3,7 +3,7 @@ import { and, countDistinct, eq, gte, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { negotiations } from '../../db/schema';
 
-export type NegotiationRow = typeof negotiations.$inferSelect;
+type NegotiationRow = typeof negotiations.$inferSelect;
 
 export class NegotiationsRepo {
   async find(

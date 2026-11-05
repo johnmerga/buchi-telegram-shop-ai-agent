@@ -49,14 +49,17 @@ describe('startOfAddisDay', () => {
 });
 
 describe('isForgetRequest', () => {
-  it.each(['Forget my details', 'please   FORGET ME', 'እባክህ መረጃዬን እርሳ'])(
+  it.each(['Forget my details', 'please   DELETE MY details', 'እባክህ መረጃዬን እርሳ'])(
     'recognizes "%s"',
     (text) => {
       expect(isForgetRequest(text)).toBe(true);
     },
   );
 
-  it('ignores other messages', () => {
-    expect(isForgetRequest('Do you have size 42?')).toBe(false);
-  });
+  it.each(['Do you have size 42?', "Don't forget me when size 42 is back"])(
+    'ignores "%s"',
+    (text) => {
+      expect(isForgetRequest(text)).toBe(false);
+    },
+  );
 });

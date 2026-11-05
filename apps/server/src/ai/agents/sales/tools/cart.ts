@@ -14,7 +14,7 @@ import { customerOf } from './customer';
 const RECENT_ORDERS = 5;
 
 /** Sends the next checkout step with its buttons, or the payment instructions, from code. */
-export interface CheckoutChat {
+interface CheckoutChat {
   orderStep(chatId: number, step: PlaceOrderResult): Promise<void>;
 }
 

@@ -18,10 +18,9 @@ const salesAgent: AgentDefinition = {
   priority: 'customer',
 };
 
-export type SalesOutcome =
-  'reply' | 'handed_to_owner' | 'unverified_price' | 'unavailable' | 'forgotten';
+type SalesOutcome = 'reply' | 'handed_to_owner' | 'unverified_price' | 'unavailable' | 'forgotten';
 
-export interface SalesAnswer {
+interface SalesAnswer {
   outcome: SalesOutcome;
   /** What the customer reads. Every text except a checked reply comes from code. */
   text: string;

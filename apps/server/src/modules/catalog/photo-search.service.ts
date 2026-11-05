@@ -14,7 +14,7 @@ import type { CatalogService, ProductWithVariants } from './catalog.service';
 export type PhotoSearchAnswer =
   { status: 'found'; products: ProductWithVariants[] } | { status: 'not_found'; signalId: string };
 
-export type PhotoSearchResult = PhotoSearchAnswer | { status: 'unavailable' };
+type PhotoSearchResult = PhotoSearchAnswer | { status: 'unavailable' };
 
 const MAX_MATCHES = 3;
 /**

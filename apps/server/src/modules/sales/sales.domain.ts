@@ -6,7 +6,7 @@ export const evidenceKinds = [
   'asked_today',
   'days_in_stock',
 ] as const;
-export type EvidenceKind = (typeof evidenceKinds)[number];
+type EvidenceKind = (typeof evidenceKinds)[number];
 export type PriceEvidence = Record<EvidenceKind, number>;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -40,13 +40,7 @@ export function startOfAddisDay(now: Date): Date {
   return new Date(local - (local % DAY_MS) - ADDIS_OFFSET_MS);
 }
 
-const FORGET_REQUESTS = [
-  'forget my details',
-  'forget me',
-  'delete my details',
-  'መረጃዬን እርሳ',
-  'መረጃዬን አጥፋ',
-];
+const FORGET_REQUESTS = ['forget my details', 'delete my details', 'መረጃዬን እርሳ', 'መረጃዬን አጥፋ'];
 
 /**
  * A request to forget the customer's details, recognized without the model so it works even when

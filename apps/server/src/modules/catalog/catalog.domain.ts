@@ -61,7 +61,7 @@ export function postIdFromStartPayload(payload: string): string | undefined {
   return match ? match.slice(1).join('-') : undefined;
 }
 
-export interface CardProduct extends PostableProduct {
+interface CardProduct extends PostableProduct {
   variants: (VariantStock & { id: string; color: string | null })[];
 }
 

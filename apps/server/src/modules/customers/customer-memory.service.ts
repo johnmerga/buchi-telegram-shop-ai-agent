@@ -2,7 +2,7 @@ import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import type { CustomerFactsRepo } from './customer-facts.repo';
 
-export interface CustomerFact {
+interface CustomerFact {
   key: string;
   fact: string;
 }

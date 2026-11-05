@@ -1,7 +1,7 @@
 import type { MoneyString, PricingMode } from '@buchi/shared';
 
 /** A model turn as Gemini reads it, with text parts only. */
-export interface TextContent {
+interface TextContent {
   role: 'user' | 'model';
   parts: { text: string }[];
 }

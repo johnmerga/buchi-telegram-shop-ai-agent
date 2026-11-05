@@ -62,14 +62,14 @@ export function nextState(current: OrderStatus, event: OrderEvent): TransitionRe
     : { allowed: false };
 }
 
-export interface PricedProduct {
+interface PricedProduct {
   pricingMode: PricingMode;
   /** The shown price of a fixed-price product, or the asking price of a negotiable one. */
   price: MoneyString;
   lowestPrice: MoneyString | null;
 }
 
-export type UnitPrice = { status: 'priced'; price: Money } | { status: 'needs_agreement' };
+type UnitPrice = { status: 'priced'; price: Money } | { status: 'needs_agreement' };
 
 /**
  * The price one unit sells at. A fixed-price product always sells at its own price, whatever was

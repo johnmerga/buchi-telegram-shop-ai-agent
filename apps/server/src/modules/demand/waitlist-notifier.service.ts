@@ -17,7 +17,7 @@ interface ShopTimer {
 type Customer = Awaited<ReturnType<CustomersService['get']>>;
 
 /** The product card with its size buttons, which the purchase flow answers. */
-export interface ProductCards {
+interface ProductCards {
   productCard(chatId: number, product: ProductWithVariants): Promise<void>;
 }
 

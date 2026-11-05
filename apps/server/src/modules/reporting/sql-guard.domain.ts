@@ -1,7 +1,7 @@
 import nodeSqlParser, { type AST } from 'node-sql-parser';
 
 /** The reporting views, created in migration 0022. Model-written queries may read only these. */
-export const reportingViews = [
+const reportingViews = [
   'report_orders',
   'report_sales',
   'report_stock',
@@ -42,7 +42,7 @@ const allowedFunctions = new Set([
 /** The most rows a question can return, also enforced as the query's `LIMIT`. */
 export const MAX_ROWS = 200;
 
-export type CheckedQuery = { status: 'ok'; sql: string } | { status: 'rejected'; reason: string };
+type CheckedQuery = { status: 'ok'; sql: string } | { status: 'rejected'; reason: string };
 
 const options = { database: 'PostgresQL' };
 const parser = new nodeSqlParser.Parser();

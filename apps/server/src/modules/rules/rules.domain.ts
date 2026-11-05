@@ -12,7 +12,7 @@ import type {
   TimeOfDay,
 } from './rules.schemas';
 
-export type SettingsChange = z.output<typeof settingsChangeSchema>;
+type SettingsChange = z.output<typeof settingsChangeSchema>;
 
 /** A proposal with exact times, as stored once the owner confirms it. */
 export type ResolvedRule = { startsAt: Date; endsAt: Date | null } & (

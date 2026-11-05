@@ -15,7 +15,7 @@ export type ListingDraft = z.output<typeof listingDraftSchema>;
 
 const PREFIX = 'listing';
 const actions = ['post', 'edit', 'discard'] as const;
-export type ListingAction = (typeof actions)[number];
+type ListingAction = (typeof actions)[number];
 
 /** Telegram limits callback data to 64 bytes, so a button carries only the draft's ID. */
 export function listingCallbackData(action: ListingAction, draftId: string): string {

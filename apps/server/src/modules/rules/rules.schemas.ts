@@ -85,7 +85,7 @@ export const settingsChangeSchema = z
   .partial()
   .refine((change) => Object.keys(change).length > 0, 'Change at least one setting.');
 
-export const ruleTypes = ['delivery_pause', 'promotion', 'delivery_settings'] as const;
+const ruleTypes = ['delivery_pause', 'promotion', 'delivery_settings'] as const;
 export type RuleType = (typeof ruleTypes)[number];
 
 /**

@@ -8,11 +8,11 @@ import type { ReportingRepo } from './reporting.repo';
 import { checkQuery, MAX_ROWS } from './sql-guard.domain';
 
 /** The weekly analysis looks back four weeks, enough trips and sales for an average. */
-export const WEEKLY_PERIOD_DAYS = 28;
+const WEEKLY_PERIOD_DAYS = 28;
 const DAY_MS = 24 * 60 * 60_000;
 
 /** The fixed analysis queries behind the weekly suggestions, with the period they cover. */
-export interface WeeklyFindings {
+interface WeeklyFindings {
   periodDays: number;
   deliveryMargins: QueryRows;
   sellThroughBySize: QueryRows;

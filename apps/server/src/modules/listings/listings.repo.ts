@@ -7,7 +7,7 @@ export type DraftRow = typeof listingDrafts.$inferSelect;
 type NewDraft = typeof listingDrafts.$inferInsert;
 
 /** The parts of a draft that a new note from the owner replaces. */
-export interface Redraft {
+interface Redraft {
   ownerText: string;
   draft: Record<string, unknown>;
   pricingMode: PricingMode;

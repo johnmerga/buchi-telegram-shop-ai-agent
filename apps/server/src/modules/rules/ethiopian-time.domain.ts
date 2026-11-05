@@ -2,17 +2,17 @@
  * The part of the day an Amharic speaker names with a time: ጠዋት (morning), ከሰዓት (afternoon),
  * ማታ or ምሽት (evening), and ሌሊት (night).
  */
-export type DayPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
+type DayPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
 
 /** An hour on the Ethiopian clock, which counts 1 to 12 from 6:00 and again from 18:00. */
-export interface EthiopianTime {
+interface EthiopianTime {
   hour: number;
   minute: number;
   period?: DayPeriod | undefined;
 }
 
 /** A time of day on the 24-hour clock, and whether it falls after midnight of the named day. */
-export interface WesternTime {
+interface WesternTime {
   hour: number;
   minute: number;
   nextDay: boolean;

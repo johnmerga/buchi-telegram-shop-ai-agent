@@ -647,8 +647,8 @@ loading, empty, and error states.
 
 - **Built as:** a timer still `running` after a 10-minute lease returns to `pending`, and fails after
   three claims; a late result from an expired claim changes nothing. Per-IP and per-user rate limits
-  answer `RATE_LIMITED` (429); `TRUST_PROXY_HOPS` must be confirmed from `req.ips` after the first
-  Render deploy. Security headers: a strict default CSP, and per-role Mini App policies that allow
+  answer `RATE_LIMITED` (429); On Render `TRUST_PROXY_HOPS` is 3: production logs show
+  `X-Forwarded-For: <client>, <Cloudflare>, <Render edge>` arriving from a local proxy. Security headers: a strict default CSP, and per-role Mini App policies that allow
   Telegram Web to embed the pages (`'unsafe-eval'` only on the owner page, for the Login Widget).
   `reply_times` stores only arrival and reply times. A far-area price on a straight-line route always
   goes to the owner. Map screens keep their lists when the map cannot load.

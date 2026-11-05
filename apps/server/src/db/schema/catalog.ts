@@ -1,3 +1,4 @@
+import { pricingModeSchema } from '@buchi/shared';
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
@@ -17,7 +18,7 @@ import {
 import { shopIsolation } from './rls';
 import { shops } from './shops';
 
-export const pricingMode = pgEnum('pricing_mode', ['fixed', 'negotiable']);
+export const pricingMode = pgEnum('pricing_mode', pricingModeSchema.options);
 
 /**
  * Child rows reference their product by (product, shop). Foreign key checks ignore row-level
@@ -76,6 +77,7 @@ export const productVariants = pgTable(
   },
   (t) => [
     sameShopProduct(t),
+    unique('product_variants_id_shop_unique').on(t.id, t.shopId),
     unique('product_variants_option_unique').on(t.productId, t.size, t.color).nullsNotDistinct(),
     check(
       'product_variants_stock_covers_reserved',

@@ -2,6 +2,8 @@ import { loadEnv } from './config/env';
 import { createLogger } from './config/logger';
 import { connectDatabase } from './db/client';
 import { createApp } from './http/app';
+import { createAuthRouter } from './modules/auth/auth.routes';
+import { AuthService } from './modules/auth/auth.service';
 import { createJobsRouter } from './modules/jobs/jobs.routes';
 import { JobService } from './modules/jobs/jobs.service';
 import { TimersRepo } from './modules/jobs/timers.repo';
@@ -34,11 +36,18 @@ const updatesRepo = new TelegramUpdatesRepo(database.db);
 const worker = new UpdateWorker(updatesRepo, (update) => bot.handleUpdate(update), logger);
 const ingress = new TelegramIngress(updatesRepo, worker);
 
+const auth = new AuthService({
+  botToken: env.TELEGRAM_BOT_TOKEN,
+  tokenSecret: env.AUTH_TOKEN_SECRET,
+  now: () => new Date(),
+});
+
 const app = createApp({
   logger,
   routers: [
     createTelegramWebhookRouter({ secret: env.TELEGRAM_WEBHOOK_SECRET, ingress }),
     createJobsRouter(jobs, env.JOB_SECRET),
+    createAuthRouter(auth),
   ],
 });
 const server = app.listen(env.PORT, () => {

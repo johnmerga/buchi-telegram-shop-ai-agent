@@ -9,6 +9,8 @@ const envSchema = z.object({
   TELEGRAM_WEBHOOK_SECRET: z.string().regex(/^[A-Za-z0-9_-]{32,256}$/),
   /** Shared with the cron service, which sends it in the `x-job-secret` header. */
   JOB_SECRET: z.string().min(32),
+  /** Signs the bearer tokens that Mini Apps send to the API. */
+  AUTH_TOKEN_SECRET: z.string().min(32),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 

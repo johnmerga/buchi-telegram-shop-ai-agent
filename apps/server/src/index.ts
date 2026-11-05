@@ -24,6 +24,7 @@ import { orderTimerKinds } from './modules/orders/orders.deadlines.domain';
 import { PaymentDeadlineService } from './modules/orders/orders.deadlines.service';
 import { OrdersRepo } from './modules/orders/orders.repo';
 import { OrderService } from './modules/orders/orders.service';
+import { createReorderHandlers } from './modules/orders/orders.reorder.handlers';
 import { createPurchaseHandlers } from './modules/orders/purchase.handlers';
 import { createShopsRouter } from './modules/shops/shops.routes';
 import { ShopsService } from './modules/shops/shops.service';
@@ -81,6 +82,7 @@ const bot = createBot({
   ownedShopIds: (telegramUserId) => shops.ownedShopIds(telegramUserId),
   handlers: [
     createPurchaseHandlers({ catalog, customers, checkout }),
+    createReorderHandlers(checkout),
     createCatalogHandlers(catalog),
   ],
 });

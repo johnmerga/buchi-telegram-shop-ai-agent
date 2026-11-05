@@ -197,6 +197,9 @@ test timer, migrations run on Supabase, and CI is green.
   failed and does not block the others.
 - **Rule for every later handler:** error messages contain no personal data, because they are logged
   and stored in `last_error`.
+- **Rule for scheduling:** a timer is scheduled in the same transaction as the change it guards
+  (`TimerService.schedule(tx, ...)`). A handler whose entity has moved on finishes as `done`, not
+  `failed`.
 
 ### 0.7 CI and deployment
 

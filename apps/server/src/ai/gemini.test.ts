@@ -25,12 +25,13 @@ function setUp(generateContent: Models['generateContent'], requestsPerMinute = 1
 const request: GenerateRequest = { tier: 'smart', priority: 'customer', contents: [] };
 
 describe('GeminiModel', () => {
-  it('routes the tier to its model and reports token usage', async () => {
+  it('routes the tier to its model and reports the turn and token usage', async () => {
     const generate = vi.fn<Models['generateContent']>().mockResolvedValue(responseWith('ሰላም'));
     const result = await setUp(generate).generate(request);
 
     expect(generate).toHaveBeenCalledWith(expect.objectContaining({ model: 'model-smart' }));
     expect(result).toEqual({
+      content: { role: 'model', parts: [{ text: 'ሰላም' }] },
       text: 'ሰላም',
       functionCalls: [],
       usage: { inputTokens: 12, outputTokens: 3 },

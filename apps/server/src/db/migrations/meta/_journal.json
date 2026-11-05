@@ -71,6 +71,13 @@
       "when": 1793838791368,
       "tag": "0009_channel_post_shop",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793840101614,
+      "tag": "0010_agent_decisions_and_traces",
+      "breakpoints": true
     }
   ]
 }

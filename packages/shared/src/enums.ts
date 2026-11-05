@@ -34,3 +34,7 @@ export type AutonomyLevel = z.infer<typeof autonomyLevelSchema>;
 export const actorRoles = ['customer', 'driver', 'owner'] as const;
 export const actorRoleSchema = z.enum(actorRoles);
 export type ActorRole = z.infer<typeof actorRoleSchema>;
+
+/** The three agents. Each has its own prompt and its own tools. */
+export const agentNames = ['sales', 'operations', 'owner_assistant'] as const;
+export type AgentName = (typeof agentNames)[number];

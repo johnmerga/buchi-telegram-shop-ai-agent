@@ -22,6 +22,11 @@ export class Api {
     return this.request(path, jsonInit(method, body), schema);
   }
 
+  /** A file such as an image, which the page shows through an object URL. */
+  async blob(path: string): Promise<Blob> {
+    return (await this.fetch(path, { method: 'GET' })).blob();
+  }
+
   /** For routes that answer 204 No Content. */
   async sendOnly(method: Method, path: string, body: unknown): Promise<void> {
     await this.fetch(path, jsonInit(method, body));

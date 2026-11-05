@@ -7,5 +7,7 @@ export * from './geo';
 export * from './live';
 export * from './money';
 export * from './orders';
+export * from './owner';
 export * from './payments';
+export * from './reports';
 export * from './shops';

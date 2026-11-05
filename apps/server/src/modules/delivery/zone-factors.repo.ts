@@ -37,6 +37,17 @@ export class ZoneFactorsRepo {
       });
   }
 
+  allTimeFactors(): Promise<{ zone: string; band: TimeBand; factor: number; trips: number }[]> {
+    return this.db
+      .select({
+        zone: zoneTimeFactors.zone,
+        band: zoneTimeFactors.band,
+        factor: zoneTimeFactors.factor,
+        trips: zoneTimeFactors.trips,
+      })
+      .from(zoneTimeFactors);
+  }
+
   timeFactors(
     zones: string[],
     band: TimeBand,

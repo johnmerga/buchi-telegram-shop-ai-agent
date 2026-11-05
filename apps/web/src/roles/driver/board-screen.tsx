@@ -3,7 +3,7 @@ import { QueryView } from '../../components/query-view';
 import { EmptyState } from '../../components/screen-state';
 import { Card, CardTitle } from '../../components/ui/card';
 import { useBoard } from './driver-api';
-import { OfferCard } from './offer-card';
+import { HeldOfferCard, OfferCard } from './offer-card';
 import { TripCard } from './trip-card';
 
 export function BoardScreen() {
@@ -17,9 +17,9 @@ export function BoardScreen() {
 }
 
 function Board({ board }: { board: DriverBoard }) {
-  const special = board.offers.filter((offer) => offer.special);
-  const open = board.offers.filter((offer) => !offer.special);
-  const nothing = board.offers.length === 0 && board.trips.length === 0;
+  const special = board.offers.filter((offer) => offer.far);
+  const open = board.offers.filter((offer) => !offer.far);
+  const nothing = board.offers.length === 0 && board.held.length === 0 && board.trips.length === 0;
   return (
     <>
       {board.trips.length > 0 && (
@@ -27,6 +27,14 @@ function Board({ board }: { board: DriverBoard }) {
           <h2 className="font-semibold">My trips · ጉዞዎቼ</h2>
           {board.trips.map((trip) => (
             <TripCard key={trip.jobId} trip={trip} />
+          ))}
+        </section>
+      )}
+      {board.held.length > 0 && (
+        <section aria-label="Held for you" className="flex flex-col gap-2">
+          <h2 className="font-semibold">Held for you · የያዟቸው</h2>
+          {board.held.map((offer) => (
+            <HeldOfferCard key={offer.offerId} offer={offer} />
           ))}
         </section>
       )}

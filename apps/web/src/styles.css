@@ -67,3 +67,13 @@ body {
 .map-pin > span {
   transform: rotate(45deg);
 }
+
+/* Leaflet draws routes and zones as SVG, and CSS lets them follow the theme's colors. */
+.map-route {
+  stroke: var(--primary);
+}
+
+.map-zone {
+  stroke: var(--primary);
+  fill: var(--primary);
+}

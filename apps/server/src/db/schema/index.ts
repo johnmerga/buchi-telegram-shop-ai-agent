@@ -9,6 +9,7 @@ export * from './far-quotes';
 export * from './operations';
 export * from './orders';
 export * from './payments';
+export * from './reports';
 export * from './sales';
 export * from './sessions';
 export * from './shops';

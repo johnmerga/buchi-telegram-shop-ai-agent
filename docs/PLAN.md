@@ -60,6 +60,8 @@ Reviewers check every pull request against these rules.
 ### Code
 
 - No `any`, no non-null assertions (`!`), and no type casts without a comment that explains why.
+- Store scalar JSON values in `jsonb` columns wrapped as `{ value }`, because the driver parses a
+  bare JSON string twice on read.
 - Validate every boundary with `zod`: environment variables, HTTP bodies, Telegram payloads, Gemini
   outputs, and external API responses.
 - Errors are `AppError` instances with a code. Never swallow an error. Log it once, where it is
@@ -318,6 +320,11 @@ trace is stored, and the evaluation runner replays a recorded conversation.
   computed counteroffers on rejection; escalation after two rejections; `agent_decisions` records.
 - **Acceptance:** unit tests show that no input returns an accepted price outside the limits.
   Checkers never return the lowest price to the caller.
+- **Built as:** `ai/guard/`. A counteroffer below the lowest price is the lowest price plus a quarter
+  of the gap, rounded up to the next 50 birr and capped at the asking price; a price counts as a
+  concession only when it is below the agent's standing offer. "Owner confirms" requests are
+  `agent_decisions` rows with `owner_status = pending`. Phases 6 and 7 run an approved request's
+  stored input through the tool's handler.
 
 ### 2.4 Agent runtime and traces
 
@@ -325,6 +332,9 @@ trace is stored, and the evaluation runner replays a recorded conversation.
   agents; versioned prompts in `ai/prompts/`; `agent_traces` records with tokens and latency.
 - **Acceptance:** a tool error returns to the model as a tool result, not as a crash. Every model
   call has a trace.
+- **Built as:** `AgentRuntime.run` returns `reply` or `escalated` (two guard rejections, the
+  six-step limit, or an empty reply). `GenerateResult.content` carries Gemini's thought signatures
+  back on the next function-calling request.
 
 ### 2.5 Evaluation harness
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deliverySettingsSchema } from './delivery';
+import { deliverySettingsSchema, saverRunTimesSchema } from './delivery';
 
 const valid = {
   baseFee: '50',
@@ -37,5 +37,22 @@ describe('deliverySettingsSchema', () => {
     expect(deliverySettingsSchema.safeParse({ ...valid, saverDiscountPercent: 95 }).success).toBe(
       false,
     );
+  });
+});
+
+describe('saverRunTimesSchema', () => {
+  it('accepts 24-hour times and an empty list', () => {
+    expect(saverRunTimesSchema.safeParse({ times: ['00:00', '10:00', '23:59'] }).success).toBe(
+      true,
+    );
+    expect(saverRunTimesSchema.safeParse({ times: [] }).success).toBe(true);
+  });
+
+  it.each([['24:00'], ['9:00'], ['10:60']])('rejects %s', (time) => {
+    expect(saverRunTimesSchema.safeParse({ times: [time] }).success).toBe(false);
+  });
+
+  it('rejects a time listed twice', () => {
+    expect(saverRunTimesSchema.safeParse({ times: ['10:00', '10:00'] }).success).toBe(false);
   });
 });

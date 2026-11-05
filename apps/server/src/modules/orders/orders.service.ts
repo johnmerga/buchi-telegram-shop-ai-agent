@@ -157,6 +157,16 @@ export class OrderService {
     });
   }
 
+  /** Paid orders of one delivery type that wait for dispatch, oldest first. */
+  paid(shopId: string, deliveryType: DeliveryType): Promise<OrderRow[]> {
+    return withShop(this.db, shopId, (tx) => this.repo.paid(tx, deliveryType));
+  }
+
+  /** The shops that have paid orders of one delivery type waiting for dispatch. */
+  shopsWithPaid(deliveryType: DeliveryType): Promise<string[]> {
+    return this.repo.paidShopIds(this.db, deliveryType);
+  }
+
   /** The customer's latest order in this shop that waits for a payment or has one being checked. */
   latestUnpaid(shopId: string, telegramUserId: number): Promise<OrderRow | undefined> {
     return withShop(this.db, shopId, (tx) => this.repo.latestUnpaid(tx, telegramUserId));

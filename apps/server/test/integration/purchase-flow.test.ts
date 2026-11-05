@@ -63,7 +63,7 @@ const orders = new OrderService(
 /** The road trip that the fake routing service returns for every destination. */
 const road = { meters: 5000, seconds: 900 };
 const routes = new RouteService(
-  { route: () => Promise.resolve(road) },
+  { route: () => Promise.resolve(road), matrix: () => Promise.reject(new Error('unused')) },
   logger,
   () => new Date('2026-11-05T12:00:00Z'),
 );
@@ -89,6 +89,7 @@ const bot = createBot({
   token: 'test',
   botInfo,
   ownedShopIds: () => Promise.resolve([]),
+  driverShopIds: () => Promise.resolve([]),
   handlers: [
     createPurchaseHandlers({
       catalog,

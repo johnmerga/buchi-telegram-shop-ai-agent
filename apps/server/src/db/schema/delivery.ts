@@ -30,6 +30,13 @@ export const deliverySettings = pgTable(
     farRangeKm: doublePrecision('far_range_km').notNull(),
     farCap: money('far_cap').notNull(),
     saverDiscountPercent: integer('saver_discount_percent').notNull(),
+    /** Addis Ababa times of day, such as "10:00", when Saver orders go out as grouped routes. */
+    saverRunTimes: text('saver_run_times')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    /** The due time of the one pending Saver run timer, so a stale timer cannot run a second chain. */
+    nextSaverRunAt: timestamp('next_saver_run_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

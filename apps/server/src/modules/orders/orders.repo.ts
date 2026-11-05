@@ -158,6 +158,23 @@ export class OrdersRepo {
     return row?.shop_id ?? null;
   }
 
+  /** Paid orders of one delivery type, oldest first, that wait for dispatch. */
+  paid(tx: Transaction, deliveryType: DeliveryType): Promise<OrderRow[]> {
+    return tx
+      .select()
+      .from(orders)
+      .where(and(eq(orders.status, 'paid'), eq(orders.deliveryType, deliveryType)))
+      .orderBy(orders.createdAt);
+  }
+
+  /** Looks across all shops through the `paid_order_shop_ids` database function. */
+  async paidShopIds(db: Database, deliveryType: DeliveryType): Promise<string[]> {
+    const rows = await db.execute<{ shop_id: string }>(
+      sql`select shop_id from paid_order_shop_ids(${deliveryType}) as shop_id`,
+    );
+    return rows.map((row) => row.shop_id);
+  }
+
   /** The customer's latest order that waits for a payment or has one being checked. */
   async latestUnpaid(tx: Transaction, telegramUserId: number): Promise<OrderRow | undefined> {
     const [row] = await tx

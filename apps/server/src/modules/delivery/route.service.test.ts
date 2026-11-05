@@ -22,6 +22,10 @@ function recordingRouter() {
       destinations.push(to);
       return Promise.resolve({ meters: 4874, seconds: 702 });
     },
+    matrix: (points) => {
+      destinations.push(...points);
+      return Promise.resolve({ meters: [[0]], seconds: [[0]] });
+    },
   };
   return { router, destinations };
 }
@@ -63,11 +67,34 @@ describe('RouteService', () => {
         calls += 1;
         return Promise.reject(new Error('OpenRouteService answered 429'));
       },
+      matrix: () => Promise.reject(new Error('unused')),
     });
     await expect(service.between(shop, customer)).resolves.toEqual(
       straightLineRoute(shop, customer),
     );
     await service.between(shop, customer);
     expect(calls).toBe(2);
+  });
+
+  it('asks for a matrix from the shop to the zone centers, not the exact pins', async () => {
+    const { router, destinations } = recordingRouter();
+    await routesWith(router).service.matrix(shop, [customer]);
+    expect(destinations[0]).toEqual(shop);
+    expect(destinations[1]).not.toEqual(customer);
+    expect(destinations[1]?.latitude).toBeCloseTo(customer.latitude, 2);
+  });
+
+  it('estimates the matrix from straight lines when the routing service fails', async () => {
+    const { service } = routesWith({
+      route: () => Promise.reject(new Error('unused')),
+      matrix: () => Promise.reject(new Error('OpenRouteService answered 429')),
+    });
+    const matrix = await service.matrix(shop, [customer]);
+    const estimate = straightLineRoute(shop, customer);
+    expect(matrix.meters).toEqual([
+      [0, estimate.meters],
+      [estimate.meters, 0],
+    ]);
+    expect(matrix.seconds[0]?.[1]).toBe(estimate.seconds);
   });
 });

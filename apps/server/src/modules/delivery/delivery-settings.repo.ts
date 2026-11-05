@@ -1,5 +1,5 @@
 import type { DeliverySettings } from '@buchi/shared';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { deliverySettings } from '../../db/schema';
 
@@ -28,5 +28,43 @@ export class DeliverySettingsRepo {
         target: deliverySettings.shopId,
         set: { ...settings, updatedAt: sql`now()` },
       });
+  }
+
+  async saverRunTimes(tx: Transaction): Promise<string[] | undefined> {
+    const [row] = await tx.select({ times: deliverySettings.saverRunTimes }).from(deliverySettings);
+    return row?.times;
+  }
+
+  /** Returns false when the shop has no delivery settings to add run times to. */
+  async setSaverSchedule(
+    tx: Transaction,
+    shopId: string,
+    schedule: { times: string[]; nextRunAt: Date | null },
+  ): Promise<boolean> {
+    const updated = await tx
+      .update(deliverySettings)
+      .set({
+        saverRunTimes: schedule.times,
+        nextSaverRunAt: schedule.nextRunAt,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(deliverySettings.shopId, shopId))
+      .returning({ shopId: deliverySettings.shopId });
+    return updated.length > 0;
+  }
+
+  /** Moves the next run on only if it is still `dueAt`, so only the current timer claims a run. */
+  async advanceSaverRun(
+    tx: Transaction,
+    shopId: string,
+    dueAt: Date,
+    nextRunAt: Date | null,
+  ): Promise<boolean> {
+    const updated = await tx
+      .update(deliverySettings)
+      .set({ nextSaverRunAt: nextRunAt })
+      .where(and(eq(deliverySettings.shopId, shopId), eq(deliverySettings.nextSaverRunAt, dueAt)))
+      .returning({ shopId: deliverySettings.shopId });
+    return updated.length > 0;
   }
 }

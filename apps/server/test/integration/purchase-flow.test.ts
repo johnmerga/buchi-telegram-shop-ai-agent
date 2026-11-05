@@ -59,7 +59,14 @@ const bot = createBot({
   token: 'test',
   botInfo,
   ownedShopIds: () => Promise.resolve([]),
-  handlers: [createPurchaseHandlers({ catalog, customers, checkout })],
+  handlers: [
+    createPurchaseHandlers({
+      catalog,
+      customers,
+      checkout,
+      conversations: { requestPrice: () => Promise.resolve() },
+    }),
+  ],
 });
 bot.api.config.use((_prev, method, payload) => {
   if ('text' in payload && typeof payload.text === 'string') sent.push(payload.text);

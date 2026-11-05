@@ -4,7 +4,7 @@ import { withShop } from '../../db/with-shop';
 import { AppError } from '../../shared/errors';
 import type { EventBus } from '../../shared/events';
 import { nextState, type OrderEvent, type StockEffect } from './orders.domain';
-import type { OrderActor, OrderItemRow, OrderRow, OrdersRepo } from './orders.repo';
+import type { OrderActor, OrderItemRow, OrderRow, OrdersRepo, OrderSummary } from './orders.repo';
 
 export interface NewOrder {
   customerId: string;
@@ -124,6 +124,14 @@ export class OrderService {
       const order = await this.repo.find(tx, orderId);
       if (!order) throw new AppError('NOT_FOUND', 'Order not found');
       return { ...order, items: await this.repo.items(tx, orderId) };
+    });
+  }
+
+  summary(shopId: string, orderId: string): Promise<OrderSummary> {
+    return withShop(this.db, shopId, async (tx) => {
+      const summary = await this.repo.summary(tx, orderId);
+      if (!summary) throw new AppError('NOT_FOUND', 'Order not found');
+      return summary;
     });
   }
 

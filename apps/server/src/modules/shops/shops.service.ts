@@ -26,6 +26,10 @@ export class ShopsService {
     return this.repo.ownedShopIds(telegramUserId);
   }
 
+  ownerIds(shopId: string): Promise<number[]> {
+    return withShop(this.db, shopId, (tx) => this.repo.memberIds(tx));
+  }
+
   /** The new shop's ID becomes the row-level security context, so the insert passes its policy. */
   async create(ownerId: number, input: CreateShopInput): Promise<string> {
     const id = randomUUID();

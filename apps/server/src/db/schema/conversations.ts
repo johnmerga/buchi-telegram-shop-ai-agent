@@ -1,0 +1,63 @@
+import {
+  bigint,
+  foreignKey,
+  integer,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
+import { shopIsolation } from './rls';
+import { shops } from './shops';
+
+export const conversationMode = pgEnum('conversation_mode', ['agent', 'human']);
+
+/**
+ * A customer's private chat with Buchi about one shop. In `human` mode Buchi stays quiet and
+ * relays the chat to the shop's owners until `hand_back_at`, which each owner reply moves on.
+ */
+export const conversations = pgTable(
+  'conversations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    shopId: uuid('shop_id')
+      .notNull()
+      .references(() => shops.id, { onDelete: 'cascade' }),
+    customerTelegramUserId: bigint('customer_telegram_user_id', { mode: 'number' }).notNull(),
+    customerName: text('customer_name').notNull(),
+    mode: conversationMode('mode').notNull().default('agent'),
+    handBackAt: timestamp('hand_back_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('conversations_shop_customer_unique').on(t.shopId, t.customerTelegramUserId),
+    unique('conversations_id_shop_unique').on(t.id, t.shopId),
+    shopIsolation(t.shopId),
+  ],
+);
+
+/**
+ * Messages that Buchi sent to an owner about a conversation. A Telegram reply carries only the
+ * replied-to message's chat and ID, so this maps it back to the customer.
+ */
+export const relayedMessages = pgTable(
+  'relayed_messages',
+  {
+    ownerChatId: bigint('owner_chat_id', { mode: 'number' }).notNull(),
+    messageId: integer('message_id').notNull(),
+    shopId: uuid('shop_id').notNull(),
+    conversationId: uuid('conversation_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.ownerChatId, t.messageId] }),
+    foreignKey({
+      columns: [t.conversationId, t.shopId],
+      foreignColumns: [conversations.id, conversations.shopId],
+    }).onDelete('cascade'),
+    shopIsolation(t.shopId),
+  ],
+);

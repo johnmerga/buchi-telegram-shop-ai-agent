@@ -11,9 +11,16 @@ import { Pacer } from './pacer';
 const REQUESTS_PER_MINUTE = 14;
 const UNLIMITED = { requestsPerMinute: Infinity, requestsPerDay: Infinity };
 
-/** Gemini for record and live runs, paced to stay under the free tier's per-minute limit. */
+/**
+ * Gemini for record and live runs, paced to stay under the free tier's per-minute limit. Quotas
+ * belong to the Google project, so `EVALS_GEMINI_API_KEY`, a key from a separate project, keeps
+ * runs from using the bot's quota. CI has only its own secret, `GEMINI_API_KEY`.
+ */
 export function connectGemini(env: NodeJS.ProcessEnv): LanguageModel {
-  const parsed = geminiVariablesSchema.safeParse(env);
+  const parsed = geminiVariablesSchema.safeParse({
+    ...env,
+    GEMINI_API_KEY: env.EVALS_GEMINI_API_KEY ?? env.GEMINI_API_KEY,
+  });
   if (!parsed.success) {
     const missing = parsed.error.issues.map((issue) => issue.path.join('.')).join(', ');
     throw new Error(`Record and live runs call Gemini and need these variables: ${missing}`);

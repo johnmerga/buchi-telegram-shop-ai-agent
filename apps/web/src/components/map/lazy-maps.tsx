@@ -1,5 +1,6 @@
-import { lazy, Suspense, type ComponentProps } from 'react';
+import { lazy, Suspense, type ComponentProps, type ReactNode } from 'react';
 import { Loading } from '../screen-state';
+import { MapBoundary } from './map-boundary';
 
 // Leaflet is large, so it loads only when a screen shows a map.
 const PinPickerMap = lazy(() => import('./pin-picker-map'));
@@ -7,34 +8,42 @@ const StopsMap = lazy(() => import('./stops-map'));
 const RoutesMap = lazy(() => import('./routes-map'));
 const HexMap = lazy(() => import('./hex-map'));
 
+function MapFrame({ children }: { children: ReactNode }) {
+  return (
+    <MapBoundary>
+      <Suspense fallback={<Loading label="Loading the map…" />}>{children}</Suspense>
+    </MapBoundary>
+  );
+}
+
 export function LazyPinPickerMap(props: ComponentProps<typeof PinPickerMap>) {
   return (
-    <Suspense fallback={<Loading label="Loading the map…" />}>
+    <MapFrame>
       <PinPickerMap {...props} />
-    </Suspense>
+    </MapFrame>
   );
 }
 
 export function LazyStopsMap(props: ComponentProps<typeof StopsMap>) {
   return (
-    <Suspense fallback={<Loading label="Loading the map…" />}>
+    <MapFrame>
       <StopsMap {...props} />
-    </Suspense>
+    </MapFrame>
   );
 }
 
 export function LazyRoutesMap(props: ComponentProps<typeof RoutesMap>) {
   return (
-    <Suspense fallback={<Loading label="Loading the map…" />}>
+    <MapFrame>
       <RoutesMap {...props} />
-    </Suspense>
+    </MapFrame>
   );
 }
 
 export function LazyHexMap(props: ComponentProps<typeof HexMap>) {
   return (
-    <Suspense fallback={<Loading label="Loading the map…" />}>
+    <MapFrame>
       <HexMap {...props} />
-    </Suspense>
+    </MapFrame>
   );
 }

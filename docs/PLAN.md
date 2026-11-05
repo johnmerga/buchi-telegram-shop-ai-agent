@@ -496,8 +496,7 @@ Exit criteria: Express, Saver, and far-area deliveries run end to end with drive
 - **Built as:** `modules/far-quotes/` and `ai/agents/far-price/` (smart tier, operations priority,
   one tool bound to the quote). Statistical prices also pass the policy guard. Far jobs are
   `delivery_jobs.special`: a driver *holds* them with `job:hold`, and normal accept and bonuses
-  refuse them. Far offers reach drivers in the chat only; a driver-board hold endpoint is a
-  follow-up.
+  refuse them. Drivers hold far offers in the chat or on the driver board.
 
 ---
 
@@ -593,8 +592,7 @@ loading, empty, and error states.
   with `Telegram.WebApp.sendData`, which arrives as `web_app_data` through the existing webhook. The
   official `telegram-web-app.js` script provides the SDK. `WEB_APP_URL` (HTTPS) enables the Mini App
   buttons, and the server build bundles `@buchi/shared`.
-- **Remaining owner screens:** payment review (list endpoint and screenshot proxy), deliveries map,
-  zones, conversations, AI decisions, insights, and **Run now**; tracked in Task 9.3.
+- **Remaining owner screens:** built in Task 9.3.
 
 ---
 
@@ -609,11 +607,19 @@ loading, empty, and error states.
 
 - **Deliverables:** read endpoints and screens for payment review, conversations with **Take over**
   and **Hand back**, AI decisions, the deliveries map, zones, and insights; **Run now** buttons.
+- **Built as:** screenshots stream from Telegram through an owner-only proxy and are never stored.
+  Dashboard decisions call the same services as the chat buttons. Run now runs one shop's daily
+  report without the job secret. First reply time is not measured yet: it needs message arrival
+  times (Task 10.2). A far-area price above the cap is still answered in the chat.
 
 ### 9.2 Google Sheets ledger
 
 - **Deliverables:** Sheets client; ledger rows on payment approval; retry queue in Postgres.
 - **Acceptance:** when Sheets is down, rows wait in the queue and arrive later without duplicates.
+- **Built as:** `ledger_rows` keyed per shop; each attempt reads the tab's first column and appends
+  only missing keys, so a lost response never duplicates a row. The tick sends due rows with
+  exponential backoff. Without Google credentials the server starts and rows wait. Daily jobs
+  `morning-brief` and `evening-summary` send once per shop and Addis day (`daily_report_runs`).
 
 ---
 

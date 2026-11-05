@@ -30,3 +30,15 @@ export function straightLineRoute(from: Coordinates, to: Coordinates): Route {
   const seconds = Math.round((meters / 1000 / FALLBACK_SPEED_KMH) * 3600);
   return { meters, seconds, approximate: true };
 }
+
+/** Straight-line estimates between every pair of points, in the shape of a road matrix. */
+export function straightLineMatrix(points: Coordinates[]): {
+  meters: number[][];
+  seconds: number[][];
+} {
+  const routes = points.map((from) => points.map((to) => straightLineRoute(from, to)));
+  return {
+    meters: routes.map((row) => row.map((route) => route.meters)),
+    seconds: routes.map((row) => row.map((route) => route.seconds)),
+  };
+}

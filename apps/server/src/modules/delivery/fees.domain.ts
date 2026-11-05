@@ -46,6 +46,34 @@ export function driverPayout(route: Route, timeFactor: number, settings: Deliver
     .add(Money.of(settings.ratePerMinute).times(expectedSeconds).divideRoundingUp(60));
 }
 
+/** One road leg of a trip and the time factor of the zone it ends in. */
+export interface Leg {
+  meters: number;
+  seconds: number;
+  timeFactor: number;
+}
+
+/** What a driver earns for a trip from the shop through its stops, and how long it should take. */
+export interface TripCost {
+  payout: Money;
+  meters: number;
+  expectedMinutes: number;
+}
+
+/**
+ * The payout formula over a whole trip: each leg's routing time is scaled by its own zone's factor.
+ * A trip of one leg pays exactly what `driverPayout` quotes for it.
+ */
+export function tripCost(legs: Leg[], settings: DeliverySettings): TripCost {
+  const meters = legs.reduce((sum, leg) => sum + leg.meters, 0);
+  const seconds = legs.reduce((sum, leg) => sum + Math.round(leg.seconds * leg.timeFactor), 0);
+  return {
+    payout: driverPayout({ meters, seconds, approximate: false }, 1, settings),
+    meters,
+    expectedMinutes: Math.round(seconds / 60),
+  };
+}
+
 export function expressFee(payout: Money): Money {
   return payout.roundUpTo(FEE_STEP);
 }

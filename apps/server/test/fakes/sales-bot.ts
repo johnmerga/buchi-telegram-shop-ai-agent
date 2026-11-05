@@ -166,6 +166,7 @@ export function createSalesBot(db: Database, model: LanguageModel, geocoder: Geo
     token: 'test',
     botInfo,
     ownedShopIds: (telegramUserId) => shops.ownedShopIds(telegramUserId),
+    driverShopIds: () => Promise.resolve([]),
     handlers: [
       createConversationHandlers({ conversations, customers }),
       createPurchaseHandlers({

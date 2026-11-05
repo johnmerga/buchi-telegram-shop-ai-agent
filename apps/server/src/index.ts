@@ -40,8 +40,21 @@ import { LandmarksRepo } from './modules/delivery/landmarks.repo';
 import { LandmarkService } from './modules/delivery/landmarks.service';
 import { LocationService } from './modules/delivery/location.service';
 import { RouteService } from './modules/delivery/route.service';
+import { SaverScheduleService, SAVER_RUN_TIMER } from './modules/delivery/saver-schedule.service';
+import { DeliveryJobsRepo } from './modules/drivers/delivery-jobs.repo';
+import { createDispatchHandlers } from './modules/drivers/dispatch.handlers';
+import { DispatchService } from './modules/drivers/dispatch.service';
+import { createDriverHandlers } from './modules/drivers/drivers.handlers';
+import { DriversRepo } from './modules/drivers/drivers.repo';
+import { createDriversRouter } from './modules/drivers/drivers.routes';
+import { DriverService } from './modules/drivers/drivers.service';
+import { JobOffers, OFFER_UNANSWERED_TIMER } from './modules/drivers/job-offers.service';
+import { OfferBonusService } from './modules/drivers/offer-bonus.service';
+import { DeliveryOwnerAlerts } from './modules/drivers/owner-alerts.service';
+import { SaverRunService } from './modules/drivers/saver-runs.service';
+import { RECEIPT_TIMER, TripService } from './modules/drivers/trips.service';
 import { createJobsRouter } from './modules/jobs/jobs.routes';
-import { JobService } from './modules/jobs/jobs.service';
+import { JobService, type Job } from './modules/jobs/jobs.service';
 import { TimersRepo } from './modules/jobs/timers.repo';
 import { TimerService } from './modules/jobs/timers.service';
 import { ShopsRepo } from './modules/shops/shops.repo';
@@ -106,7 +119,6 @@ const logger = createLogger(env);
 const database = connectDatabase(env.DATABASE_URL);
 
 const timers = new TimerService(new TimersRepo(database.db), logger);
-const jobs = new JobService(new Map([['tick', () => timers.tick()]]));
 
 const telegramApi = new Api(env.TELEGRAM_BOT_TOKEN);
 const botInfo = await telegramApi.getMe();
@@ -164,8 +176,15 @@ const routes = new RouteService(
   () => new Date(),
 );
 // TODO(5.5): use the learned zone time factors.
-const delivery = new DeliveryService(database.db, new DeliverySettingsRepo(), shops, routes, () =>
+const deliverySettings = new DeliverySettingsRepo();
+const delivery = new DeliveryService(database.db, deliverySettings, shops, routes, () =>
   Promise.resolve(1),
+);
+const saverSchedule = new SaverScheduleService(
+  database.db,
+  deliverySettings,
+  timers,
+  () => new Date(),
 );
 const locations = new LocationService(new HttpRedirects(fetch), logger);
 const landmarks = new LandmarkService(
@@ -202,6 +221,73 @@ timers.register(HAND_BACK_TIMER, (timer) => conversations.handBackIfSilent(timer
 const orderAlerts = new OrderAlerts(orders, conversations, notifier);
 events.subscribe('order.created', (event) => orderAlerts.orderCreated(event));
 
+const driversRepo = new DriversRepo();
+const deliveryJobs = new DeliveryJobsRepo();
+const drivers = new DriverService(
+  database.db,
+  driversRepo,
+  shops,
+  botInfo.username,
+  () => new Date(),
+);
+const jobOffers = new JobOffers(
+  database.db,
+  deliveryJobs,
+  driversRepo,
+  shops,
+  messenger,
+  timers,
+  logger,
+  () => new Date(),
+);
+const deliveryAlerts = new DeliveryOwnerAlerts(shops, messenger, logger);
+const dispatch = new DispatchService(
+  database.db,
+  deliveryJobs,
+  driversRepo,
+  jobOffers,
+  orders,
+  customers,
+  shops,
+  delivery,
+  messenger,
+  () => new Date(),
+);
+events.subscribe('order.transitioned', (event) => dispatch.orderTransitioned(event));
+const trips = new TripService(
+  database.db,
+  deliveryJobs,
+  driversRepo,
+  orders,
+  customers,
+  messenger,
+  deliveryAlerts,
+  conversations,
+  notifier,
+  timers,
+  logger,
+  () => new Date(),
+);
+const bonuses = new OfferBonusService(database.db, deliveryJobs, jobOffers, deliveryAlerts);
+const saverRuns = new SaverRunService(
+  orders,
+  shops,
+  routes,
+  delivery,
+  saverSchedule,
+  dispatch,
+  logger,
+);
+timers.register(OFFER_UNANSWERED_TIMER, (timer) => bonuses.offerUnanswered(timer));
+timers.register(RECEIPT_TIMER, (timer) => trips.receiptTimeout(timer));
+timers.register(SAVER_RUN_TIMER, (timer) => saverRuns.runScheduled(timer));
+
+const jobs = new JobService(
+  new Map<string, Job>([
+    ['tick', () => timers.tick()],
+    ['saver-run', () => saverRuns.runAll()],
+  ]),
+);
 const receiptPage = timedFetch(RECEIPT_PAGE_TIMEOUT_MS);
 const receiptReader = new ReceiptReader(model, logger);
 const paymentProofs = new PaymentProofsRepo();
@@ -287,7 +373,10 @@ const bot = createBot({
   token: env.TELEGRAM_BOT_TOKEN,
   botInfo,
   ownedShopIds: (telegramUserId) => shops.ownedShopIds(telegramUserId),
+  driverShopIds: (telegramUserId) => drivers.shopIds(telegramUserId),
   handlers: [
+    createDriverHandlers(drivers),
+    createDispatchHandlers({ dispatch, trips, bonuses }),
     createConversationHandlers({ conversations, customers }),
     createPurchaseHandlers({
       catalog,
@@ -332,7 +421,13 @@ const app = createApp({
     createAuthRouter(auth),
     createShopsRouter({ shops, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
     createCatalogRouter({ catalog, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
-    createDeliveryRouter({ delivery, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
+    createDeliveryRouter({
+      delivery,
+      saverSchedule,
+      requireAuth: ownerAuth,
+      requireShopOwner: shopOwner,
+    }),
+    createDriversRouter({ drivers, requireAuth: ownerAuth, requireShopOwner: shopOwner }),
   ],
 });
 const server = app.listen(env.PORT, () => {

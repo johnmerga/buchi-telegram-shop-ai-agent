@@ -29,3 +29,12 @@ export const deliverySettingsSchema = z
     message: 'The far range must reach at least as far as the standard range.',
   });
 export type DeliverySettings = z.infer<typeof deliverySettingsSchema>;
+
+/** Addis Ababa times of day for Saver runs, such as `["10:00", "14:00"]`. An empty list stops them. */
+export const saverRunTimesSchema = z.object({
+  times: z
+    .array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use 24-hour times such as "14:00".'))
+    .max(6)
+    .refine((times) => new Set(times).size === times.length, 'Each time can appear only once.'),
+});
+export type SaverRunTimes = z.infer<typeof saverRunTimesSchema>;

@@ -180,6 +180,7 @@ const bot = createBot({
   token: 'test',
   botInfo,
   ownedShopIds: (telegramUserId) => shops.ownedShopIds(telegramUserId),
+  driverShopIds: () => Promise.resolve([]),
   handlers: [
     createConversationHandlers({ conversations, customers }),
     createPaymentHandlers({ intake, review, customers, chat: new TelegramCustomerChat(chatApi) }),

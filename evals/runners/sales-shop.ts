@@ -62,6 +62,7 @@ export function createSalesShop(db: Database, model: LanguageModel, now: () => D
   const messenger = {
     send: () => Promise.resolve((messageId += 1)),
     copy: () => Promise.resolve((messageId += 1)),
+    edit: () => Promise.resolve(),
   };
   const conversationsRepo = new ConversationsRepo();
   const conversations = new ConversationService(

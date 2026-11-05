@@ -275,6 +275,7 @@ describe('Order again button', () => {
     token: 'test',
     botInfo,
     ownedShopIds: () => Promise.resolve([]),
+    driverShopIds: () => Promise.resolve([]),
     handlers: [createReorderHandlers(checkout)],
   });
   bot.api.config.use((_prev, method, payload) => {

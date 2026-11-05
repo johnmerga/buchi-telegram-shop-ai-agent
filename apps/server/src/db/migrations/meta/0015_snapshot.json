@@ -1,5 +1,5 @@
 {
-  "id": "0b66082e-39d7-48b8-a043-c63877cbc457",
+  "id": "78ac554c-69f4-4035-a8de-4f3ec3535571",
   "prevId": "23c0513e-1a93-4cff-a706-60389214e380",
   "version": "7",
   "dialect": "postgresql",
@@ -549,12 +549,6 @@
           "notNull": true,
           "default": true
         },
-        "embedding": {
-          "name": "embedding",
-          "type": "vector(768)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -652,13 +646,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
-        },
-        "recent_turns": {
-          "name": "recent_turns",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
         },
         "updated_at": {
           "name": "updated_at",
@@ -792,112 +779,6 @@
           ],
           "using": "\"relayed_messages\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
           "withCheck": "\"relayed_messages\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.customer_facts": {
-      "name": "customer_facts",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "shop_id": {
-          "name": "shop_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "customer_id": {
-          "name": "customer_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "key": {
-          "name": "key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "fact": {
-          "name": "fact",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_message": {
-          "name": "source_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "customer_facts_shop_id_shops_id_fk": {
-          "name": "customer_facts_shop_id_shops_id_fk",
-          "tableFrom": "customer_facts",
-          "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "customer_facts_customer_id_shop_id_customers_id_shop_id_fk": {
-          "name": "customer_facts_customer_id_shop_id_customers_id_shop_id_fk",
-          "tableFrom": "customer_facts",
-          "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "customer_facts_customer_key_unique": {
-          "name": "customer_facts_customer_key_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "customer_id",
-            "key"
-          ]
-        }
-      },
-      "policies": {
-        "shop_isolation": {
-          "name": "shop_isolation",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "app_user"
-          ],
-          "using": "\"customer_facts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"customer_facts\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
       },
       "checkConstraints": {},
@@ -1071,6 +952,19 @@
           "primaryKey": false,
           "notNull": true
         },
+        "saver_run_times": {
+          "name": "saver_run_times",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "next_saver_run_at": {
+          "name": "next_saver_run_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp with time zone",
@@ -1220,8 +1114,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.demand_signals": {
-      "name": "demand_signals",
+    "public.delivery_jobs": {
+      "name": "delivery_jobs",
       "schema": "",
       "columns": {
         "id": {
@@ -1237,24 +1131,203 @@
           "primaryKey": false,
           "notNull": true
         },
-        "customer_id": {
-          "name": "customer_id",
+        "driver_id": {
+          "name": "driver_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "delivery_job_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'offered'"
+        },
+        "payout": {
+          "name": "payout",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "separate_trips_payout": {
+          "name": "separate_trips_payout",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "route_meters": {
+          "name": "route_meters",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estimated_minutes": {
+          "name": "estimated_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actual_minutes": {
+          "name": "actual_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "accepted_at": {
+          "name": "accepted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "picked_up_at": {
+          "name": "picked_up_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivered_at": {
+          "name": "delivered_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "delivery_jobs_shop_id_shops_id_fk": {
+          "name": "delivery_jobs_shop_id_shops_id_fk",
+          "tableFrom": "delivery_jobs",
+          "tableTo": "shops",
+          "columnsFrom": [
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "delivery_jobs_driver_id_shop_id_drivers_id_shop_id_fk": {
+          "name": "delivery_jobs_driver_id_shop_id_drivers_id_shop_id_fk",
+          "tableFrom": "delivery_jobs",
+          "tableTo": "drivers",
+          "columnsFrom": [
+            "driver_id",
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id",
+            "shop_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "delivery_jobs_id_shop_unique": {
+          "name": "delivery_jobs_id_shop_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "shop_id"
+          ]
+        }
+      },
+      "policies": {
+        "shop_isolation": {
+          "name": "shop_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "app_user"
+          ],
+          "using": "\"delivery_jobs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"delivery_jobs\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {
+        "delivery_jobs_driver_assigned": {
+          "name": "delivery_jobs_driver_assigned",
+          "value": "(\"delivery_jobs\".\"status\" = 'offered') = (\"delivery_jobs\".\"driver_id\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.drivers": {
+      "name": "drivers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "shop_id": {
+          "name": "shop_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "description": {
-          "name": "description",
+        "username": {
+          "name": "username",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "notify_requested": {
-          "name": "notify_requested",
+        "telegram_user_id": {
+          "name": "telegram_user_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "available": {
+          "name": "available",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "invite_token_hash": {
+          "name": "invite_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invite_expires_at": {
+          "name": "invite_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linked_at": {
+          "name": "linked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -1266,9 +1339,137 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "demand_signals_shop_id_shops_id_fk": {
-          "name": "demand_signals_shop_id_shops_id_fk",
-          "tableFrom": "demand_signals",
+        "drivers_shop_id_shops_id_fk": {
+          "name": "drivers_shop_id_shops_id_fk",
+          "tableFrom": "drivers",
+          "tableTo": "shops",
+          "columnsFrom": [
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "drivers_invite_token_hash_unique": {
+          "name": "drivers_invite_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "invite_token_hash"
+          ]
+        },
+        "drivers_shop_username_unique": {
+          "name": "drivers_shop_username_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "shop_id",
+            "username"
+          ]
+        },
+        "drivers_shop_telegram_unique": {
+          "name": "drivers_shop_telegram_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "shop_id",
+            "telegram_user_id"
+          ]
+        },
+        "drivers_id_shop_unique": {
+          "name": "drivers_id_shop_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "shop_id"
+          ]
+        }
+      },
+      "policies": {
+        "shop_isolation": {
+          "name": "shop_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "app_user"
+          ],
+          "using": "\"drivers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"drivers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {
+        "drivers_invite_complete": {
+          "name": "drivers_invite_complete",
+          "value": "(\"drivers\".\"invite_token_hash\" is null) = (\"drivers\".\"invite_expires_at\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.job_offers": {
+      "name": "job_offers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "shop_id": {
+          "name": "shop_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "raise_step": {
+          "name": "raise_step",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "status": {
+          "name": "status",
+          "type": "job_offer_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "taken_by_driver_id": {
+          "name": "taken_by_driver_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "job_offers_shop_id_shops_id_fk": {
+          "name": "job_offers_shop_id_shops_id_fk",
+          "tableFrom": "job_offers",
           "tableTo": "shops",
           "columnsFrom": [
             "shop_id"
@@ -1279,12 +1480,302 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "demand_signals_customer_id_shop_id_customers_id_shop_id_fk": {
-          "name": "demand_signals_customer_id_shop_id_customers_id_shop_id_fk",
-          "tableFrom": "demand_signals",
-          "tableTo": "customers",
+        "job_offers_job_id_shop_id_delivery_jobs_id_shop_id_fk": {
+          "name": "job_offers_job_id_shop_id_delivery_jobs_id_shop_id_fk",
+          "tableFrom": "job_offers",
+          "tableTo": "delivery_jobs",
           "columnsFrom": [
-            "customer_id",
+            "job_id",
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id",
+            "shop_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "job_offers_taken_by_driver_id_shop_id_drivers_id_shop_id_fk": {
+          "name": "job_offers_taken_by_driver_id_shop_id_drivers_id_shop_id_fk",
+          "tableFrom": "job_offers",
+          "tableTo": "drivers",
+          "columnsFrom": [
+            "taken_by_driver_id",
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id",
+            "shop_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "job_offers_id_shop_unique": {
+          "name": "job_offers_id_shop_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "shop_id"
+          ]
+        },
+        "job_offers_job_step_unique": {
+          "name": "job_offers_job_step_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "job_id",
+            "raise_step"
+          ]
+        }
+      },
+      "policies": {
+        "shop_isolation": {
+          "name": "shop_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "app_user"
+          ],
+          "using": "\"job_offers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"job_offers\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {
+        "job_offers_taken_by": {
+          "name": "job_offers_taken_by",
+          "value": "(\"job_offers\".\"status\" = 'taken') = (\"job_offers\".\"taken_by_driver_id\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.job_stops": {
+      "name": "job_stops",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "shop_id": {
+          "name": "shop_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_requested_at": {
+          "name": "location_requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivered_at": {
+          "name": "delivered_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meters_from_pin": {
+          "name": "meters_from_pin",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "needs_review": {
+          "name": "needs_review",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "receipt": {
+          "name": "receipt",
+          "type": "delivery_receipt",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "receipt_at": {
+          "name": "receipt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "job_stops_shop_id_shops_id_fk": {
+          "name": "job_stops_shop_id_shops_id_fk",
+          "tableFrom": "job_stops",
+          "tableTo": "shops",
+          "columnsFrom": [
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "job_stops_job_id_shop_id_delivery_jobs_id_shop_id_fk": {
+          "name": "job_stops_job_id_shop_id_delivery_jobs_id_shop_id_fk",
+          "tableFrom": "job_stops",
+          "tableTo": "delivery_jobs",
+          "columnsFrom": [
+            "job_id",
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id",
+            "shop_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "job_stops_order_id_shop_id_orders_id_shop_id_fk": {
+          "name": "job_stops_order_id_shop_id_orders_id_shop_id_fk",
+          "tableFrom": "job_stops",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id",
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id",
+            "shop_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "job_stops_order_id_unique": {
+          "name": "job_stops_order_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "order_id"
+          ]
+        },
+        "job_stops_job_position_unique": {
+          "name": "job_stops_job_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "job_id",
+            "position"
+          ]
+        }
+      },
+      "policies": {
+        "shop_isolation": {
+          "name": "shop_isolation",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "app_user"
+          ],
+          "using": "\"job_stops\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"job_stops\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.offer_messages": {
+      "name": "offer_messages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "shop_id": {
+          "name": "shop_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "offer_id": {
+          "name": "offer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chat_id": {
+          "name": "chat_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "offer_messages_offer_idx": {
+          "name": "offer_messages_offer_idx",
+          "columns": [
+            {
+              "expression": "offer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "offer_messages_shop_id_shops_id_fk": {
+          "name": "offer_messages_shop_id_shops_id_fk",
+          "tableFrom": "offer_messages",
+          "tableTo": "shops",
+          "columnsFrom": [
+            "shop_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "offer_messages_offer_id_shop_id_job_offers_id_shop_id_fk": {
+          "name": "offer_messages_offer_id_shop_id_job_offers_id_shop_id_fk",
+          "tableFrom": "offer_messages",
+          "tableTo": "job_offers",
+          "columnsFrom": [
+            "offer_id",
             "shop_id"
           ],
           "columnsTo": [
@@ -1305,123 +1796,8 @@
           "to": [
             "app_user"
           ],
-          "using": "\"demand_signals\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"demand_signals\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.waitlist": {
-      "name": "waitlist",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "shop_id": {
-          "name": "shop_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "customer_id": {
-          "name": "customer_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "variant_id": {
-          "name": "variant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "joined_at": {
-          "name": "joined_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "notified_at": {
-          "name": "notified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "waitlist_shop_id_shops_id_fk": {
-          "name": "waitlist_shop_id_shops_id_fk",
-          "tableFrom": "waitlist",
-          "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "waitlist_customer_id_shop_id_customers_id_shop_id_fk": {
-          "name": "waitlist_customer_id_shop_id_customers_id_shop_id_fk",
-          "tableFrom": "waitlist",
-          "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "waitlist_variant_id_shop_id_product_variants_id_shop_id_fk": {
-          "name": "waitlist_variant_id_shop_id_product_variants_id_shop_id_fk",
-          "tableFrom": "waitlist",
-          "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "waitlist_variant_customer_unique": {
-          "name": "waitlist_variant_customer_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "variant_id",
-            "customer_id"
-          ]
-        }
-      },
-      "policies": {
-        "shop_isolation": {
-          "name": "shop_isolation",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "app_user"
-          ],
-          "using": "\"waitlist\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"waitlist\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
+          "using": "\"offer_messages\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
+          "withCheck": "\"offer_messages\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
         }
       },
       "checkConstraints": {},
@@ -2103,133 +2479,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.negotiations": {
-      "name": "negotiations",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "shop_id": {
-          "name": "shop_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "customer_id": {
-          "name": "customer_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "product_id": {
-          "name": "product_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "agreed_price": {
-          "name": "agreed_price",
-          "type": "numeric(12, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "concessions_made": {
-          "name": "concessions_made",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "negotiations_shop_id_shops_id_fk": {
-          "name": "negotiations_shop_id_shops_id_fk",
-          "tableFrom": "negotiations",
-          "tableTo": "shops",
-          "columnsFrom": [
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "negotiations_customer_id_shop_id_customers_id_shop_id_fk": {
-          "name": "negotiations_customer_id_shop_id_customers_id_shop_id_fk",
-          "tableFrom": "negotiations",
-          "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "negotiations_product_id_shop_id_products_id_shop_id_fk": {
-          "name": "negotiations_product_id_shop_id_products_id_shop_id_fk",
-          "tableFrom": "negotiations",
-          "tableTo": "products",
-          "columnsFrom": [
-            "product_id",
-            "shop_id"
-          ],
-          "columnsTo": [
-            "id",
-            "shop_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "negotiations_customer_product_unique": {
-          "name": "negotiations_customer_product_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "customer_id",
-            "product_id"
-          ]
-        }
-      },
-      "policies": {
-        "shop_isolation": {
-          "name": "shop_isolation",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "app_user"
-          ],
-          "using": "\"negotiations\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid",
-          "withCheck": "\"negotiations\".\"shop_id\" = nullif(current_setting('app.shop_id', true), '')::uuid"
-        }
-      },
-      "checkConstraints": {
-        "negotiations_concessions_not_negative": {
-          "name": "negotiations_concessions_not_negative",
-          "value": "\"negotiations\".\"concessions_made\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.customer_sessions": {
       "name": "customer_sessions",
       "schema": "",
@@ -2245,12 +2494,6 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
-        },
-        "product_id": {
-          "name": "product_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         },
         "pending_variant_id": {
           "name": "pending_variant_id",
@@ -2279,19 +2522,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "customer_sessions_product_id_products_id_fk": {
-          "name": "customer_sessions_product_id_products_id_fk",
-          "tableFrom": "customer_sessions",
-          "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "customer_sessions_pending_variant_id_product_variants_id_fk": {
@@ -2777,6 +3007,35 @@
         "human"
       ]
     },
+    "public.delivery_job_status": {
+      "name": "delivery_job_status",
+      "schema": "public",
+      "values": [
+        "offered",
+        "assigned",
+        "picked_up",
+        "delivered"
+      ]
+    },
+    "public.delivery_receipt": {
+      "name": "delivery_receipt",
+      "schema": "public",
+      "values": [
+        "received",
+        "problem",
+        "assumed"
+      ]
+    },
+    "public.job_offer_status": {
+      "name": "job_offer_status",
+      "schema": "public",
+      "values": [
+        "open",
+        "held",
+        "taken",
+        "expired"
+      ]
+    },
     "public.delivery_type": {
       "name": "delivery_type",
       "schema": "public",
@@ -2794,6 +3053,7 @@
       "values": [
         "customer",
         "owner",
+        "driver",
         "agent",
         "system"
       ]

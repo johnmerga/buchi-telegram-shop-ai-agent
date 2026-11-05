@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import directions from './fixtures/ors-directions.json';
+import matrix from './fixtures/ors-matrix.json';
 import samePoint from './fixtures/ors-directions-same-point.json';
 import unroutable from './fixtures/ors-error-unroutable.json';
 import { OpenRouteService } from './ors';
@@ -62,5 +63,51 @@ describe('OpenRouteService', () => {
   it('fails when there is no route', async () => {
     const { client } = clientAnswering({ routes: [] });
     await expect(client.route(shop, ednaMall)).rejects.toThrow('no route');
+  });
+});
+
+describe('OpenRouteService matrix', () => {
+  it('reads distances and durations, rounded to whole meters and seconds', async () => {
+    const { client } = clientAnswering(matrix);
+    await expect(client.matrix([shop, ednaMall])).resolves.toEqual({
+      meters: [
+        [0, 4874],
+        [4901, 0],
+      ],
+      seconds: [
+        [0, 702],
+        [716, 0],
+      ],
+    });
+  });
+
+  it('posts longitude-first locations to the matrix path', async () => {
+    const { client, requests } = clientAnswering(matrix);
+    await client.matrix([shop, ednaMall]);
+    const [request] = requests;
+    expect(request?.url).toBe('https://api.heigit.org/openrouteservice/v2/matrix/driving-car');
+    expect(JSON.parse(typeof request?.init?.body === 'string' ? request.init.body : '')).toEqual({
+      locations: [
+        [38.7613, 9.0108],
+        [38.7866129, 8.9970566],
+      ],
+      metrics: ['distance', 'duration'],
+    });
+  });
+
+  it('fails when a point cannot be reached by road', async () => {
+    const { client } = clientAnswering({
+      ...matrix,
+      durations: [
+        [0, null],
+        [null, 0],
+      ],
+    });
+    await expect(client.matrix([shop, ednaMall])).rejects.toThrow();
+  });
+
+  it('fails on a matrix of the wrong size', async () => {
+    const { client } = clientAnswering({ distances: [[0]], durations: [[0]] });
+    await expect(client.matrix([shop, ednaMall])).rejects.toThrow('wrong size');
   });
 });

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const envSchema = z.object({
+const variablesSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url(),
@@ -34,7 +34,28 @@ const envSchema = z.object({
    */
   WEB_APP_URL: z.url({ protocol: /^https$/ }).optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  /**
+   * The Google service account that writes the owners' Sheets ledgers. Without both, the server
+   * still starts and ledger rows wait in the database.
+   */
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: z.email().optional(),
+  /** The PEM private key. Hosts that keep one-line values store its line breaks as "\\n". */
+  GOOGLE_SERVICE_ACCOUNT_KEY: z
+    .string()
+    .min(1)
+    .transform((key) => key.replaceAll('\\n', '\n'))
+    .optional(),
 });
+
+const envSchema = variablesSchema.refine(
+  (env) =>
+    (env.GOOGLE_SERVICE_ACCOUNT_EMAIL === undefined) ===
+    (env.GOOGLE_SERVICE_ACCOUNT_KEY === undefined),
+  {
+    message: 'Set both GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_KEY, or neither',
+    path: ['GOOGLE_SERVICE_ACCOUNT_KEY'],
+  },
+);
 
 export type Env = z.infer<typeof envSchema>;
 
@@ -45,7 +66,7 @@ export function loadEnv(source: NodeJS.ProcessEnv): Env {
 
 /** The migration runner needs only the database, so it starts before the other secrets exist. */
 export function loadDatabaseUrl(source: NodeJS.ProcessEnv): string {
-  return parse(envSchema.pick({ DATABASE_URL: true }), source).DATABASE_URL;
+  return parse(variablesSchema.pick({ DATABASE_URL: true }), source).DATABASE_URL;
 }
 
 function parse<T extends z.ZodType>(schema: T, source: NodeJS.ProcessEnv): z.infer<T> {

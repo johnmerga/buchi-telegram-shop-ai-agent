@@ -1,8 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { addisClockTime } from './time';
+import { addisClockTime, addisDateTime, addisDay } from './time';
 
 describe('addisClockTime', () => {
   it('shows the time of day in Addis Ababa, three hours ahead of UTC', () => {
     expect(addisClockTime(new Date('2026-11-05T15:30:00Z'))).toBe('18:30');
+  });
+});
+
+describe('addisDateTime', () => {
+  it('writes the Addis Ababa date and time', () => {
+    expect(addisDateTime(new Date('2026-11-05T22:15:00Z'))).toBe('2026-11-06 01:15');
+  });
+});
+
+describe('addisDay', () => {
+  it('starts the day at midnight in Addis Ababa, which is 21:00 UTC the day before', () => {
+    expect(addisDay(new Date('2026-11-05T15:00:00Z'))).toEqual({
+      day: '2026-11-05',
+      start: new Date('2026-11-04T21:00:00Z'),
+      end: new Date('2026-11-05T21:00:00Z'),
+    });
+  });
+
+  it('counts a late UTC evening as the next Addis Ababa day', () => {
+    expect(addisDay(new Date('2026-11-05T21:30:00Z')).day).toBe('2026-11-06');
   });
 });

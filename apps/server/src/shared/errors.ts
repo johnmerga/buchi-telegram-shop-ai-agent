@@ -6,6 +6,8 @@ export const errorStatus = {
   CONFLICT: 409,
   RATE_LIMITED: 429,
   QUOTA_EXHAUSTED: 503,
+  /** An external service failed, so the request can succeed later. */
+  UNAVAILABLE: 503,
 } as const;
 
 export type ErrorCode = keyof typeof errorStatus;

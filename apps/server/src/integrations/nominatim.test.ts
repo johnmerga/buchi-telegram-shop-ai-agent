@@ -78,4 +78,48 @@ describe('Nominatim', () => {
     const { nominatim } = nominatimAnswering({ error: 'Unable to geocode' });
     await expect(nominatim.search('edna mall, bole')).rejects.toThrow();
   });
+
+  it('finds up to five places anywhere in Ethiopia, named by the start of their address', async () => {
+    const { nominatim, requests } = nominatimAnswering(ednaMall);
+    await expect(nominatim.searchPlaces('edna mall')).resolves.toEqual([
+      {
+        name: 'Edna Mall, BL_03_646 Street, ግሂሊፍፋለግን ምንጭ',
+        latitude: 8.9970566,
+        longitude: 38.7866129,
+      },
+    ]);
+    const [request] = requests;
+    expect(request?.headers).toMatchObject({ 'user-agent': userAgent });
+    expect(Object.fromEntries(request?.url.searchParams ?? [])).toEqual({
+      q: 'edna mall',
+      format: 'jsonv2',
+      limit: '5',
+      countrycodes: 'et',
+    });
+  });
+
+  it('answers a repeated place search from the cache, including one with no places', async () => {
+    const { nominatim, requests } = nominatimAnswering(ednaMall, []);
+    await nominatim.searchPlaces('edna mall');
+    await nominatim.searchPlaces('edna mall');
+    await expect(nominatim.searchPlaces('nowhere')).resolves.toEqual([]);
+    await expect(nominatim.searchPlaces('nowhere')).resolves.toEqual([]);
+    expect(requests).toHaveLength(2);
+  });
+
+  it('spaces place searches and landmark searches a second apart', async () => {
+    const { nominatim, waits } = nominatimAnswering(ednaMall);
+    await Promise.all([nominatim.search('a'), nominatim.searchPlaces('b')]);
+    expect(waits).toEqual([1000]);
+  });
+
+  it('fails a place search on an error answer and does not cache it', async () => {
+    const { nominatim, requests } = nominatimAnswering(
+      new Response('busy', { status: 503 }),
+      ednaMall,
+    );
+    await expect(nominatim.searchPlaces('edna mall')).rejects.toThrow('Nominatim answered 503');
+    await expect(nominatim.searchPlaces('edna mall')).resolves.toHaveLength(1);
+    expect(requests).toHaveLength(2);
+  });
 });

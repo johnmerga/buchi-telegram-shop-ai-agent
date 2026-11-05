@@ -9,6 +9,8 @@ import { CatalogService } from '../../src/modules/catalog/catalog.service';
 import { CustomersRepo } from '../../src/modules/customers/customers.repo';
 import { CustomersService } from '../../src/modules/customers/customers.service';
 import { SessionsRepo } from '../../src/modules/customers/sessions.repo';
+import { TimersRepo } from '../../src/modules/jobs/timers.repo';
+import { TimerService } from '../../src/modules/jobs/timers.service';
 import { CheckoutService } from '../../src/modules/orders/checkout.service';
 import { OrdersRepo } from '../../src/modules/orders/orders.repo';
 import { OrderService } from '../../src/modules/orders/orders.service';
@@ -45,7 +47,13 @@ const telegram = {
 const shops = new ShopsService(db, new ShopsRepo(db), telegram);
 const catalog = new CatalogService(db, new CatalogRepo(), shops, telegram, botInfo.username);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
-const orders = new OrderService(db, new OrdersRepo(), new EventBus(pino({ level: 'silent' })));
+const logger = pino({ level: 'silent' });
+const orders = new OrderService(
+  db,
+  new OrdersRepo(),
+  new EventBus(logger),
+  new TimerService(new TimersRepo(db), logger),
+);
 const checkout = new CheckoutService(
   customers,
   orders,

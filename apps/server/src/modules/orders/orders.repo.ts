@@ -1,6 +1,6 @@
 import type { DeliveryType, MoneyString, OrderStatus } from '@buchi/shared';
 import { and, eq, gte, inArray, sql } from 'drizzle-orm';
-import type { Transaction } from '../../db/client';
+import type { Database, Transaction } from '../../db/client';
 import { orderEvents, orderItems, orders, products, productVariants } from '../../db/schema';
 
 export type OrderRow = typeof orders.$inferSelect;
@@ -96,6 +96,21 @@ export class OrdersRepo {
   async find(tx: Transaction, orderId: string): Promise<OrderRow | undefined> {
     const [row] = await tx.select().from(orders).where(eq(orders.id, orderId));
     return row;
+  }
+
+  /**
+   * Looks across all shops, which row-level security blocks, through the `customer_order_shop_id`
+   * database function. It returns the order's shop only to the customer who placed it.
+   */
+  async customerOrderShopId(
+    db: Database,
+    orderId: string,
+    telegramUserId: number,
+  ): Promise<string | null> {
+    const [row] = await db.execute<{ shop_id: string | null }>(
+      sql`select customer_order_shop_id(${orderId}, ${telegramUserId}) as shop_id`,
+    );
+    return row?.shop_id ?? null;
   }
 
   items(tx: Transaction, orderId: string): Promise<OrderItemRow[]> {

@@ -1,7 +1,8 @@
+import { AppError } from '../../shared/errors';
 import type { CustomersService } from '../customers/customers.service';
 import type { ShopsService } from '../shops/shops.service';
 import { paymentInstructions } from './orders.domain';
-import type { OrderService } from './orders.service';
+import type { NewOrder, OrderService } from './orders.service';
 
 /** The design doc's default payment deadline. */
 const PAYMENT_WINDOW_MS = 3 * 60 * 60 * 1000;
@@ -29,28 +30,26 @@ export class CheckoutService {
       return { status: 'needs_phone' };
     }
 
-    const deadline = new Date(this.now().getTime() + PAYMENT_WINDOW_MS);
-    const order = await this.orders.create(
-      shopId,
-      {
-        customerId: customer.id,
-        items: [{ variantId, quantity: 1 }],
-        deliveryType: 'pickup',
-        paymentDeadline: deadline,
-      },
-      'customer',
-    );
+    const instructions = await this.reserve(shopId, {
+      customerId: customer.id,
+      items: [{ variantId, quantity: 1 }],
+      deliveryType: 'pickup',
+    });
     await this.customers.rememberChosenVariant(buyer.telegramUserId, null);
-    const { paymentAccounts } = await this.shops.get(shopId);
-    return {
-      status: 'placed',
-      instructions: paymentInstructions({
-        orderId: order.id,
-        total: order.total,
-        deadline,
-        accounts: paymentAccounts,
-      }),
-    };
+    return { status: 'placed', instructions };
+  }
+
+  /** Places an expired order again with the same items, only for the customer who placed it. */
+  async reorder(telegramUserId: number, orderId: string): Promise<string> {
+    const expired = await this.orders.getForCustomer(telegramUserId, orderId);
+    if (expired.status !== 'expired') {
+      throw new AppError('CONFLICT', 'Only an expired order can be ordered again');
+    }
+    return this.reserve(expired.shopId, {
+      customerId: expired.customerId,
+      items: expired.items.map(({ variantId, quantity }) => ({ variantId, quantity })),
+      deliveryType: expired.deliveryType,
+    });
   }
 
   /** Saves the shared phone number, then places the order the customer chose before sharing it. */
@@ -63,5 +62,22 @@ export class CheckoutService {
     const customer = await this.customers.identify(shopId, buyer.telegramUserId, buyer.name);
     await this.customers.setPhone(shopId, customer.id, phone);
     return pendingVariantId ? this.placeOrder(shopId, buyer, pendingVariantId) : undefined;
+  }
+
+  /** Creates the order with the standard payment window and returns its payment instructions. */
+  private async reserve(shopId: string, order: Omit<NewOrder, 'paymentDeadline'>): Promise<string> {
+    const deadline = new Date(this.now().getTime() + PAYMENT_WINDOW_MS);
+    const created = await this.orders.create(
+      shopId,
+      { ...order, paymentDeadline: deadline },
+      'customer',
+    );
+    const { paymentAccounts } = await this.shops.get(shopId);
+    return paymentInstructions({
+      orderId: created.id,
+      total: created.total,
+      deadline,
+      accounts: paymentAccounts,
+    });
   }
 }

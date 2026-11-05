@@ -41,7 +41,7 @@ import type { RiskService } from './risk.service';
 type OrderRow = NonNullable<Awaited<ReturnType<OrderService['latestUnpaid']>>>;
 
 /** A screenshot as it arrived: Telegram's file ID, the chat message, and the image itself. */
-export interface ReceivedReceipt {
+interface ReceivedReceipt {
   fileId: string;
   message: MessageRef;
   image: Image;

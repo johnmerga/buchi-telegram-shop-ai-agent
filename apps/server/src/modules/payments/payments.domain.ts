@@ -3,7 +3,7 @@ import { receiverMatches, type PrintedReceiver } from '../../shared/accounts';
 import type { ReceiptExtraction } from './payments.schemas';
 
 /** The design doc's threshold for R1. Below it, Buchi asks for a clearer screenshot. */
-export const MIN_CONFIDENCE = 0.7;
+const MIN_CONFIDENCE = 0.7;
 /** R5's tolerance: phone clocks and receipt times can be a few minutes off. */
 const TIME_TOLERANCE_MS = 5 * 60 * 1000;
 /** Receipts print local time. Ethiopia has no daylight saving time, so the offset is fixed. */

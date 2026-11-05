@@ -19,7 +19,7 @@ export const bankReceiptSchema = z.object({
   }),
   completed: z.boolean(),
 });
-export type BankReceipt = z.infer<typeof bankReceiptSchema>;
+type BankReceipt = z.infer<typeof bankReceiptSchema>;
 
 /** A parsed page: the receipt, the bank's "no such transaction" page, or a page Buchi cannot read. */
 export type ParsedPage = BankReceipt | 'NOT_FOUND' | 'UNREADABLE';

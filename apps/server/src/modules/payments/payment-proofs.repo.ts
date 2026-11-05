@@ -3,8 +3,8 @@ import type { Transaction } from '../../db/client';
 import { paymentProofs } from '../../db/schema';
 
 export type PaymentProofRow = typeof paymentProofs.$inferSelect;
-export type NewPaymentProof = typeof paymentProofs.$inferInsert;
-export type OwnerPaymentDecision = NonNullable<PaymentProofRow['ownerDecision']>;
+type NewPaymentProof = typeof paymentProofs.$inferInsert;
+type OwnerPaymentDecision = NonNullable<PaymentProofRow['ownerDecision']>;
 
 /** Every query runs inside `withShop`, so row-level security limits it to one shop. */
 export class PaymentProofsRepo {

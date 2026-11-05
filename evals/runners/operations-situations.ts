@@ -43,8 +43,10 @@ interface Actual {
  * action it takes, and whether that action ran at once or waited for the owner.
  */
 export function operationsSituationsSuite(db: Database): Suite {
+  let messageId = 0;
+  const nextMessageId = () => (messageId += 1);
   async function run(testCase: Input, model: LanguageModel): Promise<Actual> {
-    const shop = createOperationsShop(db, model, () => NOW);
+    const shop = createOperationsShop(db, model, () => NOW, nextMessageId);
     const shopId = await shop.shops.create(1, { name: 'Evaluation shop' });
     const ids = idsOf(JSON.stringify(testCase));
     const customer = await shop.customers.identify(shopId, CUSTOMER.telegramUserId, CUSTOMER.name);

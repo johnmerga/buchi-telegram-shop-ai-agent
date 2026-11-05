@@ -1,8 +1,11 @@
-import { productInputSchema } from '@buchi/shared';
+import { Money } from '@buchi/shared';
 import { askDataOutputSchema } from '@buchi/server/ai/agents/owner-assistant/tools/ask-data';
 import type { LanguageModel } from '@buchi/server/ai/language-model';
 import type { Database } from '@buchi/server/db/client';
+import { customers, orderItems, orders, products, productVariants } from '@buchi/server/db/schema';
+import { withShop } from '@buchi/server/db/with-shop';
 import { z } from 'zod';
+import { caseUuid } from '../harness/case-uuid';
 import { defineSuite, type Suite } from '../harness/suite';
 import { createOwnerShop } from './owner-shop';
 
@@ -26,41 +29,67 @@ interface Actual {
   reply: string;
 }
 
-type OwnerShop = ReturnType<typeof createOwnerShop>;
-
-/** The same small shop for every case: two shoes sold, one size sold out. */
-async function seed(shop: OwnerShop, shopId: string): Promise<void> {
+/**
+ * The same small shop for every case: two shoes sold, one size sold out, one shoe never sold.
+ * IDs are fixed per case, because query results show them to the model and recordings match on
+ * the request. Sales are an hour old, so "last 7 days" questions see them.
+ */
+async function seed(db: Database, shopId: string, caseKey: string): Promise<void> {
+  const id = (role: string) => caseUuid(`${caseKey}:${role}`);
   const sales = [
-    { title: 'Nike Air', price: '3500', sizes: { '42': 10, '43': 0 }, sold: 3 },
-    { title: 'Adidas Samba', price: '3200', sizes: { '41': 5 }, sold: 1 },
+    { title: 'Nike Air', price: '3500.00', stock: { '42': 7, '43': 0 }, sold: 3 },
+    { title: 'Adidas Samba', price: '3200.00', stock: { '41': 4 }, sold: 1 },
+    { title: 'Puma Suede', price: '2800.00', stock: { '40': 6 }, sold: 0 },
   ];
-  for (const [index, item] of sales.entries()) {
-    const product = await shop.catalog.createProduct(
-      shopId,
-      productInputSchema.parse({ title: item.title, pricingMode: 'fixed', price: item.price }),
-    );
-    await shop.catalog.setVariants(
-      shopId,
-      product.id,
-      Object.entries(item.sizes).map(([size, stock]) => ({ size, color: null, stock })),
-    );
-    const [listed] = await shop.catalog.activeProducts(shopId, [product.id]);
-    const variant = listed?.variants.find((v) => v.stock > 0);
-    if (!variant) throw new Error('The seeded product has no stock');
-    const customer = await shop.customers.identify(shopId, 100 + index, 'Customer');
-    const order = await shop.orders.create(
-      shopId,
-      {
-        customerId: customer.id,
-        items: [{ variantId: variant.id, quantity: item.sold }],
-        delivery: { type: 'pickup' },
-        paymentDeadline: new Date(Date.now() + 3_600_000),
-      },
-      'customer',
-    );
-    await shop.orders.transition(shopId, order.id, 'payment_submitted', 'customer', 'Receipt');
-    await shop.orders.transition(shopId, order.id, 'payment_approved', 'system', 'Verified');
-  }
+  const soldAt = new Date(Date.now() - 3_600_000);
+  await withShop(db, shopId, async (tx) => {
+    for (const [index, item] of sales.entries()) {
+      const productId = id(item.title);
+      await tx.insert(products).values({
+        id: productId,
+        shopId,
+        title: item.title,
+        pricingMode: 'fixed',
+        price: item.price,
+      });
+      const sizes = Object.entries(item.stock);
+      await tx.insert(productVariants).values(
+        sizes.map(([size, stock]) => ({
+          id: id(`${item.title}:${size}`),
+          shopId,
+          productId,
+          size,
+          stock,
+        })),
+      );
+      const [size] = sizes[0] ?? [];
+      if (item.sold === 0 || size === undefined) continue;
+      const customerId = id(`customer:${String(index)}`);
+      await tx
+        .insert(customers)
+        .values({ id: customerId, shopId, telegramUserId: 100 + index, name: 'Customer' });
+      const total = Money.of(item.price).times(item.sold).toString();
+      const orderId = id(`order:${String(index)}`);
+      await tx.insert(orders).values({
+        id: orderId,
+        shopId,
+        customerId,
+        status: 'paid',
+        deliveryType: 'pickup',
+        itemsTotal: total,
+        deliveryFee: '0.00',
+        total,
+        createdAt: soldAt,
+      });
+      await tx.insert(orderItems).values({
+        shopId,
+        orderId,
+        variantId: id(`${item.title}:${size}`),
+        quantity: item.sold,
+        unitPrice: item.price,
+      });
+    }
+  });
 }
 
 function valuesOf(rows: Record<string, string | number | boolean | null>[]): Row[] {
@@ -78,7 +107,7 @@ export function ownerQuestionsSuite(db: Database): Suite {
   ): Promise<Actual> {
     const shop = createOwnerShop(db, model, () => NOW);
     const shopId = await shop.shops.create(OWNER.telegramUserId, { name: 'Evaluation shop' });
-    await seed(shop, shopId);
+    await seed(db, shopId, question);
     const answer = await shop.assistant.answer(shopId, OWNER, question);
     const run = shop.runs.at(-1);
     const results = run?.outcome === 'reply' ? run.toolResults : [];

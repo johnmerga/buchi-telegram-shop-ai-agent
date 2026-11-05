@@ -1,7 +1,7 @@
 import { Money, moneySchema, pricingModeSchema } from '@buchi/shared';
 import type { LanguageModel } from '@buchi/server/ai/language-model';
 import type { Database } from '@buchi/server/db/client';
-import { agentDecisions, products } from '@buchi/server/db/schema';
+import { agentDecisions, products, productVariants } from '@buchi/server/db/schema';
 import { withShop } from '@buchi/server/db/with-shop';
 import { z } from 'zod';
 import { caseUuid } from '../harness/case-uuid';
@@ -43,12 +43,15 @@ interface Actual {
  * adversarial messages.
  */
 export function negotiatedPriceSuite(db: Database): Suite {
+  let messageId = 0;
+  const nextMessageId = () => (messageId += 1);
   async function run(testCase: Input, model: LanguageModel): Promise<Actual> {
-    const shop = createSalesShop(db, model, () => NOW);
+    const shop = createSalesShop(db, model, () => NOW, nextMessageId);
     const shopId = await shop.shops.create(1, { name: 'Evaluation shop' });
     const productId = caseUuid(`${testCase.product}|${testCase.message}`);
-    await withShop(db, shopId, (tx) =>
-      tx.insert(products).values({
+    // Fixed IDs, because tool results show them to the model and recordings match on the request.
+    await withShop(db, shopId, async (tx) => {
+      await tx.insert(products).values({
         id: productId,
         shopId,
         title: testCase.product,
@@ -56,9 +59,11 @@ export function negotiatedPriceSuite(db: Database): Suite {
         price: testCase.price,
         lowestPrice: testCase.lowest ?? null,
         createdAt: LISTED_AT,
-      }),
-    );
-    await shop.catalog.setVariants(shopId, productId, [{ size: '41', color: null, stock: 3 }]);
+      });
+      await tx
+        .insert(productVariants)
+        .values({ id: caseUuid(`${productId}:41`), shopId, productId, size: '41', stock: 3 });
+    });
     const customer = await shop.customers.identify(shopId, CUSTOMER.telegramUserId, CUSTOMER.name);
     await shop.customers.startSession(CUSTOMER.telegramUserId, shopId, productId);
 

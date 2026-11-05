@@ -43,6 +43,7 @@ const guards = {
 };
 const app = createApp({
   logger: pino({ level: 'silent' }),
+  trustProxyHops: 0,
   routers: [createShopsRouter({ shops, ...guards }), createCatalogRouter({ catalog, ...guards })],
 });
 

@@ -243,4 +243,16 @@ describe('photo search', () => {
     script.push({ text: 'a pair of shoes' });
     expect(await photos.search(shopId, customerId, image)).toEqual({ status: 'unavailable' });
   });
+
+  it('reports the search as unavailable when Gemini has no quota left', async () => {
+    script.push({ error: new AppError('QUOTA_EXHAUSTED', 'No quota') });
+    expect(await photos.search(shopId, customerId, image)).toEqual({ status: 'unavailable' });
+  });
+
+  it('reports the search as unavailable when the photo cannot be embedded', async () => {
+    const noEmbeddings = new ScriptedModel(script);
+    const search = new PhotoSearchService(db, catalogRepo, catalog, noEmbeddings, demand, logger);
+    script.push(describes({ category: 'sneakers', colors: ['white'], brand: null, style: '' }));
+    expect(await search.search(shopId, customerId, image)).toEqual({ status: 'unavailable' });
+  });
 });

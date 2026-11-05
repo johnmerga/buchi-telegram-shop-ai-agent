@@ -41,7 +41,11 @@ function testApp() {
       res.json(callerOf(req));
     },
   );
-  return createApp({ logger, routers: [createAuthRouter(auth, 'buchi_test_bot'), shopRouter] });
+  return createApp({
+    logger,
+    trustProxyHops: 0,
+    routers: [createAuthRouter(auth, 'buchi_test_bot'), shopRouter],
+  });
 }
 
 function signInRequest(initData: string) {

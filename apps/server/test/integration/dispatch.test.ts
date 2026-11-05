@@ -236,6 +236,7 @@ const jobSecret = 'j'.repeat(32);
 const auth = new AuthService({ botToken, tokenSecret: 't'.repeat(32), now: clock });
 const app = createApp({
   logger,
+  trustProxyHops: 0,
   routers: [
     createDriversRouter({
       drivers,

@@ -18,6 +18,7 @@ describe('loadEnv', () => {
       ...required,
       NODE_ENV: 'development',
       PORT: 3000,
+      TRUST_PROXY_HOPS: 0,
       LOG_LEVEL: 'info',
       GEMINI_MODEL_FAST: 'gemini-2.5-flash-lite',
       GEMINI_MODEL_SMART: 'gemini-2.5-flash',
@@ -35,6 +36,11 @@ describe('loadEnv', () => {
 
   it('names an invalid variable', () => {
     expect(() => loadEnv({ ...required, PORT: 'abc' })).toThrow(/PORT/);
+  });
+
+  it('reads the proxy hops in front of the server, and rejects a negative count', () => {
+    expect(loadEnv({ ...required, TRUST_PROXY_HOPS: '2' }).TRUST_PROXY_HOPS).toBe(2);
+    expect(() => loadEnv({ ...required, TRUST_PROXY_HOPS: '-1' })).toThrow(/TRUST_PROXY_HOPS/);
   });
 
   it('rejects a job secret shorter than 32 characters', () => {

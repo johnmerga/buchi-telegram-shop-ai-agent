@@ -1,4 +1,4 @@
-import { and, eq, inArray, lte, sql } from 'drizzle-orm';
+import { and, eq, inArray, lt, lte, sql } from 'drizzle-orm';
 import type { Database, Transaction } from '../../db/client';
 import { timers } from '../../db/schema';
 
@@ -41,17 +41,57 @@ export class TimersRepo {
       .returning();
   }
 
-  async markDone(id: string): Promise<void> {
+  /**
+   * Returns timers claimed before `leaseMs` ago and still running, whose tick crashed, to the
+   * queue. A timer already claimed `maxAttempts` times fails instead, so a handler that crashes the
+   * process cannot loop forever. Returns how many it requeued and how many it failed.
+   */
+  async reclaimStuck(
+    leaseMs: number,
+    maxAttempts: number,
+  ): Promise<{ requeued: number; failed: number }> {
+    const exhausted = sql`${timers.attempts} >= ${maxAttempts}`;
+    const rows = await this.db
+      .update(timers)
+      .set({
+        status: sql`case when ${exhausted} then 'failed'::timer_status else 'pending'::timer_status end`,
+        lastError: sql`case when ${exhausted} then ${`Interrupted ${String(maxAttempts)} times`} else 'Interrupted' end`,
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(timers.status, 'running'),
+          lt(timers.updatedAt, sql`now() - ${leaseMs}::int * interval '1 millisecond'`),
+        ),
+      )
+      .returning({ status: timers.status });
+    const failed = rows.filter((row) => row.status === 'failed').length;
+    return { requeued: rows.length - failed, failed };
+  }
+
+  /**
+   * Finishes the claim that `timer` came from. A claim whose lease ran out, and whose timer was
+   * claimed again, changes nothing, so only the latest claim decides the result.
+   */
+  async markDone(timer: Timer): Promise<void> {
     await this.db
       .update(timers)
       .set({ status: 'done', updatedAt: sql`now()` })
-      .where(eq(timers.id, id));
+      .where(this.currentClaim(timer));
   }
 
-  async markFailed(id: string, error: string): Promise<void> {
+  async markFailed(timer: Timer, error: string): Promise<void> {
     await this.db
       .update(timers)
       .set({ status: 'failed', lastError: error, updatedAt: sql`now()` })
-      .where(eq(timers.id, id));
+      .where(this.currentClaim(timer));
+  }
+
+  private currentClaim(timer: Timer) {
+    return and(
+      eq(timers.id, timer.id),
+      eq(timers.status, 'running'),
+      eq(timers.attempts, timer.attempts),
+    );
   }
 }

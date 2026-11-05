@@ -12,7 +12,7 @@ const context = {
   actor: { kind: 'system' as const },
   tool: 'propose_delivery_price',
 };
-const limits = { formulaPayout: Money.of('300'), cap: Money.of('1000') };
+const limits = { formulaPayout: Money.of('300'), cap: Money.of('1000'), approximateRoute: false };
 
 /** The real checker, without the database that records its decisions. */
 const guard: Pick<PolicyGuard, 'checkDeliveryPrice'> = {

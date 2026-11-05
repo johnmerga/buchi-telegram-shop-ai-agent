@@ -158,6 +158,7 @@ const guards = {
 };
 const app = createApp({
   logger,
+  trustProxyHops: 0,
   routers: [
     createPaymentsRouter({
       records: new PaymentRecords(db, proofs, orders, customers, risk),

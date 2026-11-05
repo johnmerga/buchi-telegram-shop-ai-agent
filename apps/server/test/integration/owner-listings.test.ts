@@ -3,9 +3,16 @@ import { and, eq } from 'drizzle-orm';
 import type { Chat, Update, User } from 'grammy/types';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { connectDatabase } from '../../src/db/client';
-import { productVariants, stockHolds, timers as timersTable, waitlist } from '../../src/db/schema';
+import {
+  listingDrafts,
+  productVariants,
+  stockHolds,
+  timers as timersTable,
+  waitlist,
+} from '../../src/db/schema';
 import { withShop } from '../../src/db/with-shop';
 import { orderTimerKinds } from '../../src/modules/orders/orders.deadlines.domain';
+import { AppError } from '../../src/shared/errors';
 import { buttonsOf, tap, userOf } from '../fakes/operations-fixtures';
 import { CHANNEL_CHAT_ID, createOwnerBot, type Clock } from '../fakes/owner-bot';
 import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
@@ -160,6 +167,28 @@ describe('snap-to-list', () => {
     expect(
       (await catalog.listProducts(shopId)).some((p) => p.photoFileIds.includes('file-4')),
     ).toBe(false);
+  });
+
+  it('says it cannot draft now, and keeps the draft, when Gemini fails', async () => {
+    script.push({ error: new AppError('QUOTA_EXHAUSTED', 'No Gemini quota left') });
+    await bot.handleUpdate(photo(owner, 'Sandals 38 900', 'file-6'));
+    expect(lastTo(owner.id)?.text).toContain('could not draft this now');
+    const drafts = await withShop(db, shopId, (tx) =>
+      tx
+        .select()
+        .from(listingDrafts)
+        .where(eq(listingDrafts.photoFileIds, ['file-6'])),
+    );
+    expect(drafts).toEqual([]);
+
+    script.push(drafted(['38']), { error: new Error('Gemini is down') });
+    await bot.handleUpdate(photo(owner, 'Sandals 38 900', 'file-7'));
+    const draft = draftMessage();
+    const edits = sent.filter((m) => m.method === 'editMessageText').length;
+    await bot.handleUpdate(replyTo(owner, draft?.messageId ?? 0, 'Sandals 38-39 950'));
+
+    expect(lastTo(owner.id)?.text).toContain('could not draft this now');
+    expect(sent.filter((m) => m.method === 'editMessageText')).toHaveLength(edits);
   });
 
   it('keeps a photo without a note for the attach-to-product flow', async () => {

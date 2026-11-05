@@ -178,6 +178,7 @@ const guards = {
 };
 const app = createApp({
   logger,
+  trustProxyHops: 0,
   routers: [
     createShopsRouter({ shops, ...guards }),
     createCatalogRouter({ catalog, ...guards }),

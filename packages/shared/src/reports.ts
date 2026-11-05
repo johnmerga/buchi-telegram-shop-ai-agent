@@ -52,6 +52,11 @@ export type PostResult = z.infer<typeof postResultSchema>;
 /** The design doc's success metrics over the last `days` days, where Buchi records the data. */
 export const insightsSchema = z.object({
   days: z.number().int().positive(),
+  /** Customer messages the sales agent answered, and the median seconds to the answer. */
+  firstReply: z.object({
+    replies: z.number().int().min(0),
+    medianSeconds: z.number().min(0).nullable(),
+  }),
   /** Paid orders whose payment Buchi approved without the owner, out of all paid orders. */
   autoApprovedPayments: rateSchema,
   fraudBlocked: z.object({ count: z.number().int().min(0), amount: moneySchema }),

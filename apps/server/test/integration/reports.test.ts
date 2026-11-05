@@ -15,6 +15,7 @@ import {
   orderEvents,
   orders as ordersTable,
   paymentProofs,
+  replyTimes,
   waitlist,
 } from '../../src/db/schema';
 import { createApp } from '../../src/http/app';
@@ -100,6 +101,7 @@ const botToken = '123456:test-token';
 const auth = new AuthService({ botToken, tokenSecret: 't'.repeat(32), now: () => new Date() });
 const app = createApp({
   logger,
+  trustProxyHops: 0,
   routers: [
     createReportsRouter({
       insights: new InsightsService(db, new InsightsRepo(), dailyRepo, clock),
@@ -231,6 +233,20 @@ beforeAll(async () => {
     reason: 'owner_confirms',
     ownerStatus: 'pending',
   });
+  const answered = (receivedAt: string, seconds: number) => ({
+    shopId,
+    receivedAt: new Date(receivedAt),
+    repliedAt: new Date(new Date(receivedAt).getTime() + seconds * 1000),
+  });
+  await db
+    .insert(replyTimes)
+    .values([
+      answered('2026-11-05T09:00:00Z', 4),
+      answered('2026-11-04T09:00:00Z', 7),
+      answered('2026-11-01T09:00:00Z', 30),
+      answered('2026-11-01T10:00:00Z', 5),
+      answered('2026-09-01T09:00:00Z', 600),
+    ]);
   const [waiting] = await db
     .select({ id: customersTable.id })
     .from(customersTable)
@@ -320,6 +336,7 @@ describe('insights', () => {
     const insights = insightsSchema.parse(res.body);
     expect(insights).toMatchObject({
       days: 30,
+      firstReply: { replies: 4, medianSeconds: 6 },
       autoApprovedPayments: { count: 1, total: 1 },
       fraudBlocked: { count: 1, amount: '3500.00' },
       farQuotesDriverFound: { count: 0, total: 0 },

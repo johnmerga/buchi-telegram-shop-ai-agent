@@ -2,7 +2,7 @@ import { Money } from '@buchi/shared';
 import { describe, expect, it } from 'vitest';
 import { checkDeliveryPrice } from './delivery-price.domain';
 
-const limits = { formulaPayout: Money.of('300'), cap: Money.of('1000') };
+const limits = { formulaPayout: Money.of('300'), cap: Money.of('1000'), approximateRoute: false };
 
 describe('checkDeliveryPrice', () => {
   it.each(['300', '480', '1000'])(
@@ -32,7 +32,16 @@ describe('checkDeliveryPrice', () => {
   });
 
   it('sends every price to the owner when the payout is above the cap', () => {
-    const inverted = { formulaPayout: Money.of('1200'), cap: Money.of('1000') };
+    const inverted = { ...limits, formulaPayout: Money.of('1200') };
     expect(checkDeliveryPrice(Money.of('1200'), inverted).result).toBe('needs_owner');
+  });
+
+  it('sends a price within the limits to the owner when the route is a straight-line guess', () => {
+    const guessed = { ...limits, approximateRoute: true };
+    expect(checkDeliveryPrice(Money.of('480'), guessed)).toEqual({
+      result: 'needs_owner',
+      reason: 'approximate_route',
+    });
+    expect(checkDeliveryPrice(Money.of('299.99'), guessed).result).toBe('rejected');
   });
 });

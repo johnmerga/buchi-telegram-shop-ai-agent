@@ -3,6 +3,11 @@ import { z } from 'zod';
 const variablesSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
+  /**
+   * Proxies between the client and the server, which each append to `X-Forwarded-For`. Rate limits
+   * key on the address that many hops back. 0 locally; on Render, Cloudflare and Render's own proxy.
+   */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
   DATABASE_URL: z.url(),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   // Telegram accepts 1 to 256 of these characters. 32 or more keeps the secret hard to guess.

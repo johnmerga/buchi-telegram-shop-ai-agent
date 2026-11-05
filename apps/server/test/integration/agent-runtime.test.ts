@@ -336,7 +336,11 @@ describe('PolicyGuard', () => {
   it('records a far-delivery price above the cap as waiting for the owner', async () => {
     const scoped = { ...context, shopId, runId: '00000000-0000-4000-8000-0000000000d2' };
     const proposal = { value: Money.of('1200'), reason: 'Roadworks', evidenceIds: [] };
-    const deliveryLimits = { formulaPayout: Money.of('300'), cap: Money.of('1000') };
+    const deliveryLimits = {
+      formulaPayout: Money.of('300'),
+      cap: Money.of('1000'),
+      approximateRoute: false,
+    };
 
     const outcome = await guard.checkDeliveryPrice(scoped, proposal, deliveryLimits);
 
@@ -349,7 +353,11 @@ describe('PolicyGuard', () => {
   it('records the owner answer once, so a second tap changes nothing', async () => {
     const scoped = { ...context, shopId, runId: '00000000-0000-4000-8000-0000000000d3' };
     const proposal = { value: Money.of('1200'), reason: 'Roadworks', evidenceIds: [] };
-    const deliveryLimits = { formulaPayout: Money.of('300'), cap: Money.of('1000') };
+    const deliveryLimits = {
+      formulaPayout: Money.of('300'),
+      cap: Money.of('1000'),
+      approximateRoute: false,
+    };
     const { decisionId } = await guard.checkDeliveryPrice(scoped, proposal, deliveryLimits);
 
     const answer = (status: 'approved' | 'declined') =>

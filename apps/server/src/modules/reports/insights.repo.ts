@@ -10,6 +10,7 @@ import {
   paymentProofs,
   products,
   productVariants,
+  replyTimes,
 } from '../../db/schema';
 import { paidStatuses } from '../orders/orders.domain';
 
@@ -52,6 +53,20 @@ export class InsightsRepo {
         ),
       );
     return { count: row?.found ?? 0, total: row?.total ?? 0 };
+  }
+
+  async firstReply(tx: Transaction, since: Date): Promise<Insights['firstReply']> {
+    const seconds = sql`extract(epoch from ${replyTimes.repliedAt} - ${replyTimes.receivedAt})`;
+    const [row] = await tx
+      .select({
+        replies: count(),
+        medianSeconds: sql<
+          number | null
+        >`(percentile_cont(0.5) within group (order by ${seconds}))::float8`,
+      })
+      .from(replyTimes)
+      .where(gte(replyTimes.receivedAt, since));
+    return { replies: row?.replies ?? 0, medianSeconds: row?.medianSeconds ?? null };
   }
 
   async guardResults(tx: Transaction, since: Date): Promise<Insights['guard']> {

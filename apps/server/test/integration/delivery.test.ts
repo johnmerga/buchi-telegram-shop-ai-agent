@@ -63,6 +63,7 @@ const botToken = '123456:test-token';
 const auth = new AuthService({ botToken, tokenSecret: 't'.repeat(32), now: () => new Date() });
 const app = createApp({
   logger,
+  trustProxyHops: 0,
   routers: [
     createDeliveryRouter({
       delivery,

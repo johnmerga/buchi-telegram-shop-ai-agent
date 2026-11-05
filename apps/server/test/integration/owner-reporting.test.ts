@@ -7,6 +7,7 @@ import { withReportReader } from '../../src/db/with-report-reader';
 import { withShop } from '../../src/db/with-shop';
 import { ReportingRepo } from '../../src/modules/reporting/reporting.repo';
 import { ReportingService } from '../../src/modules/reporting/reporting.service';
+import { AppError } from '../../src/shared/errors';
 import { buttonsOf, calls, text, userOf } from '../fakes/operations-fixtures';
 import { createOwnerBot, type Clock } from '../fakes/owner-bot';
 import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
@@ -18,7 +19,7 @@ afterAll(close);
 const clock: Clock = { now: new Date() };
 const script: ScriptedTurn[] = [];
 const model = new ScriptedModel(script);
-const { bot, sent, charts, services } = createOwnerBot(db, model, clock);
+const { bot, sent, charts, chartOutage, services } = createOwnerBot(db, model, clock);
 const { shops, catalog, customers, orders, delivery, reporting, weekly } = services;
 
 const owner = userOf(890001, 'Selam');
@@ -200,6 +201,29 @@ describe("the owner's questions", () => {
     await bot.handleUpdate(text(owner, 'How did we do?'));
     const reply = sent.findLast((m) => m.chatId === owner.id && m.method === 'sendMessage');
     expect(reply?.text).toContain('Best sellers\nproduct_title · units\nNike Air · 3');
+  });
+
+  it('get the numbers as text when QuickChart is down', async () => {
+    chartOutage.active = true;
+    script.push(calls(['ask_data', { sql: bestSellers, title: 'Best sellers' }]), {
+      text: 'Nike Air sold most: 3 pairs.',
+    });
+    const before = sent.length;
+    try {
+      await bot.handleUpdate(text(owner, 'Which product sold most?'));
+    } finally {
+      chartOutage.active = false;
+    }
+
+    const replies = sent.slice(before).filter((m) => m.chatId === owner.id);
+    expect(replies.map((m) => m.method)).toEqual(['sendMessage']);
+    expect(replies[0]?.text).toBe('Nike Air sold most: 3 pairs.');
+  });
+
+  it('get an apology, not a guess, when Gemini has no quota left', async () => {
+    script.push({ error: new AppError('QUOTA_EXHAUSTED', 'No Gemini quota left') });
+    await bot.handleUpdate(text(owner, 'How many pairs did we sell?'));
+    expect(sent.findLast((m) => m.chatId === owner.id)?.text).toContain('cannot answer right now');
   });
 
   it('send a refused query back to the model as an error', async () => {

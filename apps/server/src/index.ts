@@ -28,6 +28,7 @@ import { createLogger } from './config/logger';
 import { connectDatabase } from './db/client';
 import { PRODUCT_EMBEDDING_DIMENSIONS } from './db/schema';
 import { createApp } from './http/app';
+import { limitSignedInUsers, publicRateLimits } from './http/rate-limits';
 import { createWebAppRouter } from './http/web-app';
 import { requireAuth } from './http/middleware/require-auth';
 import { requireShopOwner } from './http/middleware/require-shop-owner';
@@ -153,6 +154,8 @@ import { DemandService } from './modules/demand/demand.service';
 import { NegotiationService } from './modules/sales/negotiation.service';
 import { NegotiationsRepo } from './modules/sales/negotiations.repo';
 import { PriceEvidenceService } from './modules/sales/price-evidence.service';
+import { ReplyTimesRepo } from './modules/sales/reply-times.repo';
+import { ReplyTimes } from './modules/sales/reply-times.service';
 import { createSalesHandlers } from './modules/sales/sales.handlers';
 import { DailyReportsRepo } from './modules/reports/daily-reports.repo';
 import { DailyReports } from './modules/reports/daily-reports.service';
@@ -735,7 +738,11 @@ const bot = createBot({
     createOperationsHandlers({ triggers: operations, problems, customers }),
     // Last, so every button and code path answers before the model does.
     createAssistantHandlers({ assistant: ownerAssistantAgent, customers }),
-    createSalesHandlers({ agent: salesAgent, customers }),
+    createSalesHandlers({
+      agent: salesAgent,
+      customers,
+      replyTimes: new ReplyTimes(database.db, new ReplyTimesRepo()),
+    }),
   ],
 });
 
@@ -748,12 +755,18 @@ const auth = new AuthService({
   now: () => new Date(),
 });
 
-const signedIn = requireAuth((token) => auth.verifyToken(token));
+const signedIn = limitSignedInUsers(
+  requireAuth((token) => auth.verifyToken(token)),
+  () => new Date(),
+);
 const shopOwner = requireShopOwner((telegramUserId) => shops.ownedShopIds(telegramUserId));
 
 const app = createApp({
   logger,
+  trustProxyHops: env.TRUST_PROXY_HOPS,
   routers: [
+    // First, so a refused request costs no signature check or database query.
+    publicRateLimits(() => new Date()),
     createTelegramWebhookRouter({ secret: env.TELEGRAM_WEBHOOK_SECRET, ingress }),
     createJobsRouter(jobs, env.JOB_SECRET),
     createAuthRouter(auth, botInfo.username),

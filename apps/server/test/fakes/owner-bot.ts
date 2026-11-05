@@ -236,11 +236,13 @@ export function createOwnerBot(db: Database, model: LanguageModel, clock: Clock)
     now,
   );
   const charts: ChartConfig[] = [];
+  const chartOutage = { active: false };
   const assistant = new OwnerAssistant(
     runtime,
     approvals,
     {
       render: (chart) => {
+        if (chartOutage.active) return Promise.reject(new Error('QuickChart is down'));
         charts.push(chart);
         return Promise.resolve(new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
       },
@@ -289,6 +291,7 @@ export function createOwnerBot(db: Database, model: LanguageModel, clock: Clock)
     bot,
     sent,
     charts,
+    chartOutage,
     posts,
     timers,
     services: {

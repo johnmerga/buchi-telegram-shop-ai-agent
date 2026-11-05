@@ -16,6 +16,7 @@ const shop = {
 };
 const insights = {
   days: 30,
+  firstReply: { replies: 0, medianSeconds: null },
   autoApprovedPayments: { count: 17, total: 20 },
   fraudBlocked: { count: 2, amount: '7000.00' },
   farQuotesDriverFound: { count: 0, total: 0 },
@@ -32,15 +33,19 @@ const insights = {
   ],
 };
 
+function showInsights(body: object) {
+  fakeTelegram();
+  fakeServer({
+    'POST /auth/mini-app': session,
+    [`GET /shops/${shopId}`]: () => json(200, shop),
+    [`GET /shops/${shopId}/insights`]: () => json(200, body),
+  });
+  renderAt(`/shops/${shopId}/insights`, <OwnerApp />);
+}
+
 describe('insights screen', () => {
   it('shows the success metrics, and a dash where nothing was measured yet', async () => {
-    fakeTelegram();
-    fakeServer({
-      'POST /auth/mini-app': session,
-      [`GET /shops/${shopId}`]: () => json(200, shop),
-      [`GET /shops/${shopId}/insights`]: () => json(200, insights),
-    });
-    renderAt(`/shops/${shopId}/insights`, <OwnerApp />);
+    showInsights(insights);
 
     const approved = await screen.findByRole('region', { name: 'Payments approved without you' });
     expect(approved.textContent).toContain('85%');
@@ -52,11 +57,17 @@ describe('insights screen', () => {
     const delivery = screen.getByRole('region', { name: 'Delivery cost' });
     expect(delivery.textContent).toContain('1,450.00 ብር');
     expect(delivery.textContent).toContain('saved 320.00 ብር');
-    expect(screen.getByRole('region', { name: 'First reply time' }).textContent).toContain(
-      'Not measured yet',
-    );
+    expect(screen.getByRole('region', { name: 'First reply time' }).textContent).toContain('—');
     const row = screen.getByRole('row', { name: /Nike Air/ });
     expect(row.textContent).toContain('25');
     expect(row.textContent).toContain('4');
+  });
+
+  it('shows the median first reply time in seconds', async () => {
+    showInsights({ ...insights, firstReply: { replies: 12, medianSeconds: 6.25 } });
+
+    const reply = await screen.findByRole('region', { name: 'First reply time' });
+    expect(reply.textContent).toContain('6.3 s');
+    expect(reply.textContent).toContain('12 customer messages');
   });
 });

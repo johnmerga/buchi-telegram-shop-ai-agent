@@ -1,7 +1,14 @@
 import type { DeliveryType, MoneyString, OrderStatus } from '@buchi/shared';
 import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import type { Database, Transaction } from '../../db/client';
-import { orderEvents, orderItems, orders, products, productVariants } from '../../db/schema';
+import {
+  customers,
+  orderEvents,
+  orderItems,
+  orders,
+  products,
+  productVariants,
+} from '../../db/schema';
 
 export type OrderRow = typeof orders.$inferSelect;
 export type OrderItemRow = typeof orderItems.$inferSelect;
@@ -14,6 +21,15 @@ export interface SellableVariant {
   pricingMode: (typeof products.$inferSelect)['pricingMode'];
   price: MoneyString;
   active: boolean;
+}
+
+/** What an owner needs to know about a new order. */
+export interface OrderSummary {
+  orderId: string;
+  total: MoneyString;
+  customerTelegramUserId: number;
+  customerName: string;
+  lines: { title: string; size: string; quantity: number }[];
 }
 
 export class OrdersRepo {
@@ -96,6 +112,26 @@ export class OrdersRepo {
   async find(tx: Transaction, orderId: string): Promise<OrderRow | undefined> {
     const [row] = await tx.select().from(orders).where(eq(orders.id, orderId));
     return row;
+  }
+
+  async summary(tx: Transaction, orderId: string): Promise<OrderSummary | undefined> {
+    const [order] = await tx
+      .select({
+        total: orders.total,
+        customerTelegramUserId: customers.telegramUserId,
+        customerName: customers.name,
+      })
+      .from(orders)
+      .innerJoin(customers, eq(customers.id, orders.customerId))
+      .where(eq(orders.id, orderId));
+    if (!order) return undefined;
+    const lines = await tx
+      .select({ title: products.title, size: productVariants.size, quantity: orderItems.quantity })
+      .from(orderItems)
+      .innerJoin(productVariants, eq(productVariants.id, orderItems.variantId))
+      .innerJoin(products, eq(products.id, productVariants.productId))
+      .where(eq(orderItems.orderId, orderId));
+    return { orderId, ...order, lines };
   }
 
   /**

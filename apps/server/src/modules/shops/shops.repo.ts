@@ -27,6 +27,11 @@ export class ShopsRepo {
     await tx.insert(shopMembers).values({ shopId: shop.id, telegramUserId: shop.ownerId });
   }
 
+  async memberIds(tx: Transaction): Promise<number[]> {
+    const rows = await tx.select({ telegramUserId: shopMembers.telegramUserId }).from(shopMembers);
+    return rows.map((row) => row.telegramUserId);
+  }
+
   async find(tx: Transaction, shopId: string): Promise<ShopRow | undefined> {
     const [shop] = await tx.select().from(shops).where(eq(shops.id, shopId));
     return shop;

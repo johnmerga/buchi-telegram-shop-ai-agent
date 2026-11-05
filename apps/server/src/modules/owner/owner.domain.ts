@@ -43,11 +43,31 @@ export function orderAlert(order: {
   ].join('\n');
 }
 
-export function priceRequestAlert(productTitle: string): string {
+export function humanRequestAlert(reason: string): string {
   return [
-    `🏷️ ዋጋ ይጠይቃሉ / Asks the price of ${productTitle}.`,
+    `🙋 ሰው ይፈልጋሉ / Needs you: ${reason}`,
     'Buchi has stopped replying. Reply to this message to answer.',
   ].join('\n');
+}
+
+/** The sales agent remembers this many messages, enough for one negotiation. */
+const MAX_TURNS = 12;
+/** A chat that went quiet for a day starts fresh, so old talk does not steer a new visit. */
+const TURN_MEMORY_MS = 24 * 60 * 60 * 1000;
+
+/** The turns still within the agent's memory window. */
+export function currentTurns<Turn extends { at: string }>(turns: Turn[], now: Date): Turn[] {
+  const oldest = now.getTime() - TURN_MEMORY_MS;
+  return turns.filter((turn) => Date.parse(turn.at) >= oldest);
+}
+
+/** Adds turns and keeps only the latest ones within the memory window. */
+export function appendTurns<Turn extends { at: string }>(
+  turns: Turn[],
+  added: Turn[],
+  now: Date,
+): Turn[] {
+  return currentTurns([...turns, ...added], now).slice(-MAX_TURNS);
 }
 
 export const handBackNotice =

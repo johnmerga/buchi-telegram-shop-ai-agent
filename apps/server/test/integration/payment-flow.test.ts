@@ -36,6 +36,13 @@ import { TelegramMessenger } from '../../src/telegram/messenger';
 import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
 import { pickupOnlyDelivery } from '../fakes/pickup-only-delivery';
 import { testDatabaseUrl } from './test-database';
+import { noEmbeddings } from '../fakes/no-embeddings';
+import { NegotiationService } from '../../src/modules/sales/negotiation.service';
+import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
+import { PhotoSearchService } from '../../src/modules/catalog/photo-search.service';
+import { DemandRepo } from '../../src/modules/demand/demand.repo';
+import { DemandService } from '../../src/modules/demand/demand.service';
+import { TelegramCustomerChat } from '../../src/telegram/customer-chat';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -62,10 +69,23 @@ const noChannels = {
   publish: () => Promise.reject(new Error('unused')),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), noChannels);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, noChannels, botInfo.username);
+const catalog = new CatalogService(
+  db,
+  new CatalogRepo(),
+  shops,
+  noChannels,
+  botInfo.username,
+  noEmbeddings,
+);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const timers = new TimerService(new TimersRepo(db), logger);
-const orders = new OrderService(db, new OrdersRepo(), new EventBus(logger), timers);
+const orders = new OrderService(
+  db,
+  new OrdersRepo(),
+  new EventBus(logger),
+  timers,
+  new NegotiationService(db, new NegotiationsRepo()),
+);
 const checkout = new CheckoutService(
   customers,
   orders,
@@ -118,7 +138,8 @@ const conversations = new ConversationService(
   () => new Date(),
 );
 
-const reader = new ReceiptReader(new ScriptedModel(script), logger);
+const model = new ScriptedModel(script);
+const reader = new ReceiptReader(model, logger);
 const proofs = new PaymentProofsRepo();
 const refs = new PaymentRefsRepo(db);
 const risk = new RiskService(new RiskSignalsRepo(db), 'r'.repeat(32));
@@ -135,12 +156,24 @@ const verification = new PaymentVerification(
   customers,
   paymentNotifier,
 );
+const photoSearch = new PhotoSearchService(
+  db,
+  new CatalogRepo(),
+  catalog,
+  model,
+  new DemandService(db, new DemandRepo()),
+  logger,
+);
 const intake = new ImageIntake(
   { download: () => Promise.resolve('aW1hZ2U=') },
   reader,
   orders,
   verification,
+  photoSearch,
+  customers,
 );
+const chatApi = new Api('test');
+fakeTelegram(chatApi);
 const review = new PaymentReview(db, proofs, refs, risk, orders, customers, paymentNotifier);
 
 const bot = createBot({
@@ -149,7 +182,7 @@ const bot = createBot({
   ownedShopIds: (telegramUserId) => shops.ownedShopIds(telegramUserId),
   handlers: [
     createConversationHandlers({ conversations, customers }),
-    createPaymentHandlers({ intake, review, customers }),
+    createPaymentHandlers({ intake, review, customers, chat: new TelegramCustomerChat(chatApi) }),
   ],
 });
 fakeTelegram(bot.api);
@@ -215,7 +248,7 @@ async function setUpShop(
 /** Places an order for the customer, who already shared a phone number, and returns its ID. */
 async function order(customer: User, shopId: string, variantId: string): Promise<string> {
   const buyer = { telegramUserId: customer.id, name: customer.first_name };
-  await customers.startSession(customer.id, shopId);
+  await customers.startSession(customer.id, shopId, null);
   await checkout.completeWithPhone(shopId, buyer, `+25191${String(customer.id)}`, variantId);
   const placed = await orders.latestUnpaid(shopId, customer.id);
   if (!placed) throw new Error('No order was placed');

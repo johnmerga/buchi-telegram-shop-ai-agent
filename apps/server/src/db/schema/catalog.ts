@@ -14,11 +14,15 @@ import {
   timestamp,
   unique,
   uuid,
+  vector,
 } from 'drizzle-orm/pg-core';
 import { shopIsolation } from './rls';
 import { shops } from './shops';
 
 export const pricingMode = pgEnum('pricing_mode', pricingModes);
+
+/** The size Buchi requests from the Gemini embedding model, so stored and query vectors match. */
+export const PRODUCT_EMBEDDING_DIMENSIONS = 768;
 
 /**
  * Child rows reference their product by (product, shop). Foreign key checks ignore row-level
@@ -51,6 +55,8 @@ export const products = pgTable(
       .notNull()
       .default(sql`'{}'`),
     active: boolean('active').notNull().default(true),
+    /** The title and description embedded for photo search. Null until the background job runs. */
+    embedding: vector('embedding', { dimensions: PRODUCT_EMBEDDING_DIMENSIONS }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

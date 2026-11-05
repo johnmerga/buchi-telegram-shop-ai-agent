@@ -9,6 +9,7 @@ import { CatalogService, type ChannelPublisher } from '../../src/modules/catalog
 import { ShopsRepo } from '../../src/modules/shops/shops.repo';
 import { ShopsService, type ChannelVerifier } from '../../src/modules/shops/shops.service';
 import { testDatabaseUrl } from './test-database';
+import { noEmbeddings } from '../fakes/no-embeddings';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -36,6 +37,7 @@ function services(publish: ChannelPublisher['publish'] = () => Promise.resolve(4
       },
     },
     'buchi_test_bot',
+    noEmbeddings,
   );
   return { shops, catalog, published };
 }

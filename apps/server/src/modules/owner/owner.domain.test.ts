@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appendTurns,
+  currentTurns,
   handBackTime,
+  humanRequestAlert,
   modeButton,
   orderAlert,
   ownerMessageHeader,
-  priceRequestAlert,
 } from './owner.domain';
 
 const id = '3f2a9c00-0000-4000-8000-000000000001';
@@ -60,8 +62,28 @@ describe('orderAlert', () => {
   });
 });
 
-describe('priceRequestAlert', () => {
-  it('names the product and tells the owner how to answer', () => {
-    expect(priceRequestAlert('Nike Air Force 1')).toContain('Asks the price of Nike Air Force 1');
+describe('humanRequestAlert', () => {
+  it('gives the reason and tells the owner how to answer', () => {
+    const alert = humanRequestAlert('The customer asked for a person.');
+    expect(alert).toContain('Needs you: The customer asked for a person.');
+    expect(alert).toContain('Reply to this message to answer.');
+  });
+});
+
+describe('conversation turns', () => {
+  const now = new Date('2026-11-05T12:00:00Z');
+  const turn = (text: string, at: string) => ({ text, at });
+
+  it('forgets turns older than a day', () => {
+    const turns = [turn('old', '2026-11-04T11:59:59Z'), turn('recent', '2026-11-04T12:00:00Z')];
+    expect(currentTurns(turns, now).map((t) => t.text)).toEqual(['recent']);
+  });
+
+  it('keeps the latest twelve turns', () => {
+    const earlier = Array.from({ length: 12 }, (_, i) => turn(`t${String(i)}`, now.toISOString()));
+    const kept = appendTurns(earlier, [turn('new', now.toISOString())], now);
+    expect(kept).toHaveLength(12);
+    expect(kept[0]?.text).toBe('t1');
+    expect(kept.at(-1)?.text).toBe('new');
   });
 });

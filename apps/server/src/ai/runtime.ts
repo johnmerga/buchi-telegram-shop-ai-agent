@@ -6,7 +6,7 @@ import { withShop } from '../db/with-shop';
 import type { GenerateResult, LanguageModel, ModelTier, Priority } from './language-model';
 import type { Prompt } from './prompts/prompt';
 import type { ToolRegistry } from './registry';
-import type { RunContext, ToolActor } from './tool';
+import type { RunContext, ToolActor, ToolResult } from './tool';
 import type { NewTrace, TracesRepo } from './traces.repo';
 
 export interface AgentDefinition {
@@ -25,8 +25,10 @@ export interface RunRequest {
 
 type EscalationReason = 'guard_rejections' | 'step_limit' | 'empty_reply';
 
+/** A reply comes with every tool result of the run, so callers can check the reply against them. */
 export type RunResult = { runId: string } & (
-  { outcome: 'reply'; text: string } | { outcome: 'escalated'; reason: EscalationReason }
+  | { outcome: 'reply'; text: string; toolResults: ToolResult[] }
+  | { outcome: 'escalated'; reason: EscalationReason }
 );
 
 /** Enough for a lookup, a check, and a reply, with room for one retry after a rejection. */
@@ -58,6 +60,7 @@ export class AgentRuntime {
     };
     const tools = this.registry.declarationsFor(agent.name);
     const contents = [...request.history];
+    const toolResults: ToolResult[] = [];
     let rejections = 0;
 
     for (let step = 1; step <= MAX_STEPS; step += 1) {
@@ -69,12 +72,13 @@ export class AgentRuntime {
         const outcome = text ? 'reply' : 'escalated';
         await this.trace(agent, context, { ...traced, toolCalls: [], outcome });
         return text
-          ? { runId: context.runId, outcome: 'reply', text }
+          ? { runId: context.runId, outcome: 'reply', text, toolResults }
           : { runId: context.runId, outcome: 'escalated', reason: 'empty_reply' };
       }
 
       const executed = await this.execute(response.functionCalls, context, rejections);
       rejections = executed.rejections;
+      toolResults.push(...executed.results);
       const escalated = rejections >= MAX_REJECTIONS;
       await this.trace(agent, context, {
         ...traced,
@@ -93,18 +97,20 @@ export class AgentRuntime {
   private async execute(calls: FunctionCall[], context: RunContext, rejectionsBefore: number) {
     const toolCalls: NewTrace['toolCalls'] = [];
     const responses: Part[] = [];
+    const results: ToolResult[] = [];
     let rejections = rejectionsBefore;
     for (const call of calls) {
       if (rejections >= MAX_REJECTIONS) break;
       const name = call.name ?? '';
       const result = await this.registry.execute(call, context);
+      results.push(result);
       toolCalls.push({ name, args: call.args ?? {}, status: result.status });
       responses.push({
         functionResponse: { ...(call.id ? { id: call.id } : {}), name, response: result },
       });
       if (result.status === 'rejected') rejections += 1;
     }
-    return { toolCalls, responses, rejections };
+    return { toolCalls, responses, results, rejections };
   }
 
   /** A failed model call is traced too, so quota and outages show up next to successful calls. */

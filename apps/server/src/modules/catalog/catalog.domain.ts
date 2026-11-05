@@ -1,4 +1,6 @@
 import { formatBirr, type MoneyString, type PricingMode } from '@buchi/shared';
+import type { Button } from '../owner/owner.domain';
+import type { ProductPhoto } from './catalog.schemas';
 
 export interface PostableProduct {
   title: string;
@@ -57,4 +59,43 @@ export function postIdFromStartPayload(payload: string): string | undefined {
     payload,
   );
   return match ? match.slice(1).join('-') : undefined;
+}
+
+export interface CardProduct extends PostableProduct {
+  variants: (VariantStock & { id: string; color: string | null })[];
+}
+
+/**
+ * The product card a customer sees in the chat, with one button per size in stock. A negotiable
+ * product shows no price: the customer agrees it with the sales agent.
+ */
+export function productCard(product: CardProduct): { text: string; buttons: Button[] } {
+  const lines = [product.title, product.description].filter((line) => line !== '');
+  const inStock = product.variants.filter((v) => v.stock > v.reserved);
+  if (inStock.length === 0) {
+    return { text: [...lines, 'ተሸጦ አልቋል / Sold out.'].join('\n\n'), buttons: [] };
+  }
+  const priceLine =
+    product.pricingMode === 'fixed'
+      ? `ዋጋ / Price: ${formatBirr(product.price)}`
+      : '💬 ዋጋ ይጠይቁኝ / Ask me the price, or make an offer.';
+  return {
+    text: [...lines, priceLine, 'መጠን ይምረጡ / Choose your size:'].join('\n\n'),
+    buttons: inStock.map((v) => ({
+      text: v.color ? `${v.size} ${v.color}` : v.size,
+      data: `size:${v.id}`,
+    })),
+  };
+}
+
+/** The text of a product that photo search compares photos with. */
+export function embeddingText(product: { title: string; description: string }): string {
+  return [product.title, product.description].filter((part) => part !== '').join('\n');
+}
+
+/** A photo's description as text in the same form, for the search and for unmet demand. */
+export function photoQueryText(photo: ProductPhoto): string {
+  return [photo.category, photo.colors.join(', '), photo.brand, photo.style]
+    .filter((part) => part !== null && part !== '')
+    .join('; ');
 }

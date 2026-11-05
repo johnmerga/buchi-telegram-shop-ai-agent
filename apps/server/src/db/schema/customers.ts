@@ -3,6 +3,7 @@ import {
   bigint,
   check,
   doublePrecision,
+  foreignKey,
   pgTable,
   text,
   timestamp,
@@ -35,6 +36,33 @@ export const customers = pgTable(
       'customers_delivery_pin_complete',
       sql`(${t.deliveryLatitude} is null) = (${t.deliveryLongitude} is null)`,
     ),
+    shopIsolation(t.shopId),
+  ],
+);
+
+/**
+ * Stable facts a customer told the sales agent, such as their shoe size, with the message they
+ * came from. One fact per key, so a new size replaces the old one.
+ */
+export const customerFacts = pgTable(
+  'customer_facts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    shopId: uuid('shop_id')
+      .notNull()
+      .references(() => shops.id, { onDelete: 'cascade' }),
+    customerId: uuid('customer_id').notNull(),
+    key: text('key').notNull(),
+    fact: text('fact').notNull(),
+    sourceMessage: text('source_message').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.customerId, t.shopId],
+      foreignColumns: [customers.id, customers.shopId],
+    }).onDelete('cascade'),
+    unique('customer_facts_customer_key_unique').on(t.customerId, t.key),
     shopIsolation(t.shopId),
   ],
 );

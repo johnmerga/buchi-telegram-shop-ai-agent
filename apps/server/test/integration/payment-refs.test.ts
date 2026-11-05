@@ -17,6 +17,9 @@ import { ShopsRepo } from '../../src/modules/shops/shops.repo';
 import { ShopsService } from '../../src/modules/shops/shops.service';
 import { EventBus } from '../../src/shared/events';
 import { testDatabaseUrl } from './test-database';
+import { noEmbeddings } from '../fakes/no-embeddings';
+import { NegotiationService } from '../../src/modules/sales/negotiation.service';
+import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -27,13 +30,14 @@ const noChannels = {
 };
 const logger = pino({ level: 'silent' });
 const shops = new ShopsService(db, new ShopsRepo(db), noChannels);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, noChannels, 'bot');
+const catalog = new CatalogService(db, new CatalogRepo(), shops, noChannels, 'bot', noEmbeddings);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const orders = new OrderService(
   db,
   new OrdersRepo(),
   new EventBus(logger),
   new TimerService(new TimersRepo(db), logger),
+  new NegotiationService(db, new NegotiationsRepo()),
 );
 const refs = new PaymentRefsRepo(db);
 const signals = new RiskSignalsRepo(db);

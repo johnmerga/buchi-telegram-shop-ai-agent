@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { availableSizes, buyLink, postContent, postIdFromStartPayload } from './catalog.domain';
+import {
+  availableSizes,
+  buyLink,
+  embeddingText,
+  photoQueryText,
+  postContent,
+  postIdFromStartPayload,
+  productCard,
+} from './catalog.domain';
 
 describe('availableSizes', () => {
   it('lists sizes with unreserved stock in natural order, once each', () => {
@@ -50,5 +58,56 @@ describe('start payloads', () => {
   it('ignores other payloads', () => {
     expect(postIdFromStartPayload('drv_abc')).toBeUndefined();
     expect(postIdFromStartPayload('p_not-a-uuid')).toBeUndefined();
+  });
+});
+
+describe('productCard', () => {
+  const soldOut = { id: 'v3', size: '42', color: null, stock: 1, reserved: 1 };
+  const variants = [
+    { id: 'v1', size: '40', color: null, stock: 2, reserved: 0 },
+    { id: 'v2', size: '41', color: 'Black', stock: 1, reserved: 0 },
+    soldOut,
+  ];
+  const sneakers = {
+    title: 'Nike Air',
+    description: '',
+    pricingMode: 'fixed' as const,
+    price: '4500.00',
+    variants,
+  };
+
+  it('shows a fixed price and one button per size in stock', () => {
+    const card = productCard(sneakers);
+    expect(card.text).toBe('Nike Air\n\nዋጋ / Price: 4,500.00 ብር\n\nመጠን ይምረጡ / Choose your size:');
+    expect(card.buttons).toEqual([
+      { text: '40', data: 'size:v1' },
+      { text: '41 Black', data: 'size:v2' },
+    ]);
+  });
+
+  it('hides the price of a negotiable product and invites an offer', () => {
+    const card = productCard({ ...sneakers, pricingMode: 'negotiable' });
+    expect(card.text).toContain('Ask me the price, or make an offer.');
+    expect(card.text).not.toContain('4,500');
+  });
+
+  it('says sold out without buttons when no size is left', () => {
+    const card = productCard({ ...sneakers, variants: [soldOut] });
+    expect(card).toEqual({ text: 'Nike Air\n\nተሸጦ አልቋል / Sold out.', buttons: [] });
+  });
+});
+
+describe('embeddingText', () => {
+  it('joins the title and a description', () => {
+    expect(embeddingText({ title: 'Nike Air', description: 'White' })).toBe('Nike Air\nWhite');
+    expect(embeddingText({ title: 'Nike Air', description: '' })).toBe('Nike Air');
+  });
+});
+
+describe('photoQueryText', () => {
+  it('lists what the photo shows and skips what it does not', () => {
+    expect(
+      photoQueryText({ category: 'sneakers', colors: ['white', 'red'], brand: null, style: '' }),
+    ).toBe('sneakers; white, red');
   });
 });

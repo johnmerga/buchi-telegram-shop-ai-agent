@@ -1,9 +1,9 @@
 import type { ProductInput, VariantInput } from '@buchi/shared';
-import type { Database } from '../../db/client';
+import type { Database, Transaction } from '../../db/client';
 import { isCheckViolation } from '../../db/errors';
 import { withShop } from '../../db/with-shop';
 import { AppError } from '../../shared/errors';
-import { availableSizes, buyLink, postContent } from './catalog.domain';
+import { availableSizes, buyLink, embeddingText, postContent } from './catalog.domain';
 import type { CatalogRepo, ProductRow, VariantRow } from './catalog.repo';
 
 /** Posts to a Telegram channel. Telegram is the only implementation. */
@@ -15,6 +15,11 @@ export interface ChannelPublisher {
     buttonText: string;
     buttonUrl: string;
   }): Promise<number>;
+}
+
+/** Embeds a saved product's text for photo search, outside the request that saved it. */
+export interface ProductEmbeddingQueue {
+  enqueue(tx: Transaction, shopId: string, productId: string): Promise<void>;
 }
 
 export interface ShopChannelLookup {
@@ -37,17 +42,52 @@ export class CatalogService {
     private readonly shops: ShopChannelLookup,
     private readonly publisher: ChannelPublisher,
     private readonly botUsername: string,
+    private readonly embeddings: ProductEmbeddingQueue,
   ) {}
 
   createProduct(shopId: string, input: ProductInput): Promise<ProductRow> {
-    return withShop(this.db, shopId, (tx) => this.repo.insertProduct(tx, shopId, input));
+    return withShop(this.db, shopId, async (tx) => {
+      const row = await this.repo.insertProduct(tx, shopId, input);
+      await this.embeddings.enqueue(tx, shopId, row.id);
+      return row;
+    });
   }
 
+  /** A changed title or description makes the old embedding wrong, so it is dropped and redone. */
   updateProduct(shopId: string, productId: string, input: ProductInput): Promise<ProductRow> {
     return withShop(this.db, shopId, async (tx) => {
+      const before = await this.repo.findProduct(tx, productId);
       const row = await this.repo.updateProduct(tx, productId, input);
-      if (!row) throw productNotFound();
+      if (!before || !row) throw productNotFound();
+      if (embeddingText(before) !== embeddingText(row)) {
+        await this.repo.setEmbedding(tx, productId, null);
+        await this.embeddings.enqueue(tx, shopId, productId);
+      }
       return row;
+    });
+  }
+
+  /** Active products that mention any of the query's words, or the newest ones for no words. */
+  search(shopId: string, query: string, limit: number): Promise<ProductWithVariants[]> {
+    const terms = query.split(/\s+/).filter((term) => term.length > 1);
+    return withShop(this.db, shopId, async (tx) => {
+      const rows =
+        terms.length > 0
+          ? await this.repo.searchProducts(tx, terms, limit)
+          : (await this.repo.listProducts(tx)).filter((row) => row.active).slice(-limit);
+      return this.withVariants(tx, rows);
+    });
+  }
+
+  /** Active products by ID, in the order given. */
+  activeProducts(shopId: string, productIds: string[]): Promise<ProductWithVariants[]> {
+    if (productIds.length === 0) return Promise.resolve([]);
+    return withShop(this.db, shopId, async (tx) => {
+      const rows = await this.repo.findProducts(tx, productIds);
+      const ordered = productIds
+        .map((id) => rows.find((row) => row.id === id))
+        .filter((row) => row?.active === true);
+      return this.withVariants(tx, ordered);
     });
   }
 
@@ -125,6 +165,22 @@ export class CatalogService {
       if (product) return product;
     }
     throw productNotFound();
+  }
+
+  private async withVariants(
+    tx: Transaction,
+    rows: (ProductRow | undefined)[],
+  ): Promise<ProductWithVariants[]> {
+    const found = rows.filter((row) => row !== undefined);
+    if (found.length === 0) return [];
+    const variants = await this.repo.variantsOf(
+      tx,
+      found.map((row) => row.id),
+    );
+    return found.map((row) => ({
+      ...row,
+      variants: variants.filter((variant) => variant.productId === row.id),
+    }));
   }
 
   /** Records the post first, because its ID goes into the Buy link that the post carries. */

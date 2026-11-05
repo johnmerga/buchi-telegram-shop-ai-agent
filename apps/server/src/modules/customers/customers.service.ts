@@ -12,9 +12,9 @@ export class CustomersService {
     private readonly sessions: SessionsRepo,
   ) {}
 
-  /** Points the customer's chat at the shop whose Buy link they tapped. */
-  startSession(telegramUserId: number, shopId: string): Promise<void> {
-    return this.sessions.start(telegramUserId, shopId);
+  /** Points the customer's chat at the shop and product whose Buy link they tapped. */
+  startSession(telegramUserId: number, shopId: string, productId: string | null): Promise<void> {
+    return this.sessions.start(telegramUserId, shopId, productId);
   }
 
   sessionOf(telegramUserId: number): Promise<CustomerSession | undefined> {
@@ -29,6 +29,15 @@ export class CustomersService {
     return withShop(this.db, shopId, (tx) =>
       this.repo.upsert(tx, { shopId, telegramUserId, name }),
     );
+  }
+
+  /** The shop's customer with this Telegram user ID. */
+  async byTelegramUser(shopId: string, telegramUserId: number): Promise<CustomerRow> {
+    const customer = await withShop(this.db, shopId, (tx) =>
+      this.repo.findByTelegramUser(tx, telegramUserId),
+    );
+    if (!customer) throw new AppError('NOT_FOUND', 'Customer not found');
+    return customer;
   }
 
   async setPhone(shopId: string, customerId: string, phone: string): Promise<void> {

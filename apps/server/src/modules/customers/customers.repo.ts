@@ -26,6 +26,17 @@ export class CustomersRepo {
     await tx.update(customers).set({ phone }).where(eq(customers.id, customerId));
   }
 
+  async findByTelegramUser(
+    tx: Transaction,
+    telegramUserId: number,
+  ): Promise<CustomerRow | undefined> {
+    const [row] = await tx
+      .select()
+      .from(customers)
+      .where(eq(customers.telegramUserId, telegramUserId));
+    return row;
+  }
+
   async find(tx: Transaction, customerId: string): Promise<CustomerRow | undefined> {
     const [row] = await tx.select().from(customers).where(eq(customers.id, customerId));
     return row;

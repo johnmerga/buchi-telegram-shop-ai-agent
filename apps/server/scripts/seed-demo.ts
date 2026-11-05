@@ -5,11 +5,14 @@
  *   pnpm --filter @buchi/server seed:demo 123456789
  */
 import { productInputSchema, variantsInputSchema } from '@buchi/shared';
+import { pino } from 'pino';
 import { z } from 'zod';
 import { loadDatabaseUrl } from '../src/config/env';
 import { connectDatabase } from '../src/db/client';
 import { CatalogRepo } from '../src/modules/catalog/catalog.repo';
 import { CatalogService } from '../src/modules/catalog/catalog.service';
+import { ProductEmbeddingService } from '../src/modules/catalog/product-embeddings.service';
+import { TimersRepo } from '../src/modules/jobs/timers.repo';
 import { ShopsRepo } from '../src/modules/shops/shops.repo';
 import { ShopsService } from '../src/modules/shops/shops.service';
 
@@ -52,7 +55,16 @@ const noTelegram = {
   publish: () => Promise.reject(new Error('The seed does not use Telegram')),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), noTelegram);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, noTelegram, 'unused');
+// The seed only schedules the embeddings. The running server's timer tick computes them.
+const embeddings = new ProductEmbeddingService(
+  db,
+  new CatalogRepo(),
+  { embed: () => Promise.reject(new Error('The seed does not embed')) },
+  new TimersRepo(db),
+  () => new Date(),
+  pino({ level: 'silent' }),
+);
+const catalog = new CatalogService(db, new CatalogRepo(), shops, noTelegram, 'unused', embeddings);
 
 try {
   const shopId = await shops.create(ownerId, { name: 'Selam Shoes' });

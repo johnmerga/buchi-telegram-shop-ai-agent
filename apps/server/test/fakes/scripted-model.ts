@@ -6,12 +6,15 @@ export type ScriptedTurn = { text: string } | { calls: FunctionCall[] } | { erro
 
 /**
  * A `LanguageModel` that plays back scripted turns in order and keeps a copy of every request, so
- * tests can check what the model was shown.
+ * tests can check what the model was shown. Embeddings come from a fixed function of the text.
  */
 export class ScriptedModel implements LanguageModel {
   readonly requests: GenerateRequest[] = [];
 
-  constructor(private readonly turns: ScriptedTurn[]) {}
+  constructor(
+    private readonly turns: ScriptedTurn[],
+    private readonly embeddings?: (text: string) => number[],
+  ) {}
 
   generate(request: GenerateRequest): Promise<GenerateResult> {
     this.requests.push(structuredClone(request));
@@ -32,8 +35,9 @@ export class ScriptedModel implements LanguageModel {
     return Promise.resolve({ content, text: undefined, functionCalls: turn.calls, usage });
   }
 
-  embed(): Promise<number[]> {
-    return Promise.reject(new Error('Embeddings are not scripted'));
+  embed(text: string): Promise<number[]> {
+    if (!this.embeddings) return Promise.reject(new Error('Embeddings are not scripted'));
+    return Promise.resolve(this.embeddings(text));
   }
 }
 

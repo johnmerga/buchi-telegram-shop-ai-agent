@@ -8,13 +8,13 @@ export type CustomerSession = typeof customerSessions.$inferSelect;
 export class SessionsRepo {
   constructor(private readonly db: Database) {}
 
-  async start(telegramUserId: number, shopId: string): Promise<void> {
+  async start(telegramUserId: number, shopId: string, productId: string | null): Promise<void> {
     await this.db
       .insert(customerSessions)
-      .values({ telegramUserId, shopId })
+      .values({ telegramUserId, shopId, productId })
       .onConflictDoUpdate({
         target: customerSessions.telegramUserId,
-        set: { shopId, pendingVariantId: null, updatedAt: new Date() },
+        set: { shopId, productId, pendingVariantId: null, updatedAt: new Date() },
       });
   }
 

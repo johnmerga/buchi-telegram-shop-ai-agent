@@ -15,6 +15,7 @@ import { createShopsRouter } from '../../src/modules/shops/shops.routes';
 import { ShopsService } from '../../src/modules/shops/shops.service';
 import { launchFields, signInitData } from '../sign-init-data';
 import { testDatabaseUrl } from './test-database';
+import { noEmbeddings } from '../fakes/no-embeddings';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -26,7 +27,14 @@ const unusedChannels = {
   publish: () => Promise.reject(new Error('not used')),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), unusedChannels);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, unusedChannels, 'buchi_test_bot');
+const catalog = new CatalogService(
+  db,
+  new CatalogRepo(),
+  shops,
+  unusedChannels,
+  'buchi_test_bot',
+  noEmbeddings,
+);
 const guards = {
   requireAuth: requireAuth((token) => auth.verifyToken(token)),
   requireShopOwner: requireShopOwner((id) => shops.ownedShopIds(id)),

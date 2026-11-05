@@ -29,6 +29,9 @@ import { EventBus } from '../../src/shared/events';
 import { createBot } from '../../src/telegram/bot';
 import { pickupOnlyDelivery } from '../fakes/pickup-only-delivery';
 import { testDatabaseUrl } from './test-database';
+import { noEmbeddings } from '../fakes/no-embeddings';
+import { NegotiationService } from '../../src/modules/sales/negotiation.service';
+import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
 
 const { db, close } = connectDatabase(testDatabaseUrl);
 afterAll(close);
@@ -39,11 +42,17 @@ const noTelegram = {
   publish: () => Promise.reject(new Error('unused')),
 };
 const shops = new ShopsService(db, new ShopsRepo(db), noTelegram);
-const catalog = new CatalogService(db, new CatalogRepo(), shops, noTelegram, 'bot');
+const catalog = new CatalogService(db, new CatalogRepo(), shops, noTelegram, 'bot', noEmbeddings);
 const customers = new CustomersService(db, new CustomersRepo(), new SessionsRepo(db));
 const bus = new EventBus(logger);
 const timers = new TimerService(new TimersRepo(db), logger);
-const orders = new OrderService(db, new OrdersRepo(), bus, timers);
+const orders = new OrderService(
+  db,
+  new OrdersRepo(),
+  bus,
+  timers,
+  new NegotiationService(db, new NegotiationsRepo()),
+);
 const checkout = new CheckoutService(
   customers,
   orders,
@@ -166,12 +175,18 @@ describe('scheduling payment deadlines', () => {
 
   it('leaves neither the order nor its timers when scheduling fails', async () => {
     let scheduled = 0;
-    const crashing = new OrderService(db, new OrdersRepo(), bus, {
-      schedule: (...args: Parameters<TimerService['schedule']>) =>
-        scheduled++ > 0
-          ? Promise.reject(new Error('Crashed before the second timer'))
-          : timers.schedule(...args),
-    });
+    const crashing = new OrderService(
+      db,
+      new OrdersRepo(),
+      bus,
+      {
+        schedule: (...args: Parameters<TimerService['schedule']>) =>
+          scheduled++ > 0
+            ? Promise.reject(new Error('Crashed before the second timer'))
+            : timers.schedule(...args),
+      },
+      new NegotiationService(db, new NegotiationsRepo()),
+    );
     const variantId = await variantWithStock(2);
     const before = (await ordersOfCustomer()).length;
 

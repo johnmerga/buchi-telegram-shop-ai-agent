@@ -1,7 +1,9 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   foreignKey,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -14,6 +16,14 @@ import { shopIsolation } from './rls';
 import { shops } from './shops';
 
 export const conversationMode = pgEnum('conversation_mode', ['agent', 'human']);
+
+/** One message of the chat as the sales agent remembers it. */
+export interface ConversationTurn {
+  role: 'customer' | 'buchi';
+  text: string;
+  /** ISO time, so turns older than the agent's memory window can be dropped. */
+  at: string;
+}
 
 /**
  * A customer's private chat with Buchi about one shop. In `human` mode Buchi stays quiet and
@@ -30,6 +40,14 @@ export const conversations = pgTable(
     customerName: text('customer_name').notNull(),
     mode: conversationMode('mode').notNull().default('agent'),
     handBackAt: timestamp('hand_back_at', { withTimezone: true }),
+    /**
+     * The last few text messages between the customer and the sales agent. Tool calls are not
+     * kept: the agent asks its tools again, so stale prices and stock never come back from here.
+     */
+    recentTurns: jsonb('recent_turns')
+      .$type<ConversationTurn[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

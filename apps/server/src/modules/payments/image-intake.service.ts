@@ -1,3 +1,5 @@
+import type { PhotoSearchAnswer, PhotoSearchService } from '../catalog/photo-search.service';
+import type { CustomersService } from '../customers/customers.service';
 import type { OrderService } from '../orders/orders.service';
 import type { MessageRef } from '../owner/owner-notifier.service';
 import {
@@ -14,6 +16,10 @@ export interface ImageFiles {
   download(fileId: string): Promise<string>;
 }
 
+/** A text reply, or the result of searching the catalog for a product photo. */
+export type IntakeReply =
+  { kind: 'text'; text: string } | { kind: 'photo_search'; result: PhotoSearchAnswer };
+
 export interface IncomingImage {
   fileId: string;
   mimeType: string;
@@ -27,25 +33,45 @@ export class ImageIntake {
     private readonly reader: Pick<ReceiptReader, 'classify'>,
     private readonly orders: Pick<OrderService, 'latestUnpaid'>,
     private readonly verification: Pick<PaymentVerification, 'verify'>,
+    private readonly photos: Pick<PhotoSearchService, 'search'>,
+    private readonly customers: Pick<CustomersService, 'byTelegramUser'>,
   ) {}
 
-  /** Returns the reply for the customer. */
-  async receive(shopId: string, telegramUserId: number, incoming: IncomingImage): Promise<string> {
+  async receive(
+    shopId: string,
+    telegramUserId: number,
+    incoming: IncomingImage,
+  ): Promise<IntakeReply> {
+    const text = (reply: string): IntakeReply => ({ kind: 'text', text: reply });
     const order = await this.orders.latestUnpaid(shopId, telegramUserId);
     const image = { mimeType: incoming.mimeType, data: await this.files.download(incoming.fileId) };
     const classification = await this.reader.classify(image);
     // Without the classifier, an image from a customer who owes a payment is most likely the
     // screenshot, so it goes on to verification, which sends it to the owner if it cannot read it.
     const kind = classification?.kind ?? (order ? 'receipt' : 'other');
-    if (kind === 'product') return productPhotoReply;
-    if (kind === 'other') return otherImageReply;
-    if (!order) return noUnpaidOrder;
-    if (order.status !== 'awaiting_payment') return alreadyChecking(order.id);
-    return this.verification.verify(order, {
+    if (kind === 'product') return this.searchPhoto(shopId, telegramUserId, image);
+    if (kind === 'other') return text(otherImageReply);
+    if (!order) return text(noUnpaidOrder);
+    if (order.status !== 'awaiting_payment') return text(alreadyChecking(order.id));
+    const verified = await this.verification.verify(order, {
       fileId: incoming.fileId,
       message: incoming.message,
       image,
       classificationConfidence: classification?.confidence ?? null,
     });
+    return text(verified);
+  }
+
+  /** Without the model, the customer still gets a polite reply that points to the channel. */
+  private async searchPhoto(
+    shopId: string,
+    telegramUserId: number,
+    image: { mimeType: string; data: string },
+  ): Promise<IntakeReply> {
+    const customer = await this.customers.byTelegramUser(shopId, telegramUserId);
+    const result = await this.photos.search(shopId, customer.id, image);
+    return result.status === 'unavailable'
+      ? { kind: 'text', text: productPhotoReply }
+      : { kind: 'photo_search', result };
   }
 }

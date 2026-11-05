@@ -37,10 +37,20 @@ export class CheckoutService {
     private readonly now: () => Date,
   ) {}
 
+  /** Checks the price before anything else, so nobody shares a phone number for an unpriced item. */
   async placeOrder(shopId: string, buyer: Buyer, variantId: string): Promise<PlaceOrderResult> {
     const customer = await this.customers.identify(shopId, buyer.telegramUserId, buyer.name);
     await this.customers.rememberChosenVariant(buyer.telegramUserId, variantId);
+    if (!(await this.orders.unitPrice(shopId, customer.id, variantId))) {
+      throw new AppError('CONFLICT', 'Agree the price with me first: tell me your offer');
+    }
     return this.nextStep(shopId, customer, variantId);
+  }
+
+  /** The price the buyer pays for one unit, or `undefined` before a negotiable price is agreed. */
+  async unitPrice(shopId: string, buyer: Buyer, variantId: string): Promise<Money | undefined> {
+    const customer = await this.customers.identify(shopId, buyer.telegramUserId, buyer.name);
+    return this.orders.unitPrice(shopId, customer.id, variantId);
   }
 
   /** Saves the shared phone number, then continues with the size the customer chose before. */

@@ -1,12 +1,12 @@
 {
   "negotiated-price": {
-    "outcomeMatch": 0.8888888888888888,
+    "outcomeMatch": 1,
     "priceOutsideRange": 0,
     "fixedPriceDiscount": 0
   },
   "operations-situations": {
-    "actionMatch": 0.9166666666666666,
-    "autonomyMatch": 0.9166666666666666
+    "actionMatch": 1,
+    "autonomyMatch": 1
   },
   "far-price-statistics": {
     "statisticsError": 0.0769836364243599,
@@ -16,12 +16,12 @@
   },
   "far-price-agent": {
     "agentAnswered": 1,
-    "agentError": 0.06324452638813102,
-    "statisticsError": 0.06733048535374117,
+    "agentError": 0.06836481483535849,
+    "statisticsError": 0.07291939997978349,
     "priceOutsideLimits": 0
   },
   "owner-commands": {
-    "ruleMatch": 1,
+    "ruleMatch": 0.9523809523809523,
     "savedWithoutConfirm": 0
   },
   "owner-questions": {

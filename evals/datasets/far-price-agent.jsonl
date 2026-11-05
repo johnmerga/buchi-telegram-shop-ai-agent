@@ -2,3 +2,11 @@
 {"id":"south-west-8km","input":{"seed":12,"trip":165},"expected":{"heldPrice":"260.00"}}
 {"id":"south-east-14km","input":{"seed":13,"trip":180},"expected":{"heldPrice":"370.00"}}
 {"id":"north-east-19km","input":{"seed":14,"trip":195},"expected":{"heldPrice":"430.00"}}
+{"id":"north-west-15km-b","input":{"seed":15,"trip":120},"expected":{"heldPrice":"350.00"}}
+{"id":"south-west-15km","input":{"seed":16,"trip":140},"expected":{"heldPrice":"420.00"}}
+{"id":"south-east-8km","input":{"seed":17,"trip":160},"expected":{"heldPrice":"260.00"}}
+{"id":"north-east-17km","input":{"seed":18,"trip":175},"expected":{"heldPrice":"380.00"}}
+{"id":"south-west-8km-b","input":{"seed":19,"trip":190},"expected":{"heldPrice":"200.00"}}
+{"id":"north-east-11km","input":{"seed":20,"trip":130},"expected":{"heldPrice":"270.00"}}
+{"id":"north-west-16km","input":{"seed":21,"trip":155},"expected":{"heldPrice":"390.00"}}
+{"id":"north-west-9km","input":{"seed":23,"trip":170},"expected":{"heldPrice":"250.00"}}

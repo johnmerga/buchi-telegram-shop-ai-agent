@@ -4,3 +4,18 @@
 {"id":"pause-tonight-from-3-evening","input":{"message":"ዛሬ ማታ ከ3 ሰዓት ጀምሮ ዴሊቨሪ አቁም"},"expected":{"type":"delivery_pause","startsAt":"2026-11-05T18:00:00Z","endsAt":"2026-11-05T21:00:00Z"}}
 {"id":"weekend-sneaker-promotion","input":{"message":"All sneakers 10% off this weekend"},"expected":{"type":"promotion","startsAt":"2026-11-06T21:00:00Z","endsAt":"2026-11-08T21:00:00Z","percentOff":10,"keywords":["sneaker"]}}
 {"id":"rate-per-km-change","input":{"message":"Raise the delivery rate per km to 22 birr"},"expected":{"type":"delivery_settings","settings":{"ratePerKm":"22"}}}
+{"id":"pause-all-day-tomorrow-amharic","input":{"message":"ነገ ቀኑን ሙሉ ዴሊቨሪ የለም"},"expected":{"type":"delivery_pause","startsAt":"2026-11-05T21:00:00Z","endsAt":"2026-11-06T21:00:00Z"}}
+{"id":"pause-saturday-english","input":{"message":"Pause deliveries on Saturday"},"expected":{"type":"delivery_pause","startsAt":"2026-11-06T21:00:00Z","endsAt":"2026-11-07T21:00:00Z"}}
+{"id":"pause-tomorrow-until-10am","input":{"message":"No deliveries tomorrow until 10 AM"},"expected":{"type":"delivery_pause","startsAt":"2026-11-05T21:00:00Z","endsAt":"2026-11-06T07:00:00Z"}}
+{"id":"pause-tomorrow-afternoon-ethiopian","input":{"message":"ነገ ከሰዓት 8 ሰዓት ጀምሮ ዴሊቨሪ አቁም"},"expected":{"type":"delivery_pause","startsAt":"2026-11-06T11:00:00Z","endsAt":"2026-11-06T21:00:00Z"}}
+{"id":"pause-whole-weekend-amharic","input":{"message":"ቅዳሜ እና እሁድ ዴሊቨሪ የለም"},"expected":{"type":"delivery_pause","startsAt":"2026-11-06T21:00:00Z","endsAt":"2026-11-08T21:00:00Z"}}
+{"id":"pause-tonight-after-2-evening","input":{"message":"ዛሬ ማታ ከ2 ሰዓት በኋላ ዴሊቨሪ የለም"},"expected":{"type":"delivery_pause","startsAt":"2026-11-05T17:00:00Z","endsAt":"2026-11-05T21:00:00Z"}}
+{"id":"pause-today-from-6-30-pm","input":{"message":"Stop deliveries today from 6:30 PM"},"expected":{"type":"delivery_pause","startsAt":"2026-11-05T15:30:00Z","endsAt":"2026-11-05T21:00:00Z"}}
+{"id":"pause-tomorrow-until-half-past-3-morning","input":{"message":"ነገ ከጠዋቱ 3 ሰዓት ተኩል ድረስ ዴሊቨሪ የለም"},"expected":{"type":"delivery_pause","startsAt":"2026-11-05T21:00:00Z","endsAt":"2026-11-06T06:30:00Z"}}
+{"id":"dress-promotion-monday-to-wednesday","input":{"message":"15% off all dresses from Monday to Wednesday"},"expected":{"type":"promotion","startsAt":"2026-11-08T21:00:00Z","endsAt":"2026-11-11T21:00:00Z","percentOff":15,"keywords":["dress"]}}
+{"id":"everything-20-off-tomorrow-amharic","input":{"message":"ነገ በሁሉም እቃዎች ላይ 20% ቅናሽ"},"expected":{"type":"promotion","startsAt":"2026-11-05T21:00:00Z","endsAt":"2026-11-06T21:00:00Z","percentOff":20}}
+{"id":"jackets-today-only","input":{"message":"Jackets 25% off today only"},"expected":{"type":"promotion","startsAt":"2026-11-04T21:00:00Z","endsAt":"2026-11-05T21:00:00Z","percentOff":25,"keywords":["jacket"]}}
+{"id":"habesha-dress-saturday-to-tuesday-amharic","input":{"message":"የሀበሻ ቀሚስ ከቅዳሜ እስከ ማክሰኞ 10% ቅናሽ"},"expected":{"type":"promotion","startsAt":"2026-11-06T21:00:00Z","endsAt":"2026-11-10T21:00:00Z","percentOff":10,"keywords":["ቀሚስ"]}}
+{"id":"base-fee-50","input":{"message":"Make the base delivery fee 50 birr"},"expected":{"type":"delivery_settings","settings":{"baseFee":"50"}}}
+{"id":"free-radius-3km-amharic","input":{"message":"ነፃ ዴሊቨሪ እስከ 3 ኪሜ አድርገው"},"expected":{"type":"delivery_settings","settings":{"freeRadiusKm":3}}}
+{"id":"far-range-and-cap","input":{"message":"Set the far range to 25 km and the far cap to 1200 birr"},"expected":{"type":"delivery_settings","settings":{"farRangeKm":25,"farCap":"1200"}}}

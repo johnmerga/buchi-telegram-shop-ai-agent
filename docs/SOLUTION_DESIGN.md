@@ -638,7 +638,8 @@ waitlist           customer, product variant, joined, notified
 timers             kind, target, due time, done
 agent_decisions    agent, tool, proposed value, limits, result, reason, evidence
 agent_traces       prompt version, model, tool calls, tokens, latency
-conversations      agent or human mode, hand-back deadline
+conversations      agent or human mode, hand-back deadline, recent text turns
+negotiations       customer, product, agreed price, concessions
 relayed_messages   owner message, customer, shop
 telegram_updates   processed update IDs for deduplication
 ```

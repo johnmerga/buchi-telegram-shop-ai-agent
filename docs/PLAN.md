@@ -103,8 +103,9 @@ buchi/
         http/            app.ts, caller.ts, validate.ts, middleware/ (auth, shop owner, errors, secret header)
         telegram/        bot.ts, ingress.ts (store and dedupe), worker.ts, actor.ts, keyboards.ts
         modules/
-          shops/  catalog/  orders/  payments/  delivery/  drivers/  owner/  jobs/  reports/
-        ai/              gemini.ts, quota.ts, registry.ts, guard/, traces.ts, prompts/, agents/
+          shops/  catalog/  customers/  orders/  payments/  delivery/  drivers/  owner/  sales/
+          demand/  jobs/  reports/
+        ai/              gemini.ts, quota.ts, registry.ts, runtime.ts, guard/, prompts/, agents/sales/
         integrations/    ors.ts, nominatim.ts, quickchart.ts, sheets.ts, receipts/
         shared/          errors.ts, money.ts, time.ts, events.ts
       test/              integration tests and fakes
@@ -285,8 +286,7 @@ unpaid order expires and releases its stock.
 - **Built as:** `modules/owner/` with `conversations` (mode and hand-back deadline) and
   `relayed_messages` (owner message to customer). Owners reply by replying to a relayed message in
   Telegram; a reply counts as taking over and restarts the two hours. A new Buy link still works in
-  human mode, so a customer is never stuck in one shop's chat. Until Task 4.2, opening a negotiable
-  product switches the chat to human mode so an owner gives the price.
+  human mode, so a customer is never stuck in one shop's chat.
 
 ---
 
@@ -407,7 +407,13 @@ and completes an order, while the guard holds every limit.
   price stored on the cart.
 - **Acceptance:** evaluation sets show zero prices outside the range and zero discounts on fixed-price
   products, including adversarial messages.
-- **Also:** remove the Task 1.6 `requestPrice` call that hands negotiable products to the owner.
+- **Built as:** `ai/agents/sales/` with ten tools, `modules/sales/` (agreed prices in `negotiations`,
+  re-checked inside the order transaction), `modules/demand/` (demand signals and waitlist), and
+  photo search in `modules/catalog/`. History is the last 12 text turns in
+  `conversations.recent_turns`, without tool results, so stale prices never return. Every price in
+  a reply must come from a tool result or the code-built context, or the reply is replaced. Product
+  embeddings are computed by a `product.embed` timer saved with the product; the match cutoff
+  (cosine distance 0.3) is tuned in Task 10.1. "Forget my details" is recognized in code.
 
 ### 4.3 Product search from a photo
 
@@ -533,7 +539,8 @@ action in the evaluation set.
 ### 7.4 Snap-to-list and restock waitlist
 
 - **Deliverables:** `draft_listing` from photos; **Post**, **Edit**, and **Discard**; negotiable
-  products ask for asking and lowest prices privately; waitlist notifications with 30-minute holds.
+  products ask for asking and lowest prices privately; waitlist notifications with 30-minute holds,
+  read from the `waitlist` table and `demand_signals.notify_requested`.
 - **Acceptance:** a listing never gets a price that the owner did not write.
 
 ---

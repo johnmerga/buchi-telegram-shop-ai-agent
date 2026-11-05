@@ -43,6 +43,13 @@
       "when": 1793833962665,
       "tag": "0005_revoke_data_api",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793836960605,
+      "tag": "0006_shops_and_catalog",
+      "breakpoints": true
     }
   ]
 }

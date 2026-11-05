@@ -5,3 +5,38 @@ export const moneySchema = z
   .string()
   .regex(/^\d+(\.\d{1,2})?$/, 'Use birr with at most two decimals, such as "12.23".');
 export type MoneyString = z.infer<typeof moneySchema>;
+
+/**
+ * An exact birr amount. It counts hundredths internally, so arithmetic never passes through
+ * JavaScript floating-point numbers, and it always prints two decimals, such as "100.00".
+ */
+export class Money {
+  private constructor(private readonly hundredths: bigint) {}
+
+  static readonly zero = new Money(0n);
+
+  static of(amount: MoneyString): Money {
+    const [birr = '0', fraction = ''] = moneySchema.parse(amount).split('.');
+    return new Money(BigInt(birr) * 100n + BigInt(fraction.padEnd(2, '0')));
+  }
+
+  add(other: Money): Money {
+    return new Money(this.hundredths + other.hundredths);
+  }
+
+  times(quantity: number): Money {
+    if (!Number.isInteger(quantity)) throw new RangeError('Quantity must be a whole number');
+    return new Money(this.hundredths * BigInt(quantity));
+  }
+
+  compare(other: Money): -1 | 0 | 1 {
+    if (this.hundredths === other.hundredths) return 0;
+    return this.hundredths < other.hundredths ? -1 : 1;
+  }
+
+  toString(): MoneyString {
+    const birr = this.hundredths / 100n;
+    const fraction = (this.hundredths % 100n).toString().padStart(2, '0');
+    return `${birr.toString()}.${fraction}`;
+  }
+}

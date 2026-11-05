@@ -511,6 +511,13 @@ action in the evaluation set.
   `extend_deadline`, `start_exchange`, `propose_refund`, `propose_restock`, `escalate`, with the
   autonomy levels from the design doc. Driver reports become `area_notes`.
 - **Acceptance:** a second deadline extension on the same order goes to the owner.
+- **Built as:** `ai/agents/operations/`, `ai/approvals/`, and `modules/operations/`. A run is scoped
+  to its situation's record IDs, so a message cannot point the agent at another order. Owner-confirms
+  requests reach owners as Approve and Decline buttons; approval claims the row before running, so
+  it runs once. Extra tools: `propose_bonus` (owner confirms; replaces the code-computed bonus) and
+  `save_area_note` (automatic). New transition `rescheduled` (`out_for_delivery → paid`).
+- **Follow-ups:** finish exchanges (sell the new unit, return the old one to stock), and merge
+  `DeliveryOwnerAlerts` into `OwnerAlerts`.
 
 ---
 

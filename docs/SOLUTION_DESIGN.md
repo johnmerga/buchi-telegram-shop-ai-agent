@@ -542,7 +542,8 @@ policy guard applies the autonomy level of each tool:
 | Operations | `extend_deadline` | Automatic once, up to two hours. Longer needs the owner. |
 | Operations | `propose_delivery_price` | Automatic between the formula payout and the cap. Above the cap needs the owner. |
 | Operations | `start_exchange` | Automatic when the size is in stock |
-| Operations | `propose_refund`, `propose_restock`, `escalate` | Owner confirms |
+| Operations | `propose_refund`, `propose_restock`, `propose_bonus`, `escalate` | Owner confirms. Approving `escalate` hands the chat to the owner. |
+| Operations | `save_area_note` | Automatic. Stores a driver's report by zone, without coordinates. |
 | Owner assistant | `ask_data`, `weekly_analysis` | Read only, with validated SQL |
 | Owner assistant | `propose_rule`, `draft_listing` | Owner confirms |
 

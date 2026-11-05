@@ -215,11 +215,23 @@ test timer, migrations run on Supabase, and CI is green.
 Exit criteria: a customer buys a fixed-price product with pickup through buttons only, and an
 unpaid order expires and releases its stock.
 
+### 1.0 Mini App sign-in
+
+- **Doc:** Sign-in.
+- **Deliverables:** `POST /auth/mini-app`, which verifies Telegram `initData` (HMAC-SHA-256 with a
+  key derived from the bot token and `WebAppData`), rejects data older than 24 hours, and returns a
+  signed bearer token; `requireAuth` middleware that sets the caller's Telegram user ID;
+  `requireShopOwner` middleware for `/shops/:shopId/...` routes. The Telegram Login Widget for the
+  browser dashboard stays in Task 8.1.
+- **Acceptance:** tampered, stale, or unsigned `initData` returns 401. A valid token for a user who
+  does not own the shop returns 403.
+
 ### 1.1 Shops and onboarding API
 
 - **Doc:** Shop onboarding.
-- **Deliverables:** create a shop, verify the channel with `getChatMember`, and save settings:
-  location, payment accounts, delivery rates, far-area cap, Saver times. Shop membership roles.
+- **Deliverables:** create a shop with the caller as owner; read the owner's shops; save the shop's
+  location and payment accounts; connect the channel and verify with `getChatMember` that the bot
+  is an admin that can post. Delivery settings belong to Task 5.2, and drivers to Task 5.3.
 - **Acceptance:** onboarding fails with a clear error when the bot is not a channel admin with post
   permission.
 
@@ -490,7 +502,7 @@ loading, empty, and error states.
 ### 8.1 App shell and authentication
 
 - **Deliverables:** role entry points; Telegram Mini App SDK integration (theme, back button, main
-  button); `initData` exchange for a token; Telegram Login Widget for the browser; API client with
+  button); the `initData` exchange from Task 1.0; Telegram Login Widget for the browser; API client with
   TanStack Query; SSE client.
 - **Acceptance:** opening the owner Mini App as a customer shows "not allowed" and no data.
 

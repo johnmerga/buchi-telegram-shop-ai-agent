@@ -584,6 +584,9 @@ loading, empty, and error states.
 
 - **Deliverables:** map picker with the suggested pin, delivery options with fees, and order
   tracking.
+- **Built as:** "Use my location" warns when the device reports an accuracy worse than 1 km, such
+  as Telegram Desktop's address-based location. The picker has no place search, because a Mini App
+  opened from a keyboard button gets no `initData` to sign in with.
 
 ### 8.3 Driver Mini App
 
@@ -601,6 +604,9 @@ loading, empty, and error states.
   with `Telegram.WebApp.sendData`, which arrives as `web_app_data` through the existing webhook. The
   official `telegram-web-app.js` script provides the SDK. `WEB_APP_URL` (HTTPS) enables the Mini App
   buttons, and the server build bundles `@buchi/shared`.
+- **Place search:** the shop location step searches places anywhere in Ethiopia through the
+  signed-in `GET /places?q=` (Nominatim, up to 5 results, cached and sharing the landmark search's
+  one request a second), and warns when "Use my location" is worse than 1 km.
 - **Remaining owner screens:** built in Task 9.3.
 
 ---

@@ -199,35 +199,32 @@
   },
   "result": {
     "content": {
-      "role": "model",
       "parts": [
         {
           "functionCall": {
-            "name": "offer_price",
+            "name": "search_products",
             "args": {
-              "productId": "cb33b1e4-bd6d-4deb-8c87-f2e0fb42d351",
-              "price": "1100.00",
-              "reason": "The customer offered more than asked.",
-              "evidenceIds": []
-            }
-          }
+              "query": "Leather boots"
+            },
+            "id": "call_767153"
+          },
+          "thoughtSignature": "EvsECvgEAWkUfRMF+7xNqjSOsoS4iKSGqNUxJy10tJBksZ+PrCdJJtQ4Rfmt72NsfeABGAB0OuzVgM51nTW36qmqA5j6kajKKhbEbt/g7MulUUAAkauKYBPACMCrfsGLwwmMNRlm2gs0XeGvuHUIYAnan1PwRXUkAvccH0XiBLQuAQ7nWiyYe+0/r4YcJqyqJYBnz+4k9v+G/WvtTm6vCGe1PXNbOzIt6TsMrl+2HEOqvaO+uARHx/gqcBKAx9jil9CdQH9lmEcEXmR9USf98U6bH4cjC5MA5Q6sr93Ik+PIOvKobVei976kPNyQ0MzGrwcHX2tdRdcZyJ16HioD1sgnRIKRuk7Eh7o1/PgrVn49kwFUzcpyzTezz1qhXZM6eLFAq+T8g27Kvlf/d6UoVvqhx39/7JGOTEBx37A50uE5CpOvG4QmDu6zW0MbOyOIs4lw95c6JFy0kkXhicCSF5/lQMd7zbizgouY6X6IQoZaSDp7r5DQfx4LUwE0JYQ2Tqr40S5GY2UUUXdOm2wUvKfJuNrCIXlboiothYwLOep8K4jOMiz0fDSrnnMiz9eZKN4bXeNbF1PAG2AB1sFf8osksKa0dC1aIFtVhRrc3FLMXzJc3eoU0ZO+XSZ00wq/1jpuKcW60DH6HCmVNBl9fCHN4HWVZpeYuIsCxrh7uGgk00Aws67eiQNLjdZN1MfFY/4TTFycPX3qVnzf0ZwZRwUpQG5ihamBsc4B/xqhQqO8RbRwAf+mhG+xu+zRJ5aKD8XIppBFat3Yym49A6fii99wZHOHoB1ypTMGria4VZIqzB8CukSvDT3DaJNcWxtAterndQvNwGyNXEGmzwU="
         }
-      ]
+      ],
+      "role": "model"
     },
     "functionCalls": [
       {
-        "name": "offer_price",
+        "name": "search_products",
         "args": {
-          "productId": "cb33b1e4-bd6d-4deb-8c87-f2e0fb42d351",
-          "price": "1100.00",
-          "reason": "The customer offered more than asked.",
-          "evidenceIds": []
-        }
+          "query": "Leather boots"
+        },
+        "id": "call_767153"
       }
     ],
     "usage": {
-      "inputTokens": 100,
-      "outputTokens": 10
+      "inputTokens": 2084,
+      "outputTokens": 17
     }
   }
 }

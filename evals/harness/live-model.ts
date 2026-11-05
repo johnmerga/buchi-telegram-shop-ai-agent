@@ -7,8 +7,8 @@ import { geminiVariablesSchema } from '@buchi/server/config/env';
 import { PRODUCT_EMBEDDING_DIMENSIONS } from '@buchi/server/db/schema';
 import { Pacer } from './pacer';
 
-/** The free-tier limit of the stricter model (Flash), shared by every call in a run. */
-const REQUESTS_PER_MINUTE = 10;
+/** Flash-Lite's free-tier limit, shared by every call in a run, with one request to spare. */
+const REQUESTS_PER_MINUTE = 14;
 const UNLIMITED = { requestsPerMinute: Infinity, requestsPerDay: Infinity };
 
 /** Gemini for record and live runs, paced to stay under the free tier's per-minute limit. */
@@ -47,6 +47,9 @@ export function connectGemini(env: NodeJS.ProcessEnv): LanguageModel {
     },
     // The pacer already keeps the run under the rate limit, and the quota manager's priority
     // shares only matter when production traffic competes for the same process.
-    new QuotaManager(UNLIMITED, () => new Date()),
+    {
+      generate: new QuotaManager(UNLIMITED, () => new Date()),
+      embed: new QuotaManager(UNLIMITED, () => new Date()),
+    },
   );
 }

@@ -18,11 +18,18 @@ const variablesSchema = z.object({
   AUTH_TOKEN_SECRET: z.string().min(32),
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_MODEL_FAST: z.string().min(1).default('gemini-3.5-flash-lite'),
-  GEMINI_MODEL_SMART: z.string().min(1).default('gemini-3.5-flash'),
+  /**
+   * The free tier allows Flash only 20 requests a day, so both tiers default to Flash-Lite. With
+   * billing, a stronger model here serves negotiation, receipts, estimates, and SQL.
+   */
+  GEMINI_MODEL_SMART: z.string().min(1).default('gemini-3.5-flash-lite'),
   GEMINI_MODEL_EMBED: z.string().min(1).default('gemini-embedding-001'),
-  /** Requests per minute and per Pacific day. Defaults stay under the free tier's limits. */
-  GEMINI_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(10),
-  GEMINI_REQUESTS_PER_DAY: z.coerce.number().int().positive().default(250),
+  /** Text requests per minute and per Pacific day. Defaults match Flash-Lite's free tier. */
+  GEMINI_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(15),
+  GEMINI_REQUESTS_PER_DAY: z.coerce.number().int().positive().default(500),
+  /** Embedding requests have their own quota at Google, so they have their own limits here. */
+  GEMINI_EMBED_REQUESTS_PER_MINUTE: z.coerce.number().int().positive().default(100),
+  GEMINI_EMBED_REQUESTS_PER_DAY: z.coerce.number().int().positive().default(1000),
   /** Keys the payer hashes in the shared risk signals. Changing it forgets every signal. */
   RISK_HASH_SECRET: z.string().min(32),
   /** HeiGIT basic key for OpenRouteService, sent as the raw `Authorization` header. */

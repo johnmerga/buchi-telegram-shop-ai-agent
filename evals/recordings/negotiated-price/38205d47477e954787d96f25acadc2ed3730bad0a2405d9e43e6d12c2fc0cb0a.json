@@ -199,39 +199,32 @@
   },
   "result": {
     "content": {
-      "role": "model",
       "parts": [
         {
           "functionCall": {
-            "name": "offer_price",
+            "name": "search_products",
             "args": {
-              "productId": "ba1829d6-3ce6-4d59-a0f2-2e0dbfcf2422",
-              "price": "950.00",
-              "reason": "First concession on a last-price question.",
-              "evidenceIds": [
-                "stock_left"
-              ]
-            }
-          }
+              "query": "የቆዳ ጫማ"
+            },
+            "id": "call_809283"
+          },
+          "thoughtSignature": "EpUGCpIGAWkUfRNlVQa0ACpZEf/N+ImPV1enAnzPqdt/AzH4XJKcqg/Ba4sUq77DkmPX4giM2gA2RgvsdxT+3Yo6NpBuuesnIK5XIxnjnvJ4ix/hnuEWfRsJm9F5LPDLNCI4FBCVmMcFpI1K0jKB7MRI+A9W88OaDiHZjr4S7BZ48pu8rOr7akauiycAc4Xh0uTzAGbFccG5jWfYFA1GAjQeocuVqzLSnVI57wtzv26QyhvGA6aGwlMPdKyUvLpadHZQtBwQjsBeG/rulxD4bUMxxK5kNJ1qK94n0Ho0e5jMmZMxnKmwfgtOKjilTw5Vng48ujWHlmaD0sjcqY8LBggXVu6YMi7Om2Wv0qVRM9aeF1JE561+TattwwKi+qNGUypi1L/rpUOoC2iYv8KvOZtvkZ+ZD0aKNDufqV8wa17iTEhUNeBOsC+YIRZYf65U4sNFwJrKEjh2XIfazGfZIB3YEq4Hs2K/UeoMdY8HVoyyFFqNNSG4JSVWHpNH5Eb6VGF1HM0KQajK+pITD8ta5CQAeQGZq6IUjCzGzLC5A0KOxG+/vU3q9i6oBJYSR7KrkeCWpe5+cvWQDLgksDuijfRFx472DvXoPMK4nFmEle4wMJq81tl6F2BH0eMvWh1QAXKRQiVdy9iLPthm3msSv6tsrFg9/4UmcrAboUv7QXqoTzR+BRj+0pCAcmAzOKlRFnCjly9rZIZGe7/voJ2s2i0R00+pnaWU94PD0SBOm4ZnzcLYc8NT+MZnZY1BWhuRvkyGHH1gXFLzzTxCtKxVnVps2DbN4PcUQrM4fiaE6Q7kdioLz0lxTsxQ+fuXFCZH/8PBAdjvzWCgxXH+zssHnusoJXzY22q6GN4/I80f9O84+6EurPjy1czesQ4J1EiMtOQuMn6YIG572mgeU0tqAjdBpwG8fn+zw3qhQJTqMhMZEjf2CkeHVjaYgjCFDDo8HonGgLPpHdhL3u3Jw8Lg7nNXFWZs6eMi0hE/Xplmw0QJMXkfWWItGv9/ZfAuqTd+5/2efvlWMjoQxOWkeiCNBm2KUdeB+Rdf"
         }
-      ]
+      ],
+      "role": "model"
     },
     "functionCalls": [
       {
-        "name": "offer_price",
+        "name": "search_products",
         "args": {
-          "productId": "ba1829d6-3ce6-4d59-a0f2-2e0dbfcf2422",
-          "price": "950.00",
-          "reason": "First concession on a last-price question.",
-          "evidenceIds": [
-            "stock_left"
-          ]
-        }
+          "query": "የቆዳ ጫማ"
+        },
+        "id": "call_809283"
       }
     ],
     "usage": {
-      "inputTokens": 100,
-      "outputTokens": 10
+      "inputTokens": 2080,
+      "outputTokens": 20
     }
   }
 }

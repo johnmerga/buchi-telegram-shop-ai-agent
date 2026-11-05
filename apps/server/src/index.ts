@@ -213,13 +213,22 @@ const model = new GeminiModel(
     },
     embeddingDimensions: PRODUCT_EMBEDDING_DIMENSIONS,
   },
-  new QuotaManager(
-    {
-      requestsPerMinute: env.GEMINI_REQUESTS_PER_MINUTE,
-      requestsPerDay: env.GEMINI_REQUESTS_PER_DAY,
-    },
-    () => new Date(),
-  ),
+  {
+    generate: new QuotaManager(
+      {
+        requestsPerMinute: env.GEMINI_REQUESTS_PER_MINUTE,
+        requestsPerDay: env.GEMINI_REQUESTS_PER_DAY,
+      },
+      () => new Date(),
+    ),
+    embed: new QuotaManager(
+      {
+        requestsPerMinute: env.GEMINI_EMBED_REQUESTS_PER_MINUTE,
+        requestsPerDay: env.GEMINI_EMBED_REQUESTS_PER_DAY,
+      },
+      () => new Date(),
+    ),
+  },
 );
 const catalogRepo = new CatalogRepo();
 const events = new EventBus(logger);

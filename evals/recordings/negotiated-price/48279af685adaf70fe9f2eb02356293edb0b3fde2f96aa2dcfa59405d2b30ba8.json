@@ -199,35 +199,32 @@
   },
   "result": {
     "content": {
-      "role": "model",
       "parts": [
         {
           "functionCall": {
-            "name": "offer_price",
+            "name": "search_products",
             "args": {
-              "productId": "9d812846-b85d-429e-a7c9-d20306008d29",
-              "price": "500.00",
-              "reason": "The customer offered 500.",
-              "evidenceIds": []
-            }
-          }
+              "query": "Leather boots"
+            },
+            "id": "call_691340"
+          },
+          "thoughtSignature": "Eu0ECuoEAWkUfRNPStxSIhRqhTNytOAgvQlZsnR3gk1fLFUcCj0Qh3tRG0E0XQoYjXzy1okO5X+Tfj824zaHMDsiNC5BL1N9zn3GXcDrSKE7zi7QbOOUBA7WHlGQxOvJlVs87ZfxAqzVgEh7GNC+Y+IEChl5GeTMqFErUYXB61NHV8sRi1S/FmtqxYpJZPsDcZEKDApgbNeEqxXiCwp0CQI8LLqY4wA0HF4oUQc4QMAJW1U4tegzLTYsRfHRGE913hdqLsx80C67HkAwO6CIxKf2v6mlbXm/9YzpZL6PM6SlmO5TetAlaLX4DXdbrNy77I8aTfK1YU4wYndF2cw/U6yeRv4kGlixLFiQB4xUcMk/u6E6TrzQ4hBIlNn1YbN4kJ/eVx30w7Tu/1ZY6lTcX2HVCIt2hd3+AGuOKDS0zg17zDS/vHYm4jVO49tapmrgZOqAeFUEFNZcseekTjAblY9weoTOWSOPC4OMp4b3OdPFIWe4wl9OeTIkcxWCTyDG9E4Kt2xaoYcm4TxkuVSL98KvoiYM6CtpdvsCdnnNiHgFLT7x5tLDOAYbjd3XwF45734T4jfAvnJvo74atyQrK1G+wRtTp+DcrKAEDu/ohwX+5K3rvFXUMdsKkGF6rfbXIaeV6JwX0a0RFszXfmR3GmNy4ZmiYm5C0nH9X9KMvr6G0CU6qVJldRm4GqWpKQ9MycNSiA78VWhIuPchwCFKiiF3O8FKYV5OtY9d9qxyXH4LRf0jHcGPCZhg2LMaAOl6aBIf84QsxreYo0i7mLW9B9f8X8q3WkwdK7hbB9Y1QED5ROGO7058SoQWf6y1L2x2"
         }
-      ]
+      ],
+      "role": "model"
     },
     "functionCalls": [
       {
-        "name": "offer_price",
+        "name": "search_products",
         "args": {
-          "productId": "9d812846-b85d-429e-a7c9-d20306008d29",
-          "price": "500.00",
-          "reason": "The customer offered 500.",
-          "evidenceIds": []
-        }
+          "query": "Leather boots"
+        },
+        "id": "call_691340"
       }
     ],
     "usage": {
-      "inputTokens": 100,
-      "outputTokens": 10
+      "inputTokens": 2085,
+      "outputTokens": 17
     }
   }
 }

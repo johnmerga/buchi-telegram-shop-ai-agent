@@ -7,39 +7,101 @@
         "role": "user",
         "parts": [
           {
-            "text": "[Shop context from Buchi's records, not from the customer]\nProduct the customer opened: \"Leather boots\" (productId 9d812846-b85d-429e-a7c9-d20306008d29, negotiable, asking price 1000.00 birr)\nCart: empty"
+            "text": "[Shop context from Buchi's records, not from the customer]\nProduct the customer opened: \"Leather boots\" (productId c8a9d000-372c-4e93-b956-e9a6637a0e59, negotiable, asking price 1000.00 birr)\nCart: empty"
           },
           {
-            "text": "I will pay 500, final."
+            "text": "Can you do 900?"
           }
         ]
       },
       {
-        "role": "model",
         "parts": [
           {
             "functionCall": {
-              "name": "offer_price",
+              "name": "search_products",
               "args": {
-                "productId": "9d812846-b85d-429e-a7c9-d20306008d29",
-                "price": "500.00",
-                "reason": "The customer offered 500.",
-                "evidenceIds": []
-              }
-            }
+                "query": "Leather boots"
+              },
+              "id": "call_410317"
+            },
+            "thoughtSignature": "EtcECtQEAWkUfRPt+EGzDwdRxNdp0KE4p86AGC55GR5jSkyyJW7YCkmfD1AN0uSjEvsnaye2zWINgbEzTQRIVEfKkOU2tDKkUD/qlcKJ7l40MorlcuAxb168fR4Px54b03+A9xBiWjbboTf0EKlKESQ845pbhwgqJY+bCST78G4S+/8lcLeO+wa7bxUHb6IiT03OOyDcaegThfdTBekvnWitxyREc1vmfZ7TfNg0cDKH7eHR/h02i4vc9nQ3RhOLko49r2cEaJi9/l58ygFYAxsulA9tvoAd03Jp5RDkGayoXt5xGxUqUbh83TMwQo+m4Hcx73+Mttezwfkzsb+lHhVqWPACXxlA7y6uHsbztJ4+QEvIx+H659FLbhNkPcqMSCLWsiA+1aPiUMQ6MhvSYNodTf3sqiIBc50qVuibEnWXkw9vrx5WYF+4ow2KKybNM6fRsuMNIo9qeQXZHzMHf39bPZR9XokkC48NzwdpOOdv8xKXBhROHjW6UE8r0p1M3knN1k5thukt0fmy3n6pS6tRlu0oN37B9vgCVQNTKDDwP6g7juQjtAmNhq17AK9QsR+rkqD1STksAKsz4MFXy9DH+DkTblZ7ooiWJ3c1N+G8k3aa7TEEcWZacv0cEDB69MpvhnCfaclMnGbXbFz71E+h0qLVgUBwKLJv9IyDMNT8RHPi67l3yNyy79FjdRWuYuHQ234bVZTlfZYwtXPJ5ZsZKCpDA8GKuKbG1XuGejpEGfCok+q3/wPEQwJjSvnYt7SatMr96Ej4ALIO12eopE3ZqKEr3h8VFac="
           }
-        ]
+        ],
+        "role": "model"
       },
       {
         "role": "user",
         "parts": [
           {
             "functionResponse": {
+              "id": "call_410317",
+              "name": "search_products",
+              "response": {
+                "status": "ok",
+                "output": {
+                  "products": [
+                    {
+                      "productId": "c8a9d000-372c-4e93-b956-e9a6637a0e59",
+                      "title": "Leather boots",
+                      "description": "",
+                      "pricing": "negotiable",
+                      "askingPrice": "1000.00",
+                      "evidence": {
+                        "cart_items": 0,
+                        "previous_orders": 0,
+                        "stock_left": 3,
+                        "asked_today": 0,
+                        "days_in_stock": 65
+                      },
+                      "sizes": [
+                        {
+                          "variantId": "090d0389-2ed7-499b-a3ed-a52d03a659d8",
+                          "size": "41",
+                          "color": null,
+                          "available": 3
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "parts": [
+          {
+            "functionCall": {
+              "name": "offer_price",
+              "args": {
+                "evidenceIds": [
+                  "days_in_stock",
+                  "stock_left"
+                ],
+                "price": "900.00",
+                "productId": "c8a9d000-372c-4e93-b956-e9a6637a0e59",
+                "reason": "Item has been in stock for 65 days"
+              },
+              "id": "call_680051"
+            },
+            "thoughtSignature": "EtUFCtIFAWkUfRN1KiimBc/GJJOxfDu3nEceBNvRhDSJO/D0QiFyOTMtwZS9qV1+6g0jkAaiUh7HzGwSnW/VyCWG5qFXT1VbvrkCCrQEkyfqrELqTUjM9KN8MokbEldsXpoiEImEfrEp7HMGjmM6CHrUkFQwMpSkSq5HSZbXEiWcqLlKoKNbbGlKw4pPY+cSX75icyrd9kLWEdjwxm/N1RKoQVuC+xxSJgkU91qtjiQtNHZ7yoY5O5xM0z6QpJGKR3tgTuDO3bg0+RO6dmWPfH4Y/NN9SNM0ha+6RvKJ9CP5wAeeX5vf+zKf3BIHfa1fQ2jIYgwtQA4AWe6hbD1fIGGKw1Mxot5amRboFh+Xnw0QAKXXVS0e6BkHZtleKD23XZr7t9QnunM8xoo73+X3ipnTmjyPfvDVYOBcIeHmXScDbPwF7WHgngXn0AphcZP6qJVuVd9c1Pjo2rVXIrPH3ko8nG5i0WkNkSSM/mVgCCbAzi0ezX+YX0IkKb6ZU+gB7orh7dsSxVauHbw18W/Zymg/R7gVWYXq3U8AI3nUP7YDBt+kuahSoqkzRWeYoH0JBkgtQVIsLHHlQur7gs9eM2mEZThejmgd1qP0QhikVzlfCn6baDxOMxE8iKRI6lYammOaECed312spyF995dsAeusybksJAHhokrFIe4q1LUz9jzj6i0t8suVHEplyM7lpRThP6lrR/X13ViTOrzD9t4/r1gsGw3tFDWXkzCohVP6gjn5eiIp6gRPFKweyU98lSnUNSciMn+vwh3cN0z/qwV+brnYpgImcsd9DdPyDiYyoPQfOKsUjzKQcH+6pd7gykwDlM0a0XljMS0WNxJoR+lang3ILgDvoxHM1O3LL4e0L3bh42U5HD0SxZn66mY/UeTBFNhUx7C+FQ9UBapzArO/t26FPQBEdAtmE3i8TALxEGKWQfLSIARLJ6yxWUy6RoOa/uVLb9Q="
+          }
+        ],
+        "role": "model"
+      },
+      {
+        "role": "user",
+        "parts": [
+          {
+            "functionResponse": {
+              "id": "call_680051",
               "name": "offer_price",
               "response": {
-                "status": "rejected",
-                "reason": "too_low",
-                "counteroffer": "850.00"
+                "status": "ok",
+                "output": {
+                  "accepted": "900.00"
+                }
               }
             }
           }
@@ -230,39 +292,19 @@
   },
   "result": {
     "content": {
-      "role": "model",
       "parts": [
         {
-          "functionCall": {
-            "name": "offer_price",
-            "args": {
-              "productId": "9d812846-b85d-429e-a7c9-d20306008d29",
-              "price": "850.00",
-              "reason": "Counteroffer from the guard.",
-              "evidenceIds": [
-                "days_in_stock"
-              ]
-            }
-          }
+          "text": "Yes, I can do 900 ETB for the Leather boots! Which size would you like to get? We currently have size 41 available.",
+          "thoughtSignature": "EvQBCvEBAWkUfRNe6mBYc+ENjLrx0B8lJZQdi+lZTjQQt6imd6/QOVLHqmJXXkDpIvNj8fNjKSaOyqeHbNGOktzoRI2UF2Tf4P7NyaEvBomhlPLimthJnIa0MQq4sF6jDKgV9pCzfbiEFqkgMNqp9HCyQ4BRkrJISQ7g9ZRXeEOmZH8n0XXUmyrIGpBfzGyQfDPgFvoQB19OnA0638gE0GXTcMuklJAQz1h7p7w4l9sM7D0KoBI+B3Gf/aHadW9HnsMk3v30cpAsI8mcVXXMfIAp33V6hTEv/cwEmKd9X7HHHKn3A+l35Krdc8gsKbz+NM7TW3DwXw=="
         }
-      ]
+      ],
+      "role": "model"
     },
-    "functionCalls": [
-      {
-        "name": "offer_price",
-        "args": {
-          "productId": "9d812846-b85d-429e-a7c9-d20306008d29",
-          "price": "850.00",
-          "reason": "Counteroffer from the guard.",
-          "evidenceIds": [
-            "days_in_stock"
-          ]
-        }
-      }
-    ],
+    "text": "Yes, I can do 900 ETB for the Leather boots! Which size would you like to get? We currently have size 41 available.",
+    "functionCalls": [],
     "usage": {
-      "inputTokens": 100,
-      "outputTokens": 10
+      "inputTokens": 2782,
+      "outputTokens": 33
     }
   }
 }

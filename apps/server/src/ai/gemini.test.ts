@@ -16,10 +16,18 @@ function responseWith(text: string): GenerateContentResponse {
   return response;
 }
 
-function setUp(generateContent: Models['generateContent'], requestsPerMinute = 100) {
-  const quota = new QuotaManager({ requestsPerMinute, requestsPerDay: 1000 }, () => new Date());
-  const api = { generateContent, embedContent: vi.fn<Models['embedContent']>() };
-  return new GeminiModel(api, config, quota, () => Promise.resolve());
+const quotaOf = (requestsPerMinute: number) =>
+  new QuotaManager({ requestsPerMinute, requestsPerDay: 1000 }, () => new Date());
+
+function setUp(
+  generateContent: Models['generateContent'],
+  requestsPerMinute = 100,
+  embedContent = vi.fn<Models['embedContent']>(),
+) {
+  const quotas = { generate: quotaOf(requestsPerMinute), embed: quotaOf(100) };
+  return new GeminiModel({ generateContent, embedContent }, config, quotas, () =>
+    Promise.resolve(),
+  );
 }
 
 const request: GenerateRequest = { tier: 'smart', priority: 'customer', contents: [] };
@@ -78,5 +86,16 @@ describe('GeminiModel', () => {
       code: 'QUOTA_EXHAUSTED',
     });
     expect(generate).toHaveBeenCalledTimes(2);
+  });
+
+  it('counts embeddings against their own quota, not the text quota', async () => {
+    const generate = vi.fn<Models['generateContent']>().mockResolvedValue(responseWith('ok'));
+    const embed = vi
+      .fn<Models['embedContent']>()
+      .mockResolvedValue({ embeddings: [{ values: [0.1, 0.2] }] });
+    const model = setUp(generate, 1, embed);
+
+    await model.generate({ ...request, priority: 'payment' });
+    await expect(model.embed('red boots', 'payment')).resolves.toEqual([0.1, 0.2]);
   });
 });

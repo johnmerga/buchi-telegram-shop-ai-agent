@@ -127,10 +127,15 @@ at least 32 characters, for example from `openssl rand -hex 32`. Changing it sig
 
 Buchi reads payment screenshots with the Gemini API. Create a key in
 [Google AI Studio](https://aistudio.google.com/apikey), which needs no payment method, and set
-`GEMINI_API_KEY` in Render. The model IDs default to `gemini-3.5-flash-lite`,
-`gemini-3.5-flash`, and `gemini-embedding-001`. Check them in AI Studio and override
-`GEMINI_MODEL_FAST`, `GEMINI_MODEL_SMART`, and `GEMINI_MODEL_EMBED` if they change.
-`GEMINI_REQUESTS_PER_MINUTE` and `GEMINI_REQUESTS_PER_DAY` keep Buchi under the free tier's limits.
+`GEMINI_API_KEY` in Render. Both model tiers default to `gemini-3.5-flash-lite`, because the free
+tier gives it 15 requests a minute and 500 a day, while the Flash models get only 20 a day.
+Embeddings use `gemini-embedding-001`. Check the limits at
+[aistudio.google.com/rate-limit](https://aistudio.google.com/rate-limit) and override
+`GEMINI_MODEL_FAST`, `GEMINI_MODEL_SMART`, and `GEMINI_MODEL_EMBED` if they change; with billing,
+point `GEMINI_MODEL_SMART` at a stronger model. `GEMINI_REQUESTS_PER_MINUTE`,
+`GEMINI_REQUESTS_PER_DAY`, and their `GEMINI_EMBED_` versions keep Buchi under those limits.
+Quotas belong to the Google project, not the key, so give evaluation runs a key from a separate
+project.
 When they run out, payment screenshots go to owner review.
 
 Set `RISK_HASH_SECRET` to a secret of at least 32 characters, for example from

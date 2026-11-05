@@ -8,6 +8,12 @@ import type {
 } from './language-model';
 import type { QuotaManager } from './quota';
 
+/** Google counts text and embedding requests against separate quotas. */
+export interface GeminiQuotas {
+  generate: QuotaManager;
+  embed: QuotaManager;
+}
+
 export interface GeminiConfig {
   models: Record<ModelTier, string> & { embedding: string };
   embeddingDimensions: number;
@@ -28,12 +34,12 @@ export class GeminiModel implements LanguageModel {
   constructor(
     private readonly api: Pick<Models, 'generateContent' | 'embedContent'>,
     private readonly config: GeminiConfig,
-    private readonly quota: QuotaManager,
+    private readonly quotas: GeminiQuotas,
     private readonly wait: (ms: number) => Promise<void> = sleep,
   ) {}
 
   async generate(request: GenerateRequest): Promise<GenerateResult> {
-    const response = await this.withRetries(request.priority, () =>
+    const response = await this.withRetries(this.quotas.generate, request.priority, () =>
       this.api.generateContent({
         model: this.config.models[request.tier],
         contents: request.contents,
@@ -61,7 +67,7 @@ export class GeminiModel implements LanguageModel {
   }
 
   async embed(text: string, priority: Priority): Promise<number[]> {
-    const response = await this.withRetries(priority, () =>
+    const response = await this.withRetries(this.quotas.embed, priority, () =>
       this.api.embedContent({
         model: this.config.models.embedding,
         contents: text,
@@ -74,9 +80,13 @@ export class GeminiModel implements LanguageModel {
   }
 
   /** Every attempt takes quota, so retries cannot exceed the limits that protect payment checks. */
-  private async withRetries<T>(priority: Priority, call: () => Promise<T>): Promise<T> {
+  private async withRetries<T>(
+    quota: QuotaManager,
+    priority: Priority,
+    call: () => Promise<T>,
+  ): Promise<T> {
     for (let attempt = 1; ; attempt += 1) {
-      this.quota.acquire(priority);
+      quota.acquire(priority);
       try {
         return await call();
       } catch (err) {

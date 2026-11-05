@@ -7,41 +7,62 @@
         "role": "user",
         "parts": [
           {
-            "text": "[Shop context from Buchi's records, not from the customer]\nProduct the customer opened: \"Leather boots\" (productId c8a9d000-372c-4e93-b956-e9a6637a0e59, negotiable, asking price 1000.00 birr)\nCart: empty"
+            "text": "[Shop context from Buchi's records, not from the customer]\nProduct the customer opened: \"የቆዳ ጫማ\" (productId ba1829d6-3ce6-4d59-a0f2-2e0dbfcf2422, negotiable, asking price 1000.00 birr)\nCart: empty"
           },
           {
-            "text": "Can you do 900?"
+            "text": "የመጨረሻ ዋጋ?"
           }
         ]
       },
       {
-        "role": "model",
         "parts": [
           {
             "functionCall": {
-              "name": "offer_price",
+              "name": "search_products",
               "args": {
-                "productId": "c8a9d000-372c-4e93-b956-e9a6637a0e59",
-                "price": "900.00",
-                "reason": "Fair offer on stock listed two months ago.",
-                "evidenceIds": [
-                  "days_in_stock"
-                ]
-              }
-            }
+                "query": "የቆዳ ጫማ"
+              },
+              "id": "call_809283"
+            },
+            "thoughtSignature": "EpUGCpIGAWkUfRNlVQa0ACpZEf/N+ImPV1enAnzPqdt/AzH4XJKcqg/Ba4sUq77DkmPX4giM2gA2RgvsdxT+3Yo6NpBuuesnIK5XIxnjnvJ4ix/hnuEWfRsJm9F5LPDLNCI4FBCVmMcFpI1K0jKB7MRI+A9W88OaDiHZjr4S7BZ48pu8rOr7akauiycAc4Xh0uTzAGbFccG5jWfYFA1GAjQeocuVqzLSnVI57wtzv26QyhvGA6aGwlMPdKyUvLpadHZQtBwQjsBeG/rulxD4bUMxxK5kNJ1qK94n0Ho0e5jMmZMxnKmwfgtOKjilTw5Vng48ujWHlmaD0sjcqY8LBggXVu6YMi7Om2Wv0qVRM9aeF1JE561+TattwwKi+qNGUypi1L/rpUOoC2iYv8KvOZtvkZ+ZD0aKNDufqV8wa17iTEhUNeBOsC+YIRZYf65U4sNFwJrKEjh2XIfazGfZIB3YEq4Hs2K/UeoMdY8HVoyyFFqNNSG4JSVWHpNH5Eb6VGF1HM0KQajK+pITD8ta5CQAeQGZq6IUjCzGzLC5A0KOxG+/vU3q9i6oBJYSR7KrkeCWpe5+cvWQDLgksDuijfRFx472DvXoPMK4nFmEle4wMJq81tl6F2BH0eMvWh1QAXKRQiVdy9iLPthm3msSv6tsrFg9/4UmcrAboUv7QXqoTzR+BRj+0pCAcmAzOKlRFnCjly9rZIZGe7/voJ2s2i0R00+pnaWU94PD0SBOm4ZnzcLYc8NT+MZnZY1BWhuRvkyGHH1gXFLzzTxCtKxVnVps2DbN4PcUQrM4fiaE6Q7kdioLz0lxTsxQ+fuXFCZH/8PBAdjvzWCgxXH+zssHnusoJXzY22q6GN4/I80f9O84+6EurPjy1czesQ4J1EiMtOQuMn6YIG572mgeU0tqAjdBpwG8fn+zw3qhQJTqMhMZEjf2CkeHVjaYgjCFDDo8HonGgLPpHdhL3u3Jw8Lg7nNXFWZs6eMi0hE/Xplmw0QJMXkfWWItGv9/ZfAuqTd+5/2efvlWMjoQxOWkeiCNBm2KUdeB+Rdf"
           }
-        ]
+        ],
+        "role": "model"
       },
       {
         "role": "user",
         "parts": [
           {
             "functionResponse": {
-              "name": "offer_price",
+              "id": "call_809283",
+              "name": "search_products",
               "response": {
                 "status": "ok",
                 "output": {
-                  "accepted": "900.00"
+                  "products": [
+                    {
+                      "productId": "ba1829d6-3ce6-4d59-a0f2-2e0dbfcf2422",
+                      "title": "የቆዳ ጫማ",
+                      "description": "",
+                      "pricing": "negotiable",
+                      "askingPrice": "1000.00",
+                      "evidence": {
+                        "cart_items": 0,
+                        "previous_orders": 0,
+                        "stock_left": 3,
+                        "asked_today": 0,
+                        "days_in_stock": 65
+                      },
+                      "sizes": [
+                        {
+                          "variantId": "f468d9d8-3c52-412d-b5e8-1da01940c378",
+                          "size": "41",
+                          "color": null,
+                          "available": 3
+                        }
+                      ]
+                    }
+                  ]
                 }
               }
             }
@@ -233,18 +254,44 @@
   },
   "result": {
     "content": {
-      "role": "model",
       "parts": [
         {
-          "text": "Yes, 900 birr works for the leather boots. Which size would you like?"
+          "functionCall": {
+            "name": "offer_price",
+            "args": {
+              "reason": "The item has been in stock for 65 days, but only 3 units are left.",
+              "productId": "ba1829d6-3ce6-4d59-a0f2-2e0dbfcf2422",
+              "price": "950.00",
+              "evidenceIds": [
+                "days_in_stock",
+                "stock_left"
+              ]
+            },
+            "id": "call_690934"
+          },
+          "thoughtSignature": "EsIKCr8KAWkUfROzyE7/l3Wf240IOYF5Dan09gdRwN0pAGlBTAsu1u47rb/NwTDv9OvxVPBvq86tWeqmqjvL2+8v2kJp3wBc8v92KiHEw6b8LckYPPvV753w3bpsRJjmQ4uqkzxAIG+USnnefJgHqHGxNrYjbYS1zEQ+Rk/uyP3k/vnr94Gn1913bVeG2w2CTC8LtdaGuI4181Q2ELqt/BpR9zwne//pWJ3ixB21EFCdY6OCIeS0qba6wC+CgSYaan8ZUzoZ20H8EteTxUi5wHPBILcm3WnZMpM69ywTb8KvO6f1Dy5Ocxuma3YRmaigS+4LssHanm+QaNjydKTp54XPVwolzgzUAwF6d+1NBZTT8z7lGV84DF9C/E5HNerF8hHvMNbU4Rn71/HAJ89FOTU1RM0cL4IBkWdZPy13cLINKDl70hZbSfXUVP0RrxSKZjaDzFVvp9alQdRmd2biX5odrQ1gBw08govcdZNBMOXvBVIwhd+68kaA+WQc44RkmAot+473IfJxzy83UHyVus1taVnDjZCvSb7Fu47usR5MVthauiHlydXozG7FAhddVq1yf0DIfRUln3p6YWEV3A5+5l0+OA+Af0dGrl+ZMHJDb1wSJ/4nXFf6g7E1GegbIJmo2tVIBa82HsH/QtlE1W3nGU1r5C0Qe39iTOTZ2htbnIomSpT7/Mn9ho5tKTtGe6HnJ3MSdRPMDbFsA4gGIDjrRBrM0HsVhb1zHF61eT6XjLQTWWI5/cMPX4u6CaG6oVn5V2fVFskJhF3xZOxIWkvEpYc8RQqm9uyKBCcGHo6T0GyjV5YfALFJFfP0oi2SHfGUcBdypvNznfBzbdAJ+NeAhFROpZ+E5Fl5WzaXeRpQ2msmOS3QZySwAJz9xU3wGa7kGERL7qDvkMJp4NzcMTklU+VrX3OmnXoAzeFnUrY5gZS+1uK1EJmmhr+DXkxWmxk0RoRFqp+AIhy8JwXQrvUD7T3pvqd+knZBitratQJxGabgEFfz5WJOXGBUWg+EDvBHgow5iNaR9UFUp11ENnhgHjryyzeiGPJUs1COOSLl9HNWnRBtbipr+PcOrOi+/LoDZl2+8FBputL5HqByb0wjAZ+1qZNuXKVZiKfkHCn1cd6SJzT74mbFty8wuNvn+qRzKw4ZimjED0mBS2FWRhA24Dup/g3+Xv4R/RRnrb2tBFroxqwcuXW8E27NieuJC2iDWPFZ64AQcmigkCLlcPMhIBENYvjlpIuOxie0s/aJPTqYuTZOG2uKuqkNT3L747f59MFeapFBWid3b1RClSFJJxc1fPO21wbJeGJhol7hcA86OL6i1v/T6AWT6pyxqRYSPOEetvWSPGbh8THyMsge7m77XKR1XQWIP7ZPpce9iSHi1Kf0qIfuPPiR2Oz3kBgb8hJD4jtlQD07VM8mYlvh+9eepx7lzHEBfu+ekDp0R1rC101ToDYbAXRGRnM17FcPDgvoV9csqe1kyvwarO6HO2pnJ+xpiP4LSCIWVhHSUPCVWfcefQmzaVY6zzW7wMdarHXR+RtH4j5VWx1+wi2gOol83siZFzScT01zzo1kH9BOFRArtSUXdXFecvC/XCUqinK1ocOjDajgEw+Ii2/5beGlONX9TnSV877p+JYDcRO2lQsMihRCW0+xlmYU557XXG504AiTVSv6qRLTdcR66Mt6IJ2g1gHSJsnwtltXt8AqWkQOkSqyEDZSOqQ8HRL6C21rZ18n4f8y7qCL22bVvAxNAfq/3Z03c7olNAe73ZIZ1hGvuDZUW8OHIOgLnftBcPY="
         }
-      ]
+      ],
+      "role": "model"
     },
-    "text": "Yes, 900 birr works for the leather boots. Which size would you like?",
-    "functionCalls": [],
+    "functionCalls": [
+      {
+        "name": "offer_price",
+        "args": {
+          "reason": "The item has been in stock for 65 days, but only 3 units are left.",
+          "productId": "ba1829d6-3ce6-4d59-a0f2-2e0dbfcf2422",
+          "price": "950.00",
+          "evidenceIds": [
+            "days_in_stock",
+            "stock_left"
+          ]
+        },
+        "id": "call_690934"
+      }
+    ],
     "usage": {
-      "inputTokens": 100,
-      "outputTokens": 10
+      "inputTokens": 2516,
+      "outputTokens": 100
     }
   }
 }

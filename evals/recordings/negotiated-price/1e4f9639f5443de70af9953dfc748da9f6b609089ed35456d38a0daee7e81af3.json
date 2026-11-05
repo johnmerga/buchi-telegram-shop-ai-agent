@@ -199,35 +199,32 @@
   },
   "result": {
     "content": {
-      "role": "model",
       "parts": [
         {
           "functionCall": {
-            "name": "offer_price",
+            "name": "search_products",
             "args": {
-              "productId": "48dd9954-fda7-4cd6-96f4-7d5acd2b3fea",
-              "price": "500.00",
-              "reason": "The customer asked for half price.",
-              "evidenceIds": []
-            }
-          }
+              "query": "Leather boots"
+            },
+            "id": "call_703865"
+          },
+          "thoughtSignature": "EoMJCoAJAWkUfROqn8HPgOF3xjCaAJZXZffmLWZ8JxwwZLd2iX59K7tDTwpRbwOPBYfv8rTkc+2SYkF6OQlJwyETUBaj5X2Je5nBU8ftOvhV2Vg01etPHsFAHnMIgzyOGPX8q0hn6H7kenEHOFUSS5Ks6R+9kCXTbjPc3v1x07EU9m+Z+m/6PFQnV1ZJr0aigWqiWmlUsS9BaJK6UjfgHluDPzLzEosnwj1Xvp4l3xFbktJdld44WEbABSZ0WJpdAoTng659RJQ004Sjwc7sbNamYG2JHkPZRWAypSVZXhKWg4frhkz3Zx4u3fOksPTW3dEFHqkKWVdy1/MF6HTLEgcc3geAq+y+y7JcdotelrCoA3fD98LFgn1/S1RieUKaLBD+rGy7lYWJtn+Vc1eRGlXLPjEkmtLVafvfkjci6d/I2qVPyBPZhKkiKvJ/iHL6JfbqRMPnPinQs63e1WtPdR+G9rdhUFlhqI9YzawM3y7idy60n0FmCnj0SGBTn84ieFCTKqGI/p1HTstKDg0xPJ8QuJnubsQYjtNCuXGr6NVQiU4c4FfwypgWBFXWc9Mr8kPKWsE7OPoHuILj1hLOj2Vd8kI+1E3KHNoNDAsTe55VOqJJs7xmTo+h2dCD+Ybh6ctwjeoVxR5q+N4oyn2bbyghCUMJS+GoDwKkVUmKf2UnZv8LyFLK7fVnHCZJ3u3kwRL8VTvk+W1sXitUisE7PuCEBQxVwJoI8hRYVkDQMuSxKxcCuVbvQrSYMsekyMYaRYH9+z7k276d8ISMXB9UKl80b/EfFMbg7wvJHV9Leb82MOEmXi9efDOgLRCGKEeMg7R3AWeC185XMJ59pFLJsWjy7jCutjP+C2sf+bJ0Y/36RSQevUY3fXsrz1o7nvu8O4OzXWs6lAMHMW/Lei/cCNUtNI2RNudboDlRiWzs7vO0oF3Y5GLD6iEALEWBdyRlcgfP/LjK1b+8k7bw2ZQpe/G0oOstsVjEU8WvZkV+RAwcHGOgt5Wd/VGLBjuN1kfEr3wt4Knhc4/7WrN9cIe4AjGBu/CGiwVXAoaHXwyWB5RYgdMvJ/YyoKVwMeGbBK50scNGdIPbjx7DF5xgxU8iDMd3lP6x93Yd7LzBluIxD5PovXcmVzuo3r20NyF3eYYgnj7v+UAXISNYNqFtuIBCMZUP3pOnxy1KwqZaiOVKmCONwnOpgYGcvzqzp+kCprYTYsW6qhsuD+hDB6cYL1guOEqEk5QjMXz+kJ0ghjIS97awjmVoUyjA09X0rISA/NS9L4jr5g9+5Eyf3b63vuYgb7XkimI7A9MRiAlVFMiCr09UipT6v4cR30lPD1v5Oaig2Z3M6btKn2lLIsuJK+BFh/SODYLys7Da9AtEaSmhoD905FCEclVvv0LZzp0ZV/5IT0X4vxJiuB7fQjstUzV6tUjQMBcrF2T+rQH88ehtu8P/vqxg9PVvkomlcjG74W7z1+ZyWJKJBP2C1uSTI/O+ODv4uAkrZxPSXmMw+yeiaD0UfQj4YKp2UXrud3dZ7F7kvK8QrW6q"
         }
-      ]
+      ],
+      "role": "model"
     },
     "functionCalls": [
       {
-        "name": "offer_price",
+        "name": "search_products",
         "args": {
-          "productId": "48dd9954-fda7-4cd6-96f4-7d5acd2b3fea",
-          "price": "500.00",
-          "reason": "The customer asked for half price.",
-          "evidenceIds": []
-        }
+          "query": "Leather boots"
+        },
+        "id": "call_703865"
       }
     ],
     "usage": {
-      "inputTokens": 100,
-      "outputTokens": 10
+      "inputTokens": 2079,
+      "outputTokens": 17
     }
   }
 }

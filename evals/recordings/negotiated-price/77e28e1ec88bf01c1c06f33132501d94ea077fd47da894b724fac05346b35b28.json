@@ -199,39 +199,32 @@
   },
   "result": {
     "content": {
-      "role": "model",
       "parts": [
         {
           "functionCall": {
-            "name": "offer_price",
+            "name": "search_products",
             "args": {
-              "productId": "c8a9d000-372c-4e93-b956-e9a6637a0e59",
-              "price": "900.00",
-              "reason": "Fair offer on stock listed two months ago.",
-              "evidenceIds": [
-                "days_in_stock"
-              ]
-            }
-          }
+              "query": "Leather boots"
+            },
+            "id": "call_410317"
+          },
+          "thoughtSignature": "EtcECtQEAWkUfRPt+EGzDwdRxNdp0KE4p86AGC55GR5jSkyyJW7YCkmfD1AN0uSjEvsnaye2zWINgbEzTQRIVEfKkOU2tDKkUD/qlcKJ7l40MorlcuAxb168fR4Px54b03+A9xBiWjbboTf0EKlKESQ845pbhwgqJY+bCST78G4S+/8lcLeO+wa7bxUHb6IiT03OOyDcaegThfdTBekvnWitxyREc1vmfZ7TfNg0cDKH7eHR/h02i4vc9nQ3RhOLko49r2cEaJi9/l58ygFYAxsulA9tvoAd03Jp5RDkGayoXt5xGxUqUbh83TMwQo+m4Hcx73+Mttezwfkzsb+lHhVqWPACXxlA7y6uHsbztJ4+QEvIx+H659FLbhNkPcqMSCLWsiA+1aPiUMQ6MhvSYNodTf3sqiIBc50qVuibEnWXkw9vrx5WYF+4ow2KKybNM6fRsuMNIo9qeQXZHzMHf39bPZR9XokkC48NzwdpOOdv8xKXBhROHjW6UE8r0p1M3knN1k5thukt0fmy3n6pS6tRlu0oN37B9vgCVQNTKDDwP6g7juQjtAmNhq17AK9QsR+rkqD1STksAKsz4MFXy9DH+DkTblZ7ooiWJ3c1N+G8k3aa7TEEcWZacv0cEDB69MpvhnCfaclMnGbXbFz71E+h0qLVgUBwKLJv9IyDMNT8RHPi67l3yNyy79FjdRWuYuHQ234bVZTlfZYwtXPJ5ZsZKCpDA8GKuKbG1XuGejpEGfCok+q3/wPEQwJjSvnYt7SatMr96Ej4ALIO12eopE3ZqKEr3h8VFac="
         }
-      ]
+      ],
+      "role": "model"
     },
     "functionCalls": [
       {
-        "name": "offer_price",
+        "name": "search_products",
         "args": {
-          "productId": "c8a9d000-372c-4e93-b956-e9a6637a0e59",
-          "price": "900.00",
-          "reason": "Fair offer on stock listed two months ago.",
-          "evidenceIds": [
-            "days_in_stock"
-          ]
-        }
+          "query": "Leather boots"
+        },
+        "id": "call_410317"
       }
     ],
     "usage": {
-      "inputTokens": 100,
-      "outputTokens": 10
+      "inputTokens": 2082,
+      "outputTokens": 17
     }
   }
 }

@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { formatTime } from '../../lib/labels';
+import { PaymentDecisions } from './payment-decisions';
 import { useDecidePayment, usePaymentReviews } from './review-api';
 import { Screenshot } from './screenshot';
 import { useLiveReload } from './use-live-reload';
@@ -32,7 +33,7 @@ const ruleLabels: Record<string, string> = {
   r6: 'R6 new reference',
 };
 
-/** Payment screenshots that Buchi could not decide, with everything it checked. */
+/** Payment screenshots that Buchi could not decide, with everything it checked, then the history. */
 export default function PaymentReviewScreen() {
   const shopId = useShopId();
   const reviews = usePaymentReviews(shopId);
@@ -51,6 +52,7 @@ export default function PaymentReviewScreen() {
           )
         }
       </QueryView>
+      <PaymentDecisions shopId={shopId} />
     </div>
   );
 }

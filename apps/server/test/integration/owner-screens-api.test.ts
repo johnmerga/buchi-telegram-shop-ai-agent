@@ -5,6 +5,7 @@ import {
   conversationItemSchema,
   deliveryMapSchema,
   Money,
+  paymentDecisionItemSchema,
   paymentReviewItemSchema,
   paymentReviewResultSchema,
   productInputSchema,
@@ -270,7 +271,14 @@ beforeAll(async () => {
 
 describe('owner screens', () => {
   it('keeps every screen closed to someone who does not own the shop', async () => {
-    const paths = ['payment-reviews', 'conversations', 'ai-decisions', 'deliveries', 'zones'];
+    const paths = [
+      'payment-reviews',
+      'payment-decisions',
+      'conversations',
+      'ai-decisions',
+      'deliveries',
+      'zones',
+    ];
     for (const path of paths) {
       expect((await get(`/shops/${shopId}/${path}`, stranger)).status).toBe(403);
     }
@@ -374,6 +382,23 @@ describe('payment review', () => {
       error: { message: 'The item sold out after the order was closed' },
     });
     expect((await orders.get(shopId, orderId)).status).toBe('payment_rejected');
+  });
+
+  it('lists settled payments newest first, with who decided, and not the ones still waiting', async () => {
+    const res = await get(`/shops/${shopId}/payment-decisions`, owner);
+    const items = z.array(paymentDecisionItemSchema).parse(res.body);
+    expect(items.map((i) => [i.customerName, i.outcome, i.decidedBy])).toEqual([
+      ['Abel', 'rejected', 'owner'],
+      ['Link Customer', 'approved', 'buchi'],
+      ['Hana', 'approved', 'owner'],
+    ]);
+    expect(items.at(-1)).toMatchObject({
+      proofId,
+      amount: '3630.00',
+      provider: 'telebirr',
+      bankCheck: 'UNAVAILABLE',
+      reasons: ['bank_unavailable'],
+    });
   });
 
   it('finds no proof of another shop', async () => {

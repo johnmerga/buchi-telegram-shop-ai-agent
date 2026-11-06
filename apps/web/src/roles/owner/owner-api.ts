@@ -32,6 +32,8 @@ export const ownerKeys = {
   drivers: (shopId: string) => ['shops', shopId, 'drivers'] as const,
   delivery: (shopId: string) => ['shops', shopId, 'delivery'] as const,
   paymentReviews: (shopId: string) => ['shops', shopId, 'payment-reviews'] as const,
+  /** Under the review queue's key, so a decision or a live event reloads both. */
+  paymentDecisions: (shopId: string) => ['shops', shopId, 'payment-reviews', 'decisions'] as const,
   conversations: (shopId: string) => ['shops', shopId, 'conversations'] as const,
   aiDecisions: (shopId: string) => ['shops', shopId, 'ai-decisions'] as const,
   deliveries: (shopId: string) => ['shops', shopId, 'deliveries'] as const,

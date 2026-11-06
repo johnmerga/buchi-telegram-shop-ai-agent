@@ -13,6 +13,7 @@ const TOTAL_TOLERANCE = Money.of('1.00');
 
 const providers: Record<KnownLayout, ReceiptProvider> = {
   telebirr_app: 'telebirr',
+  telebirr_app_success: 'telebirr',
   telebirr_web: 'telebirr',
   cbe_app: 'cbe_bank',
   cbe_web: 'cbe_bank',
@@ -59,11 +60,11 @@ function dayOfYear(time: number): { year: number; day: number } {
 }
 
 /**
- * An amount as a receipt prints it, such as "-3,500.00 ETB" or "20 Birr". App screens print the
- * payer's debit with a minus sign, which says nothing about the amount itself.
+ * An amount as a receipt prints it, such as "-3,500.00 ETB", "-19.00 (ETB)", or "20 Birr". App
+ * screens print the payer's debit with a minus sign, which says nothing about the amount itself.
  */
 export function parsePrintedAmount(printed: string): Money | undefined {
-  const match = /^-?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d{1,2})?\s*(?:ETB|Birr|ብር)?$/i.exec(
+  const match = /^-?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d{1,2})?\s*(?:\(?(?:ETB|Birr|ብር)\)?)?$/i.exec(
     printed.trim(),
   );
   if (!match?.[1]) return undefined;
@@ -77,8 +78,11 @@ export function chargesAddUp(amount: Money, charges: Money[], total: Money): boo
   return difference.compare(TOTAL_TOLERANCE) < 0;
 }
 
+/** Detail screens and pages print "Completed", and the Telebirr app's payment screen "Successful". */
+const COMPLETED_STATUSES = ['completed', 'successful', 'success'];
+
 export function isCompleted(status: string): boolean {
-  return status.trim().toLowerCase() === 'completed';
+  return COMPLETED_STATUSES.includes(status.trim().toLowerCase());
 }
 
 interface LocalTime {
@@ -90,13 +94,23 @@ interface LocalTime {
   second: number;
 }
 
+const TELEBIRR_APP_TIME = /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
+
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
-/** Each layout's own date format. The Telebirr app prints year/day/month, such as "2026/06/11". */
+/**
+ * Each layout's own date format. The Telebirr app's "Transaction Detail" screen prints
+ * year/day/month, such as "2026/06/11" for 6 November, but its screen right after a payment prints
+ * year/month/day, such as "2026/11/07" for 7 November.
+ */
 const timeFormats: Record<KnownLayout, (printed: string) => LocalTime | undefined> = {
   telebirr_app: (printed) => {
-    const m = /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(printed);
+    const m = TELEBIRR_APP_TIME.exec(printed);
     return m ? local(m[1], m[3], m[2], m[4], m[5], m[6]) : undefined;
+  },
+  telebirr_app_success: (printed) => {
+    const m = TELEBIRR_APP_TIME.exec(printed);
+    return m ? local(m[1], m[2], m[3], m[4], m[5], m[6]) : undefined;
   },
   telebirr_web: (printed) => {
     const m = /^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(printed);

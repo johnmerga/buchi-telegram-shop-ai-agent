@@ -70,7 +70,7 @@ describe("R4: the shop's account", () => {
   });
 
   it('fails when the provider has no account in the shop', () => {
-    expect(matchingAccount(receipt({ provider: 'cbe_birr' }), accounts)).toBeUndefined();
+    expect(matchingAccount(receipt(), accounts.slice(1))).toBeUndefined();
   });
 });
 

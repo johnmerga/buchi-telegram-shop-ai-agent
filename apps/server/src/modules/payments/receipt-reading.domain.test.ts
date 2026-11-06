@@ -66,6 +66,30 @@ describe('interpretReceipt', () => {
     });
   });
 
+  it("reads the Telebirr app's payment screen as year/month/day with the fee in its amount", () => {
+    const success = {
+      ...telebirrApp,
+      layout: { value: 'telebirr_app_success' as const, confidence: 0.9 },
+      amount: sure('-19.00 (ETB)'),
+      serviceCharge: none,
+      paidAt: sure('2026/11/07 01:54:27'),
+      receiverName: sure('MERON'),
+      status: none,
+    };
+    expect(interpretReceipt(success, 0.9)).toMatchObject({
+      status: 'read',
+      receipt: {
+        provider: 'telebirr',
+        amount: Money.of('19'),
+        receiverFirstNameOnly: true,
+        paidAt: new Date('2026-11-06T22:54:27Z'),
+      },
+    });
+    expect(interpretReceipt({ ...success, status: sure('Successful') }, 0.9)).toMatchObject({
+      status: 'read',
+    });
+  });
+
   it('asks again when the image or the layout is unsure', () => {
     expect(interpretReceipt(cbeWeb, 0.6)).toEqual({ status: 'unreadable' });
     const unsure = { ...cbeWeb, layout: { value: 'cbe_web' as const, confidence: 0.5 } };

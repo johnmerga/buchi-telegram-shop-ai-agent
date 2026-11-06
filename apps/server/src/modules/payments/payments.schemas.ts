@@ -12,6 +12,7 @@ export type ImageClassification = z.infer<typeof imageClassificationSchema>;
 /** The receipt layouts Buchi knows. Code reads each one's date and reference formats. */
 export const receiptLayouts = [
   'telebirr_app',
+  'telebirr_app_success',
   'telebirr_web',
   'cbe_app',
   'cbe_web',

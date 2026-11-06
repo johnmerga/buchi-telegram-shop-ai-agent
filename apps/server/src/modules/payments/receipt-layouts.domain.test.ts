@@ -19,6 +19,13 @@ describe('parsePrintedTime', () => {
     );
   });
 
+  it("reads the Telebirr app's payment screen time as year/month/day", () => {
+    expect(parsePrintedTime('telebirr_app_success', '2026/11/07 01:54:27')).toEqual(
+      new Date('2026-11-06T22:54:27Z'),
+    );
+    expect(parsePrintedTime('telebirr_app_success', '2026/31/10 01:54:27')).toBeUndefined();
+  });
+
   it('reads the Telebirr web receipt time as day-month-year', () => {
     expect(parsePrintedTime('telebirr_web', '06-11-2026 11:20:04')).toEqual(
       utc('2026-11-06T08:20:04Z'),
@@ -59,6 +66,7 @@ describe('parsePrintedAmount', () => {
   it('reads debits, thousands commas, and both currency words', () => {
     expect(parsePrintedAmount('-3,500.00 ETB')?.toString()).toBe('3500.00');
     expect(parsePrintedAmount('20 Birr')?.toString()).toBe('20.00');
+    expect(parsePrintedAmount('-19.00 (ETB)')?.toString()).toBe('19.00');
     expect(parsePrintedAmount('1000.61')?.toString()).toBe('1000.61');
     expect(parsePrintedAmount('1,234,567.5 ETB')?.toString()).toBe('1234567.50');
   });
@@ -134,6 +142,8 @@ describe('providerOf and isCompleted', () => {
 
   it('reads the printed status in any case', () => {
     expect(isCompleted('COMPLETED')).toBe(true);
+    expect(isCompleted('Successful')).toBe(true);
+    expect(isCompleted('success')).toBe(true);
     expect(isCompleted('Pending')).toBe(false);
   });
 });

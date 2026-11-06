@@ -1,4 +1,4 @@
-import { Money, type MoneyString, type PaymentProvider } from '@buchi/shared';
+import { Money, type MoneyString } from '@buchi/shared';
 import type { PrintedReceiver } from '../../shared/accounts';
 import { decide, type Decision, type RuleResults } from './payments.decision.domain';
 import type { PrintedField, ReceiptExtraction } from './payments.schemas';
@@ -10,16 +10,24 @@ import {
   parsePrintedTime,
   parseReference,
   providerOf,
+  type KnownLayout,
   type ReceiptProvider,
 } from './receipt-layouts.domain';
 
 /** The design doc's threshold for R1. Below it, Buchi asks for a clearer screenshot. */
 const MIN_CONFIDENCE = 0.7;
 
+/** The Telebirr app's screens print only the receiver's first name. */
+const FIRST_NAME_ONLY: KnownLayout[] = ['telebirr_app', 'telebirr_app_success'];
+
 /** A receipt that code read: every field the later rules need is present and well formed. */
 export interface ReadReceipt {
-  provider: PaymentProvider;
+  provider: ReceiptProvider;
   txRef: string;
+  /**
+   * The Telebirr app's screen right after a payment prints the total with its charges, so it can
+   * be a little more than what the shop received. The bank's page shows the amount itself.
+   */
   amount: Money;
   receiver: PrintedReceiver;
   /** The Telebirr app prints only the receiver's first name, which R4 can only partly check. */
@@ -81,7 +89,7 @@ export function interpretReceipt(
   const totals = checkTotals(amount, extraction);
   if (totals !== 'pass') return implausible(totals);
 
-  const receiverFirstNameOnly = layout.value === 'telebirr_app';
+  const receiverFirstNameOnly = FIRST_NAME_ONLY.includes(layout.value);
   return {
     status: 'read',
     receipt: { provider, txRef, amount, receiver, receiverFirstNameOnly, paidAt },

@@ -110,6 +110,47 @@ function telebirrApp(r: {
   };
 }
 
+/** The Telebirr app's screen right after a payment, whose amount includes the fee. */
+function telebirrAppSuccess(r: {
+  total: string;
+  time: string;
+  number: string;
+  to: string;
+}): Receipt {
+  return {
+    width: 576,
+    height: 1000,
+    draw(ctx) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 576, 1000);
+      text(ctx, '1:54', 24, 34, { size: 20, bold: true });
+      text(ctx, 'Download', 52, 112, { size: 20, color: '#8dc63f' });
+      text(ctx, 'Share', 552, 112, { size: 20, color: '#8dc63f', align: 'right' });
+      ctx.fillStyle = '#8dc63f';
+      ctx.beginPath();
+      ctx.arc(288, 182, 38, 0, Math.PI * 2);
+      ctx.fill();
+      text(ctx, 'Successful', 288, 256, { size: 22, color: '#8dc63f', align: 'center' });
+      text(ctx, r.total, 330, 446, { size: 48, align: 'right' });
+      text(ctx, '(ETB)', 340, 444, { size: 18 });
+      box(ctx, 44, 530, 488, 2, '#dddddd');
+      const rows: Row[] = [
+        ['Transaction Time:', r.time],
+        ['Transaction Type:', 'Transfer Money'],
+        ['Transaction To:', r.to],
+        ['Transaction Number:', r.number],
+      ];
+      rows.forEach(([label, value], i) => {
+        const y = 568 + i * 50;
+        text(ctx, label, 46, y, { color: '#9a9a9a' });
+        text(ctx, value, 544, y, { align: 'right' });
+      });
+      box(ctx, 154, 890, 260, 60, '#8dc63f');
+      text(ctx, 'Finished', 284, 928, { size: 22, color: '#ffffff', align: 'center' });
+    },
+  };
+}
+
 /** Ethio telecom's telebirr receipt page, as a customer's screenshot of it. */
 function telebirrWeb(r: {
   payer: string;
@@ -395,7 +436,22 @@ const cases: Case[] = [
     expected: {
       layout: 'telebirr_app',
       fields: fields('HB7Q2WD9LM', '500.00', '2026-11-05T06:05:44.000Z', 'Liya'),
-      decision: 'review:underpaid_unconfirmed',
+      decision: 'ask_full_amount',
+    },
+  },
+  {
+    id: 'telebirr-app-payment-screen',
+    receipt: telebirrAppSuccess({
+      total: '-726.00',
+      time: '2026/11/05 16:08:51',
+      number: 'RT58WMC2QJ',
+      to: 'LIYA',
+    }),
+    input: order('725.00', '2026-11-05T12:59:00Z'),
+    expected: {
+      layout: 'telebirr_app_success',
+      fields: fields('RT58WMC2QJ', '726.00', '2026-11-05T13:08:51.000Z', 'LIYA'),
+      decision: 'review:receiver_unconfirmed',
     },
   },
   {

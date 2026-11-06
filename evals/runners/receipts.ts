@@ -73,7 +73,7 @@ interface Actual {
 }
 
 /**
- * The receipt reader on synthetic screenshots of the five known layouts, edited copies, and an
+ * The receipt reader on synthetic screenshots of the six known layouts, edited copies, and an
  * unknown layout: the model copies the text, code reads it, and the rules decide offline, as
  * when the bank's page is unavailable.
  */

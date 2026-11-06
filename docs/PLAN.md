@@ -303,6 +303,9 @@ trace is stored, and the evaluation runner replays a recorded conversation.
   window, a daily budget that resets at midnight Pacific time (as Gemini's does), and priorities; retries with backoff; a fake client for tests.
 - **Acceptance:** when the budget is spent, low-priority calls fail fast with `QUOTA_EXHAUSTED`
   while payment checks still run.
+- **Built as:** a 429 waits the `RetryInfo` delay Google sends when it is at most 10 s for payment
+  and customer calls, or 20 s for operations and owner calls. A longer delay or a spent daily quota
+  fails at once. Every attempt takes quota.
 
 ### 2.2 Tool registry and actor scoping
 

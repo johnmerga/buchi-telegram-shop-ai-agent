@@ -1,4 +1,4 @@
-import { Money, type BankCheck, type PaymentAccount } from '@buchi/shared';
+import { Money, type BankCheck } from '@buchi/shared';
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import type { BankReceipts } from '../../integrations/receipts/bank-receipts';
@@ -91,7 +91,7 @@ export class PaymentVerification {
     private readonly proofs: PaymentProofsRepo,
     private readonly refs: PaymentRefsRepo,
     private readonly reader: Pick<ReceiptReader, 'extract'>,
-    private readonly bank: Pick<BankReceipts, 'check'>,
+    private readonly bank: Pick<BankReceipts, 'read'>,
     private readonly risk: RiskService,
     private readonly orders: OrderService,
     private readonly shops: Pick<ShopsService, 'get'>,
@@ -158,24 +158,62 @@ export class PaymentVerification {
     const read = await this.read(received);
     const none = { rules: null, receipt: undefined, bank: null, claimed: undefined };
     if (!read) return { ...none, extraction: undefined, decision: review('extraction_failed') };
-    const { extraction, reading } = read;
+    const { extraction } = read;
     const earlier = await withShop(this.db, order.shopId, (tx) =>
       this.proofs.forOrder(tx, order.id),
     );
+    const { reading, bank } = await this.withBank(order, received, read.reading);
     if (reading.status === 'read') {
-      const checked = await this.checkRules(order, reading.receipt, earlier, received, payer);
+      const checked = await this.checkRules(order, reading.receipt, earlier, bank, payer);
       return { extraction, ...checked };
     }
     const earlierUnreadable = earlier.filter((p) => p.decision === 'ask_clearer').length;
     return { ...none, extraction, ...decideUnread(reading, earlierUnreadable) };
   }
 
-  /** Rules R3 to R6 and the bank check, for a receipt that code could read. */
+  /**
+   * What the bank says about a receipt. A bank page that a link opened is the bank's own record,
+   * so it confirms itself.
+   */
+  private async withBank(
+    order: OrderRow,
+    received: ReceivedProof,
+    reading: Reading,
+  ): Promise<{ reading: Reading; bank: BankCheck | null }> {
+    if (received.kind === 'bank_page') return { reading, bank: 'CONFIRMED' };
+    return reading.status === 'read'
+      ? this.lookUp(order, reading.receipt)
+      : { reading, bank: null };
+  }
+
+  /**
+   * Looks a screenshot up on the bank's own page, which then stands in for the screenshot: its
+   * amount, full receiver, and time are the bank's record. A screenshot whose first name or
+   * account is not the shop's is rejected by R4 without a lookup. A page whose receiver is not the
+   * shop's account contradicts the screenshot.
+   */
+  private async lookUp(
+    order: OrderRow,
+    screenshot: ReadReceipt,
+  ): Promise<{ reading: Reading; bank: BankCheck | null }> {
+    const { paymentAccounts } = await this.shops.get(order.shopId);
+    const account = matchingAccount(screenshot, paymentAccounts);
+    const asPrinted = { status: 'read', receipt: screenshot } as const;
+    if (!account) return { reading: asPrinted, bank: null };
+    const page = await this.bank.read(screenshot.provider, screenshot.txRef, account.accountNumber);
+    if (typeof page === 'string') return { reading: asPrinted, bank: page };
+    const reading = readBankPage(screenshot.provider, page);
+    if (reading.status !== 'read') return { reading, bank: null };
+    const sameReceiver = matchingAccount(reading.receipt, [account]) !== undefined;
+    return { reading, bank: sameReceiver ? 'CONFIRMED' : 'MISMATCH' };
+  }
+
+  /** Rules R3 to R6 for a receipt that code could read, with what the bank's page said. */
   private async checkRules(
     order: OrderRow,
     receipt: ReadReceipt,
     earlier: PaymentProofRow[],
-    received: ReceivedProof,
+    bank: BankCheck | null,
     payer: Payer,
   ): Promise<Omit<Evaluation, 'extraction'>> {
     const { paymentAccounts } = await this.shops.get(order.shopId);
@@ -190,15 +228,10 @@ export class PaymentVerification {
       r5: checkTime(receipt.paidAt, order.createdAt),
       r6: checkReference(holder, order.id),
     };
-    // The bank's own page is the receipt, so it confirms itself. Without a matching account there
-    // is nothing to look up, and R4 rejects the receipt anyway.
-    const bank =
-      received.kind === 'bank_page'
-        ? 'CONFIRMED'
-        : account && (await this.checkBank(receipt, account));
     const decision = decide({
       stage: 'checked',
       rules,
+      // Without a matching account there is nothing to look up, and R4 rejects the receipt anyway.
       bank: bank ?? 'UNAVAILABLE',
       paid: receipt.amount,
       due,
@@ -206,15 +239,7 @@ export class PaymentVerification {
       receiverFirstNameOnly: receipt.receiverFirstNameOnly,
     });
     const claimed = rules.r6 === 'pass' ? receipt : undefined;
-    return { decision, rules, receipt, bank: bank ?? null, claimed };
-  }
-
-  private checkBank(receipt: ReadReceipt, account: PaymentAccount): Promise<BankCheck> {
-    return this.bank.check(receipt.provider, {
-      txRef: receipt.txRef,
-      amount: receipt.amount.toString(),
-      account,
-    });
+    return { decision, rules, receipt, bank, claimed };
   }
 
   /** Moves the order on and tells the owners. The customer's reply is the caller's job. */
@@ -280,6 +305,14 @@ export class PaymentVerification {
       }
       case 'ask_difference':
         await this.orders.awaitPaymentAgain(shopId, orderId, 'Partial payment', this.holdUntil());
+        return;
+      case 'ask_full_amount':
+        await this.orders.awaitPaymentAgain(
+          shopId,
+          orderId,
+          'Receipt below the total',
+          this.holdUntil(),
+        );
         return;
       case 'ask_clearer':
         await this.orders.awaitPaymentAgain(

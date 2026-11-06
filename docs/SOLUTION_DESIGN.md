@@ -302,14 +302,16 @@ When a customer sends a screenshot, Buchi checks it in four layers:
 
 1. **Extraction.** Gemini Vision names the receipt's layout and copies its fields exactly as
    printed, with a confidence score for each field: transaction reference, amount, charges, total,
-   receiver, payer, time, and status. Buchi knows five layouts: the Telebirr app's transaction
-   detail, the Telebirr web receipt, the CBE app's transaction sheet, the CBE web receipt, and the
+   receiver, payer, time, and status. Buchi knows six layouts: the Telebirr app's transaction
+   detail and its screen right after a payment, the Telebirr web receipt, the CBE app's transaction sheet, the CBE web receipt, and the
    legacy CBE PDF. Any other receipt is `unknown`. The model never converts a value.
 2. **Rules.** Deterministic code reads each layout's own date, amount, and reference formats, for
-   example the Telebirr app's year/day/month dates, and runs checks R1 to R6 from the following
-   table. A known layout with a field that does not parse goes to owner review.
-3. **Bank check.** The backend fetches the public Telebirr or CBE receipt page for the transaction
-   reference and compares it with the screenshot. These pages are not official APIs, so Buchi treats
+   example the year/day/month dates of the Telebirr app's transaction detail, and runs checks R1
+   to R6 from the following table. A known layout with a field that does not parse goes to owner review.
+3. **Bank check.** When the receiver matches, the backend fetches the public Telebirr or CBE
+   receipt page for the transaction reference. The page then stands in for the screenshot: R3 to
+   R6 run on its amount, full receiver, and time, so the fee that the Telebirr payment screen
+   includes does not count, and an edited screenshot cannot pass. These pages are not official APIs, so Buchi treats
    the result as extra evidence and never depends on it. The Telebirr page may block servers
    outside Ethiopia, the legacy CBE host is often down, and CBE Birr's page needs the payer's
    phone number, so `UNAVAILABLE` is a normal result.
@@ -319,7 +321,7 @@ When a customer sends a screenshot, Buchi checks it in four layers:
 | --- | --- | --- |
 | R1 | The image is a payment receipt, with confidence of at least 0.7. | Ask for a clearer screenshot. After a second failure, send it to owner review. |
 | R2 | The receipt is one of the known Telebirr or CBE layouts. | Send to owner review. |
-| R3 | The amount equals the order total, including the delivery fee. | Ask for the difference. Send overpayments to owner review. |
+| R3 | The amount equals the order total, including the delivery fee. | Ask for the difference when the bank page confirms the payment; otherwise tell the customer the receipt is below the total. Send overpayments to owner review. |
 | R4 | The receiver matches one of the shop's accounts. | Reject. |
 | R5 | The transaction time is after the order time, with five minutes of tolerance. | Reject, because an older receipt indicates reuse. |
 | R6 | The transaction reference has never been used for another order at any Buchi shop. | Reject with "already used for another order". |
@@ -327,7 +329,7 @@ When a customer sends a screenshot, Buchi checks it in four layers:
 Code also checks that the fields agree with each other. A CBE reference such as `FT26310…` carries
 the year and the day of the year it posted, which is the payment's date or, for an evening
 payment, the next day. The amount and charges must add up to the printed total, and the status
-must be Completed. A receipt that fails one of these goes to owner review. The Telebirr app shows
+must be Completed or Successful. A receipt that fails one of these goes to owner review. The Telebirr app shows
 only the receiver's first name, so R4 can match only that, and such a payment needs the bank page
 to approve automatically.
 
@@ -591,7 +593,7 @@ An evaluation suite runs in GitHub Actions on every push:
 
 | Set | Size | Measures |
 | --- | --- | --- |
-| Synthetic receipt screenshots of the five layouts, plus edited copies and an unknown layout | 15 | Field accuracy and decision accuracy |
+| Synthetic receipt screenshots of the six layouts, plus edited copies and an unknown layout | 16 | Field accuracy and decision accuracy |
 | Sales conversations in Amharic and English, including negotiation | About 60 | Correct tool calls. Zero prices outside the owner's range, and zero discounts on fixed-price products. |
 | Adversarial messages, such as prompt injection and false claims | About 30 | Zero actions outside the limits |
 | Product photos | About 30 | The right product in the top three |

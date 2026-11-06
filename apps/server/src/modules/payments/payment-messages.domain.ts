@@ -25,7 +25,6 @@ const reviewReasons: Record<ReviewReason, string> = {
   receiver_unconfirmed:
     "The receipt shows only the receiver's first name, and the bank's page was unavailable.",
   overpaid: 'The customer paid more than the total.',
-  underpaid_unconfirmed: 'The customer paid less than the total, and the bank did not confirm it.',
   bank_not_found: "The bank's receipt page does not show this transaction.",
   over_limit: "The bank's page was unavailable, and the amount is above the automatic limit.",
   high_risk: "The bank's page was unavailable, and this payer had payment problems before.",
@@ -53,6 +52,8 @@ export function customerMessage(decision: Decision, orderId: string): string {
       return `🔎 እናመሰግናለን / Thank you! The shop is checking your payment for order ${reference} and will confirm it here soon.`;
     case 'ask_difference':
       return `እናመሰግናለን / Thank you! ${formatBirr(decision.missing.toString())} is still missing for order ${reference}. Please pay the rest to the same account and send that screenshot here.`;
+    case 'ask_full_amount':
+      return `ይቅርታ / Sorry, this receipt shows ${formatBirr(decision.paid.toString())}, less than the ${formatBirr(decision.due.toString())} due for order ${reference}. Please send the receipt for the full amount here.`;
     case 'ask_clearer':
       return 'ይቅርታ / Sorry, we could not read the screenshot. Please send a clear screenshot of the whole receipt.';
   }

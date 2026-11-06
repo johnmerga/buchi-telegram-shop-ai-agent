@@ -23,6 +23,7 @@ export const paymentDecision = pgEnum('payment_decision', [
   'reject',
   'review',
   'ask_difference',
+  'ask_full_amount',
   'ask_clearer',
 ]);
 

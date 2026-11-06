@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BankReceipts } from './bank-receipts';
 import { parseTelebirrReceipt, TelebirrReceipts } from './telebirr';
 
 const page = readFileSync(
@@ -8,12 +7,6 @@ const page = readFileSync(
   'utf8',
 );
 const notFound = '<html><body><div>This request is not correct</div></body></html>';
-
-const claim = {
-  txRef: 'dg92ot8yde',
-  amount: '4500.00',
-  account: { accountName: 'Selam Tesfaye', accountNumber: '0911234567' },
-};
 
 const serving =
   (body: string, status = 200) =>
@@ -52,17 +45,11 @@ describe('TelebirrReceipts', () => {
     expect(urls).toEqual(['https://transactioninfo.ethiotelecom.et/receipt/DG92OT8YDE']);
   });
 
-  it('confirms a matching claim and finds a mismatch in the amount, receiver, or status', async () => {
-    const bank = (body: string) =>
-      new BankReceipts({ telebirr: new TelebirrReceipts(serving(body)) });
-    expect(await bank(page).check('telebirr', claim)).toBe('CONFIRMED');
-    expect(await bank(page).check('telebirr', { ...claim, amount: '5400.00' })).toBe('MISMATCH');
-    const otherAccount = { accountName: 'Selam Tesfaye', accountNumber: '0911239999' };
-    expect(await bank(page).check('telebirr', { ...claim, account: otherAccount })).toBe(
-      'MISMATCH',
-    );
+  it('reads a failed transaction as not completed', async () => {
     const failed = page.replace('>Completed<', '>Failed<');
-    expect(await bank(failed).check('telebirr', claim)).toBe('MISMATCH');
+    expect(await new TelebirrReceipts(serving(failed)).read('DG92OT8YDE')).toMatchObject({
+      completed: false,
+    });
   });
 
   it('reports an unknown transaction, without a lookup for an impossible reference', async () => {

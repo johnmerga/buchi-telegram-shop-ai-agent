@@ -84,13 +84,17 @@ describe('the decision matrix', () => {
     expect(decision).toEqual({ outcome: 'ask_difference', missing: Money.of('600') });
   });
 
-  it('sends an underpayment without bank confirmation to the owner', () => {
-    for (const bank of ['NOT_FOUND', 'UNAVAILABLE'] as const) {
-      expect(checked({ rules: { ...allPass, r3: 'underpaid' }, bank })).toEqual({
-        outcome: 'review',
-        reason: 'underpaid_unconfirmed',
-      });
-    }
+  it('tells the customer an unconfirmed underpayment is short, without counting it', () => {
+    const underpaid = { rules: { ...allPass, r3: 'underpaid' as const }, due: Money.of('1500') };
+    expect(checked({ ...underpaid, bank: 'UNAVAILABLE' })).toEqual({
+      outcome: 'ask_full_amount',
+      paid: Money.of('900'),
+      due: Money.of('1500'),
+    });
+    expect(checked({ ...underpaid, bank: 'NOT_FOUND' })).toEqual({
+      outcome: 'review',
+      reason: 'bank_not_found',
+    });
   });
 
   it('sends an overpayment to the owner', () => {
@@ -132,6 +136,14 @@ describe('the decision matrix', () => {
     expect(checked({ receiverFirstNameOnly: true })).toEqual({
       outcome: 'approve',
       bankVerified: true,
+    });
+  });
+
+  it('checks the receiver before the amount of a payment screen that includes the fee', () => {
+    const withFee = { rules: { ...allPass, r3: 'overpaid' as const }, receiverFirstNameOnly: true };
+    expect(checked({ ...withFee, bank: 'UNAVAILABLE' })).toEqual({
+      outcome: 'review',
+      reason: 'receiver_unconfirmed',
     });
   });
 });

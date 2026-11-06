@@ -1,0 +1,1 @@
+ALTER TYPE "public"."payment_decision" ADD VALUE 'ask_full_amount' BEFORE 'ask_clearer';

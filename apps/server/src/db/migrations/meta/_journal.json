@@ -197,6 +197,13 @@
       "when": 1794002690508,
       "tag": "0027_receipt_links",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1794007962254,
+      "tag": "0028_payment_ask_full_amount",
+      "breakpoints": true
     }
   ]
 }

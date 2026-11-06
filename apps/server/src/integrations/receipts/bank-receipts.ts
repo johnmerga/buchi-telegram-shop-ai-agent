@@ -1,10 +1,5 @@
-import type { BankCheck, PaymentProvider } from '@buchi/shared';
-import {
-  compareReceipt,
-  type PageReading,
-  type ReceiptClaim,
-  type ReceiptClient,
-} from './receipt-check';
+import type { PaymentProvider } from '@buchi/shared';
+import type { PageReading, ReceiptClient } from './receipt-check';
 
 /**
  * Picks the receipt page for a provider. CBE Birr has no page that works from a transaction
@@ -13,13 +8,7 @@ import {
 export class BankReceipts {
   constructor(private readonly clients: Partial<Record<PaymentProvider, ReceiptClient>>) {}
 
-  /** Compares what a screenshot claims with the bank's own page. */
-  async check(provider: PaymentProvider, claim: ReceiptClaim): Promise<BankCheck> {
-    const page = await this.read(provider, claim.txRef, claim.account.accountNumber);
-    return typeof page === 'string' ? page : compareReceipt(page, claim);
-  }
-
-  /** The bank's own page for a reference, such as one that a customer's link names. */
+  /** The bank's own page for a reference from a screenshot or a customer's link. */
   read(
     provider: PaymentProvider,
     txRef: string,

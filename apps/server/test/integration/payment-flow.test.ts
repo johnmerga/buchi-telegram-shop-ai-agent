@@ -1,8 +1,8 @@
-import { productInputSchema, type BankCheck } from '@buchi/shared';
+import { productInputSchema } from '@buchi/shared';
 import { Api } from 'grammy';
 import type { Chat, Update, User } from 'grammy/types';
 import { pino } from 'pino';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { connectDatabase } from '../../src/db/client';
 import { CatalogRepo } from '../../src/modules/catalog/catalog.repo';
 import { CatalogService } from '../../src/modules/catalog/catalog.service';
@@ -30,7 +30,7 @@ import { PaymentVerification } from '../../src/modules/payments/payment-verifica
 import { createPaymentHandlers } from '../../src/modules/payments/payments.handlers';
 import { ReceiptLinks } from '../../src/modules/payments/receipt-links.service';
 import { ReceiptReader } from '../../src/modules/payments/receipt-reader.service';
-import type { PageReading } from '../../src/integrations/receipts/receipt-check';
+import type { BankReceipt, PageReading } from '../../src/integrations/receipts/receipt-check';
 import { RiskSignalsRepo } from '../../src/modules/payments/risk-signals.repo';
 import { RiskService } from '../../src/modules/payments/risk.service';
 import { ShopsRepo } from '../../src/modules/shops/shops.repo';
@@ -108,13 +108,13 @@ const checkout = new CheckoutService(
 
 /** The model's answers, in order. Each test adds the turns it needs. */
 const script: ScriptedTurn[] = [];
-/** What the fake bank page says next. */
-let bankSays: BankCheck = 'CONFIRMED';
-/** The fake Telebirr receipt page that a customer's link opens. */
-let telebirrPage: PageReading = 'UNAVAILABLE';
+/** The fake Telebirr receipt pages, by transaction number. */
+const telebirrPages = new Map<string, BankReceipt>();
+/** Whether the fake receipt pages answer at all. */
+let bankUp = true;
 const bank = {
-  check: () => Promise.resolve(bankSays),
-  read: () => Promise.resolve(telebirrPage),
+  read: (_provider: string, txRef: string): Promise<PageReading> =>
+    Promise.resolve(bankUp ? (telebirrPages.get(txRef) ?? 'NOT_FOUND') : 'UNAVAILABLE'),
 };
 
 interface Call {
@@ -272,7 +272,7 @@ async function setUpShop(
       shop.id,
       productInputSchema.parse({ title: `Shoes ${price}`, pricingMode: 'fixed', price }),
     );
-    await catalog.setVariants(shop.id, product.id, [{ size: '42', color: null, stock: 10 }]);
+    await catalog.setVariants(shop.id, product.id, [{ size: '42', color: null, stock: 20 }]);
     const listed = (await catalog.listProducts(shop.id)).find((p) => p.id === product.id);
     shop[key] = listed?.variants[0]?.id ?? '';
   }
@@ -299,14 +299,19 @@ function receiptTime(minutesFromNow: number): string {
 const sure = <T>(value: T) => ({ value, confidence: 0.95 });
 const absent = sure(null);
 
-/** The model classifies the photo as a receipt and reads these fields from it. */
+/**
+ * The model classifies the photo as a receipt and reads these fields from it. The bank's page
+ * shows the same receipt unless `onBank` is false.
+ */
 function receiptScript(fields: {
   ref: string;
   amount: string;
   receiver: string;
   account: string;
   paidAt?: string;
+  onBank?: boolean;
 }) {
+  const paidAt = fields.paidAt ?? receiptTime(1);
   script.push(
     { text: JSON.stringify({ kind: 'receipt', confidence: 0.97 }) },
     {
@@ -317,12 +322,48 @@ function receiptScript(fields: {
         serviceCharge: absent,
         vat: absent,
         totalAmount: absent,
-        paidAt: sure(fields.paidAt ?? receiptTime(1)),
+        paidAt: sure(paidAt),
         receiverName: sure(fields.receiver),
         receiverAccount: sure(fields.account),
         payerName: absent,
         payerAccount: absent,
         status: sure('Completed'),
+      }),
+    },
+  );
+  if (fields.onBank === false) return;
+  telebirrPages.set(fields.ref, {
+    txRef: fields.ref,
+    amount: fields.amount,
+    receiver: { name: fields.receiver, account: fields.account },
+    completed: true,
+    paidAt,
+  });
+}
+
+/**
+ * The Telebirr app's screen right after a payment: its amount includes the fee, and it prints the
+ * receiver's first name only and the time as year/month/day.
+ */
+function paymentScreenScript(fields: { ref: string; total: string; firstName: string }) {
+  const [day = '', time = ''] = receiptTime(1).split(' ');
+  const [dd, mm, yyyy] = day.split('-');
+  script.push(
+    { text: JSON.stringify({ kind: 'receipt', confidence: 0.97 }) },
+    {
+      text: JSON.stringify({
+        layout: sure('telebirr_app_success'),
+        transactionRef: sure(fields.ref),
+        amount: sure(`-${fields.total} (ETB)`),
+        serviceCharge: absent,
+        vat: absent,
+        totalAmount: absent,
+        paidAt: sure(`${yyyy ?? ''}/${mm ?? ''}/${dd ?? ''} ${time}`),
+        receiverName: sure(fields.firstName),
+        receiverAccount: absent,
+        payerName: absent,
+        payerAccount: absent,
+        status: absent,
       }),
     },
   );
@@ -344,20 +385,23 @@ beforeAll(async () => {
   await setUpShop(shopB, ownerB, { accountName: 'Abel Girma', accountNumber: '0922000000' });
 });
 
+beforeEach(() => {
+  bankUp = true;
+});
+
 describe('a payment screenshot', () => {
   const hana = userOf(424301, 'Hana');
 
   it('pays the order when the rules pass and the bank confirms, and tells both sides', async () => {
     const orderId = await order(hana, shopA.id, shopA.bigVariant);
     receiptScript({ ref: 'DG92OT8YDE', amount: '4500', ...toShopA });
-    bankSays = 'CONFIRMED';
 
     await bot.handleUpdate(photo(hana));
 
     expect(await statusOf(shopA.id, orderId)).toBe('paid');
     const variants = (await catalog.listProducts(shopA.id)).flatMap((p) => p.variants);
     expect(variants.find((v) => v.id === shopA.bigVariant)).toMatchObject({
-      stock: 9,
+      stock: 19,
       reserved: 0,
     });
     expect(lastTo(hana.id)?.text).toContain('Payment received for order');
@@ -403,12 +447,54 @@ describe('a payment screenshot', () => {
     const meron = userOf(424304, 'Meron');
     const orderId = await order(meron, shopA.id, shopA.smallVariant);
     receiptScript({ ref: 'CCCC333333', amount: '800', ...toShopA });
-    bankSays = 'UNAVAILABLE';
+    bankUp = false;
 
     await bot.handleUpdate(photo(meron));
 
     expect(await statusOf(shopA.id, orderId)).toBe('paid');
     expect(lastTo(ownerA)?.text).toContain('not bank-verified');
+  });
+
+  it("pays from the bank page's settled amount when the payment screen includes the fee", async () => {
+    const eden = userOf(424316, 'Eden');
+    const orderId = await order(eden, shopA.id, shopA.smallVariant);
+    paymentScreenScript({ ref: 'KKKK121212', total: '801.00', firstName: 'SELAM' });
+    telebirrPages.set('KKKK121212', {
+      txRef: 'KKKK121212',
+      amount: '800',
+      receiver: { name: 'SELAM TESFAYE ALEMU', account: toShopA.account },
+      completed: true,
+      paidAt: receiptTime(1),
+    });
+
+    await bot.handleUpdate(photo(eden));
+
+    expect(await statusOf(shopA.id, orderId)).toBe('paid');
+    expect(lastTo(ownerA)?.text).toContain('bank-verified');
+  });
+
+  it('sends the payment screen to the owners when the bank page is unavailable', async () => {
+    const mahlet = userOf(424317, 'Mahlet');
+    const orderId = await order(mahlet, shopA.id, shopA.smallVariant);
+    paymentScreenScript({ ref: 'LLLL131313', total: '801.00', firstName: 'Selam' });
+    bankUp = false;
+
+    await bot.handleUpdate(photo(mahlet));
+
+    expect(await statusOf(shopA.id, orderId)).toBe('needs_review');
+    expect(lastTo(ownerA)?.text).toContain("shows only the receiver's first name");
+  });
+
+  it('tells the customer a short receipt is below the total, and keeps the order open', async () => {
+    const bethel = userOf(424318, 'Bethel');
+    const orderId = await order(bethel, shopA.id, shopA.smallVariant);
+    paymentScreenScript({ ref: 'MMMM141414', total: '500.00', firstName: 'Selam' });
+    bankUp = false;
+
+    await bot.handleUpdate(photo(bethel));
+
+    expect(await statusOf(shopA.id, orderId)).toBe('awaiting_payment');
+    expect(lastTo(bethel.id)?.text).toContain('shows 500.00 ብር, less than the 800.00 ብር due');
   });
 
   it('answers a product photo without touching the order', async () => {
@@ -427,13 +513,13 @@ describe('a receipt link', () => {
   it('pays the order from the Telebirr page that the link opens, without the model', async () => {
     const selam = userOf(424321, 'Selamawit');
     const orderId = await order(selam, shopA.id, shopA.smallVariant);
-    telebirrPage = {
+    telebirrPages.set('LINK123456', {
       txRef: 'LINK123456',
       amount: '800',
       receiver: { name: toShopA.receiver, account: toShopA.account },
       completed: true,
       paidAt: receiptTime(1),
-    };
+    });
     const modelCalls = model.requests.length;
 
     await bot.handleUpdate(
@@ -458,13 +544,13 @@ describe('a receipt link', () => {
   it('closes the order on a rejected link, whose Report a problem reaches the owners', async () => {
     const mekdes = userOf(424323, 'Mekdes');
     const orderId = await order(mekdes, shopA.id, shopA.smallVariant);
-    telebirrPage = {
+    telebirrPages.set('LINK654321', {
       txRef: 'LINK654321',
       amount: '800',
       receiver: { name: toShopA.receiver, account: toShopA.account },
       completed: true,
       paidAt: receiptTime(-60),
-    };
+    });
     const link = 'https://transactioninfo.ethiotelecom.et/receipt/LINK654321';
 
     await bot.handleUpdate(textMessage(mekdes, link));
@@ -542,7 +628,7 @@ describe('owner review', () => {
 
     const orderId = await order(kebede, shopA.id, shopA.smallVariant);
     receiptScript({ ref: 'FFFF666666', amount: '800', ...toShopA });
-    bankSays = 'UNAVAILABLE';
+    bankUp = false;
     await bot.handleUpdate(photo(kebede));
 
     expect(await statusOf(shopA.id, orderId)).toBe('needs_review');
@@ -552,8 +638,7 @@ describe('owner review', () => {
   it('closes the order when the owner rejects it, and frees its stock and reference', async () => {
     const tigist = userOf(424308, 'Tigist');
     const orderId = await order(tigist, shopA.id, shopA.bigVariant);
-    receiptScript({ ref: 'GGGG777777', amount: '4500', ...toShopA });
-    bankSays = 'NOT_FOUND';
+    receiptScript({ ref: 'GGGG777777', amount: '4500', ...toShopA, onBank: false });
     await bot.handleUpdate(photo(tigist));
     const markup = JSON.stringify(lastTo(ownerA)?.payload.reply_markup);
     const reject = /payment:reject:[0-9a-f-]{36}/.exec(markup)?.[0] ?? '';

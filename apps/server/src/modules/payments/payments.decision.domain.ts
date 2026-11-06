@@ -42,7 +42,6 @@ export type ReviewReason =
   | 'unknown_layout'
   | 'receiver_unconfirmed'
   | 'overpaid'
-  | 'underpaid_unconfirmed'
   | 'bank_not_found'
   | 'over_limit'
   | 'high_risk';
@@ -52,6 +51,7 @@ export type Decision =
   | { outcome: 'reject'; reasons: RejectReason[] }
   | { outcome: 'review'; reason: ReviewReason }
   | { outcome: 'ask_difference'; missing: Money }
+  | { outcome: 'ask_full_amount'; paid: Money; due: Money }
   | { outcome: 'ask_clearer' };
 
 const review = (reason: ReviewReason): Decision => ({ outcome: 'review', reason });
@@ -79,13 +79,17 @@ function decideChecked(input: Extract<DecisionInput, { stage: 'checked' }>): Dec
   if (bank === 'MISMATCH') return { outcome: 'reject', reasons: [...rejected, 'bank_mismatch'] };
   if (rejected.length > 0) return { outcome: 'reject', reasons: rejected };
 
-  if (rules.r3 === 'overpaid') return review('overpaid');
-  if (rules.r3 === 'underpaid') {
-    // Asking for the rest accepts the partial payment, so only a bank-confirmed one counts.
+  if (rules.r3 === 'underpaid' && bank !== 'NOT_FOUND') {
+    // Asking for the rest accepts the partial payment, so only a bank-confirmed one counts. An
+    // unconfirmed one only tells the customer that the receipt shows less than the total.
     return bank === 'CONFIRMED'
       ? { outcome: 'ask_difference', missing: due.subtract(paid) }
-      : review('underpaid_unconfirmed');
+      : { outcome: 'ask_full_amount', paid, due };
   }
+  // The Telebirr app's payment screen includes the charges in its amount, so without the bank's
+  // page its receiver, not the higher amount, is what the owner must check.
+  if (bank === 'UNAVAILABLE' && receiverFirstNameOnly) return review('receiver_unconfirmed');
+  if (rules.r3 === 'overpaid') return review('overpaid');
 
   switch (bank) {
     case 'CONFIRMED':
@@ -93,7 +97,6 @@ function decideChecked(input: Extract<DecisionInput, { stage: 'checked' }>): Dec
     case 'NOT_FOUND':
       return review('bank_not_found');
     case 'UNAVAILABLE':
-      if (receiverFirstNameOnly) return review('receiver_unconfirmed');
       if (payerHighRisk) return review('high_risk');
       return paid.compare(AUTO_APPROVE_LIMIT) <= 0
         ? { outcome: 'approve', bankVerified: false }

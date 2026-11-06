@@ -368,17 +368,19 @@ including across two shops.
 - **Deliverables:** image classification (receipt, product, other) and structured extraction with a
   `zod` schema and per-field confidence.
 - **Acceptance:** malformed model output leads to owner review, never to approval.
-- **Built as:** the model only transcribes. `ai/prompts/receipts.ts` names five layouts by their
-  labels (Telebirr app, Telebirr web receipt, CBE app sheet, CBE web receipt, CBE PDF) and returns
+- **Built as:** the model only transcribes. `ai/prompts/receipts.ts` names six layouts by their
+  labels (Telebirr app detail, Telebirr app payment screen, Telebirr web receipt, CBE app sheet,
+  CBE web receipt, CBE PDF) and returns
   the `layout`, or `unknown`, with each field copied as printed. `receipt-layouts.domain.ts` reads
-  each layout's date format in Addis Ababa time (the Telebirr app prints year/day/month), amounts
+  each layout's date format in Addis Ababa time (the Telebirr app's detail prints year/day/month,
+  its payment screen year/month/day), amounts
   with signs, commas, and currency words, and each provider's reference format.
   `receipt-reading.domain.ts` asks for a clearer screenshot when a needed field is missing or
   unsure, and sends to the owner an unknown layout, a confident field that does not parse, a status
-  other than Completed, a CBE reference whose day of the year is neither the printed date nor the
+  other than Completed or Successful, a CBE reference whose day of the year is neither the printed date nor the
   next day, and an amount whose charges do not add up to the printed total. The Telebirr app shows
   only the receiver's first name, so its payments need the bank page to approve automatically. The
-  `receipts` eval suite reads 15 synthetic screenshots that `evals/scripts/receipt-images.ts` draws.
+  `receipts` eval suite reads 16 synthetic screenshots that `evals/scripts/receipt-images.ts` draws.
 
 ### 3.2 Rules R1 to R6
 
@@ -408,7 +410,9 @@ including across two shops.
 - **Built as:** `modules/payments/`. R1 checks readability: classification and every key field need
   confidence of at least 0.7. An R6 claim is released when the payment is rejected, so a fraudulent
   first submission cannot block the rightful order. A bank-confirmed underpayment keeps its claim
-  and counts toward the next receipt. CBE Birr receipts and the newer CBE `mbreciept` receipts are
+  and counts toward the next receipt; an unconfirmed one only tells the customer the receipt is
+  below the total, with a new hold. When the receiver matches, the bank's page stands in for the
+  screenshot, so its settled amount, full receiver, and time decide. CBE Birr receipts and the newer CBE `mbreciept` receipts are
   not bank-checked, because their pages need the payer's phone or an app token.
 - **Built as (owner's rule):** a rejection, by Buchi or by the owner, is final. The order moves to
   the new `payment_rejected` status and releases its stock; an unclear screenshot or a partial

@@ -502,6 +502,10 @@ Exit criteria: Express, Saver, and far-area deliveries run end to end with drive
   runs). Invite tokens are stored hashed and work once. Dispatch subscribes to the order's `paid`
   transition and recomputes the payout with the delivery formula. Only the distance to the pin is
   stored at delivery, never the driver's coordinates. Phase 6 replaces the code-computed bonus.
+  The driver's Live Location moves a live map in each waiting customer's chat
+  (`live-tracking.service.ts`), and **Delivered** uses a point under two minutes old instead of
+  asking for the location. The trip holds only the latest point, cleared when it ends. A driver
+  name without letters, such as ".", shows as the invited @username.
 
 ### 5.4 Saver runs
 

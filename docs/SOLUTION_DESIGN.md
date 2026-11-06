@@ -385,6 +385,12 @@ location access, and a distance of more than 300 m from the pin raises a review 
 cannot run in the background, so the bot sends job alerts in the chat, and drivers share live
 location in the chat during a trip.
 
+Built as: after **Picked up**, the bot asks the driver for their Live Location. Each customer still
+waiting gets a live map in their chat that follows the driver, at most every 10 seconds, until
+their order is delivered or the driver stops sharing. The trip keeps only the latest point, and
+clears it when the trip ends. **Delivered** in the chat uses that point when it is under two
+minutes old, and otherwise asks the driver to share their location.
+
 ### Problem handling
 
 The operations agent wakes on events, not on a timer, which saves Gemini quota. Code builds a short

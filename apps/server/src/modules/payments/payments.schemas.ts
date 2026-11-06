@@ -1,4 +1,3 @@
-import { moneySchema } from '@buchi/shared';
 import { z } from 'zod';
 
 const confidence = z.number().min(0).max(1);
@@ -10,25 +9,44 @@ export const imageClassificationSchema = z.object({
 });
 export type ImageClassification = z.infer<typeof imageClassificationSchema>;
 
-/** A field that the model read from a receipt, or `null` when the receipt does not show it. */
-const field = <T extends z.ZodType>(value: T) => z.object({ value: value.nullable(), confidence });
+/** The receipt layouts Buchi knows. Code reads each one's date and reference formats. */
+export const receiptLayouts = [
+  'telebirr_app',
+  'telebirr_web',
+  'cbe_app',
+  'cbe_web',
+  'cbe_pdf',
+  'unknown',
+] as const;
+export type ReceiptLayout = (typeof receiptLayouts)[number];
+
+/** Text that the model copied from a receipt, or `null` when the receipt does not show it. */
+const printed = z.object({
+  value: z.string().trim().max(120).nullable(),
+  confidence,
+});
 
 /**
- * The receipt fields from the smart model. Model output is untrusted, so anything that does not
- * match this schema sends the payment to owner review.
+ * What the smart model copied from a receipt, character for character. Code interprets every
+ * value, and model output is untrusted, so anything that does not match this schema sends the
+ * payment to owner review.
  */
 export const receiptExtractionSchema = z.object({
-  provider: field(z.enum(['telebirr', 'cbe_birr', 'cbe_bank', 'other'])),
-  transactionRef: field(z.string().trim().min(4).max(40)),
-  amount: field(moneySchema),
-  receiverName: field(z.string().trim().min(1).max(120)),
-  receiverAccount: field(z.string().trim().min(4).max(40)),
-  payerName: field(z.string().trim().min(1).max(120)),
-  payerAccount: field(z.string().trim().min(4).max(40)),
-  /** Local Addis Ababa time as the receipt prints it, such as "2026-11-05T14:30:00". */
-  paidAt: field(z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/)),
+  layout: z.object({ value: z.enum(receiptLayouts), confidence }),
+  transactionRef: printed,
+  amount: printed,
+  serviceCharge: printed,
+  vat: printed,
+  totalAmount: printed,
+  paidAt: printed,
+  receiverName: printed,
+  receiverAccount: printed,
+  payerName: printed,
+  payerAccount: printed,
+  status: printed,
 });
 export type ReceiptExtraction = z.infer<typeof receiptExtractionSchema>;
+export type PrintedField = ReceiptExtraction['amount'];
 
 const REVIEW_PREFIX = 'payment';
 

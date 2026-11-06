@@ -1,5 +1,6 @@
 import { Money, type BankCheck } from '@buchi/shared';
 import type { AmountCheck, Check } from './payments.domain';
+import type { ImplausibleReason } from './receipt-reading.domain';
 
 /** The design doc's default: without a bank check, Buchi approves on its own only up to this. */
 const AUTO_APPROVE_LIMIT = Money.of('1000.00');
@@ -19,7 +20,8 @@ export type RuleResults = { r1: 'fail' } | { r1: 'pass'; r2: 'fail' } | CheckedR
 
 export type DecisionInput =
   | { stage: 'unreadable'; earlierUnreadable: number }
-  | { stage: 'unsupported_provider' }
+  | { stage: 'unknown_layout' }
+  | { stage: 'implausible'; reason: ImplausibleReason }
   | {
       stage: 'checked';
       rules: CheckedRules;
@@ -27,14 +29,18 @@ export type DecisionInput =
       paid: Money;
       due: Money;
       payerHighRisk: boolean;
+      /** R4 saw only the receiver's first name, so only the bank's page can confirm the receiver. */
+      receiverFirstNameOnly: boolean;
     };
 
 export type RejectReason = 'receiver' | 'time' | 'reused' | 'bank_mismatch';
 
 export type ReviewReason =
+  | ImplausibleReason
   | 'extraction_failed'
   | 'unreadable'
-  | 'unsupported_provider'
+  | 'unknown_layout'
+  | 'receiver_unconfirmed'
   | 'overpaid'
   | 'underpaid_unconfirmed'
   | 'bank_not_found'
@@ -55,15 +61,17 @@ export function decide(input: DecisionInput): Decision {
   switch (input.stage) {
     case 'unreadable':
       return input.earlierUnreadable > 0 ? review('unreadable') : { outcome: 'ask_clearer' };
-    case 'unsupported_provider':
-      return review('unsupported_provider');
+    case 'unknown_layout':
+      return review('unknown_layout');
+    case 'implausible':
+      return review(input.reason);
     case 'checked':
       return decideChecked(input);
   }
 }
 
 function decideChecked(input: Extract<DecisionInput, { stage: 'checked' }>): Decision {
-  const { rules, bank, paid, due, payerHighRisk } = input;
+  const { rules, bank, paid, due, payerHighRisk, receiverFirstNameOnly } = input;
   const rejected: RejectReason[] = [];
   if (rules.r4 === 'fail') rejected.push('receiver');
   if (rules.r5 === 'fail') rejected.push('time');
@@ -85,6 +93,7 @@ function decideChecked(input: Extract<DecisionInput, { stage: 'checked' }>): Dec
     case 'NOT_FOUND':
       return review('bank_not_found');
     case 'UNAVAILABLE':
+      if (receiverFirstNameOnly) return review('receiver_unconfirmed');
       if (payerHighRisk) return review('high_risk');
       return paid.compare(AUTO_APPROVE_LIMIT) <= 0
         ? { outcome: 'approve', bankVerified: false }

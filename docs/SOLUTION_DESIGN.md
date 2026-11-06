@@ -300,9 +300,14 @@ Buchi uses the statistical estimate: the formula payout times the zone's accepta
 
 When a customer sends a screenshot, Buchi checks it in four layers:
 
-1. **Extraction.** Gemini Vision returns JSON that matches a fixed schema: provider, transaction
-   reference, amount, receiver, payer, time, and a confidence score for each field.
-2. **Rules.** Deterministic code runs checks R1 to R6 from the following table.
+1. **Extraction.** Gemini Vision names the receipt's layout and copies its fields exactly as
+   printed, with a confidence score for each field: transaction reference, amount, charges, total,
+   receiver, payer, time, and status. Buchi knows five layouts: the Telebirr app's transaction
+   detail, the Telebirr web receipt, the CBE app's transaction sheet, the CBE web receipt, and the
+   legacy CBE PDF. Any other receipt is `unknown`. The model never converts a value.
+2. **Rules.** Deterministic code reads each layout's own date, amount, and reference formats, for
+   example the Telebirr app's year/day/month dates, and runs checks R1 to R6 from the following
+   table. A known layout with a field that does not parse goes to owner review.
 3. **Bank check.** The backend fetches the public Telebirr or CBE receipt page for the transaction
    reference and compares it with the screenshot. These pages are not official APIs, so Buchi treats
    the result as extra evidence and never depends on it. The Telebirr page may block servers
@@ -313,11 +318,23 @@ When a customer sends a screenshot, Buchi checks it in four layers:
 | Rule | Check | On failure |
 | --- | --- | --- |
 | R1 | The image is a payment receipt, with confidence of at least 0.7. | Ask for a clearer screenshot. After a second failure, send it to owner review. |
-| R2 | The provider is Telebirr, CBE Birr, or CBE mobile banking. | Send to owner review. |
+| R2 | The receipt is one of the known Telebirr or CBE layouts. | Send to owner review. |
 | R3 | The amount equals the order total, including the delivery fee. | Ask for the difference. Send overpayments to owner review. |
 | R4 | The receiver matches one of the shop's accounts. | Reject. |
 | R5 | The transaction time is after the order time, with five minutes of tolerance. | Reject, because an older receipt indicates reuse. |
 | R6 | The transaction reference has never been used for another order at any Buchi shop. | Reject with "already used for another order". |
+
+Code also checks that the fields agree with each other. A CBE reference such as `FT26310…` carries
+the year and the day of the year it posted, which is the payment's date or, for an evening
+payment, the next day. The amount and charges must add up to the printed total, and the status
+must be Completed. A receipt that fails one of these goes to owner review. The Telebirr app shows
+only the receiver's first name, so R4 can match only that, and such a payment needs the bank page
+to approve automatically.
+
+A customer can also send a receipt link as text. Code reads the Telebirr transaction number or the
+CBE PDF's reference from the link, opens the bank's page, and runs R3 to R6 on it without Gemini.
+The page is the bank's own record, so it counts as `CONFIRMED`. A link to the newer CBE app receipt
+loads from a private API, so Buchi asks for the screenshot or the `FT` reference instead.
 
 R6 is atomic and covers the whole platform. A unique index on `payment_refs (provider, tx_ref)` lets
 each reference belong to one order only, so the database rejects a second claim even when two shops
@@ -343,8 +360,8 @@ owner's payment review, marked as reported by the customer. If the owner approve
 paid only if its items are still in stock; otherwise Buchi tells the owner that the item sold out.
 
 Buchi never accuses a customer. A rejection states what did not match and what to do next. Buchi
-does not claim to detect image editing. It catches an edited screenshot because the screenshot does
-not match the bank's receipt page or fails a rule. I considered image fingerprints to find reused
+does not claim to detect image editing. It catches an edited screenshot because its fields contradict
+each other, the screenshot does not match the bank's receipt page, or it fails a rule. I considered image fingerprints to find reused
 screenshots, but Telebirr receipts share one template, so the fingerprints of different receipts look
 alike. Transaction references and the bank check catch the same fraud more reliably.
 
@@ -574,7 +591,7 @@ An evaluation suite runs in GitHub Actions on every push:
 
 | Set | Size | Measures |
 | --- | --- | --- |
-| Receipt screenshots, with personal details blurred, plus edited copies | About 60 | Field accuracy and decision accuracy |
+| Synthetic receipt screenshots of the five layouts, plus edited copies and an unknown layout | 15 | Field accuracy and decision accuracy |
 | Sales conversations in Amharic and English, including negotiation | About 60 | Correct tool calls. Zero prices outside the owner's range, and zero discounts on fixed-price products. |
 | Adversarial messages, such as prompt injection and false claims | About 30 | Zero actions outside the limits |
 | Product photos | About 30 | The right product in the top three |

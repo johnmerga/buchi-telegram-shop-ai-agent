@@ -7,14 +7,18 @@ import { ReceiptReader } from './receipt-reader.service';
 const image = { mimeType: 'image/jpeg', data: 'aW1hZ2U=' };
 const sure = <T>(value: T) => ({ value, confidence: 0.9 });
 const extraction = {
-  provider: sure('telebirr'),
-  transactionRef: sure('DG92OT8YDE'),
-  amount: sure('4500'),
-  receiverName: sure('Selam Tesfaye'),
+  layout: sure('telebirr_app'),
+  transactionRef: sure('QX41ZB7KM2'),
+  amount: sure('-4,500.00 ETB'),
+  serviceCharge: sure('-2.00 ETB'),
+  vat: sure(null),
+  totalAmount: sure(null),
+  paidAt: sure('2026/05/11 15:10:00'),
+  receiverName: sure('Selam'),
   receiverAccount: sure(null),
   payerName: sure(null),
   payerAccount: sure(null),
-  paidAt: sure('2026-11-05T15:10:00'),
+  status: sure('Completed'),
 };
 
 function readerWith(...turns: ScriptedTurn[]) {
@@ -42,7 +46,7 @@ describe('ReceiptReader', () => {
   it('returns nothing for output that is not JSON or does not match the schema', async () => {
     const { reader } = readerWith(
       { text: 'The amount is 4500 birr.' },
-      { text: JSON.stringify({ ...extraction, amount: sure('4,500 ETB') }) },
+      { text: JSON.stringify({ ...extraction, layout: sure('awash_bank') }) },
     );
     expect(await reader.extract(image)).toBeUndefined();
     expect(await reader.extract(image)).toBeUndefined();

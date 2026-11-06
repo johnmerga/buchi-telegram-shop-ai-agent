@@ -12,7 +12,7 @@ import { useLiveReload } from './use-live-reload';
 import { useShopId } from './use-shop-id';
 
 const fields: { key: keyof ReceiptFields; label: string }[] = [
-  { key: 'provider', label: 'Provider' },
+  { key: 'layout', label: 'Layout' },
   { key: 'transactionRef', label: 'Transaction ref' },
   { key: 'amount', label: 'Amount' },
   { key: 'receiverName', label: 'Receiver' },
@@ -20,11 +20,12 @@ const fields: { key: keyof ReceiptFields; label: string }[] = [
   { key: 'payerName', label: 'Payer' },
   { key: 'payerAccount', label: 'Payer account' },
   { key: 'paidAt', label: 'Paid at' },
+  { key: 'status', label: 'Status' },
 ];
 
 const ruleLabels: Record<string, string> = {
   r1: 'R1 readable',
-  r2: 'R2 provider',
+  r2: 'R2 known layout',
   r3: 'R3 amount',
   r4: 'R4 receiver',
   r5: 'R5 time',

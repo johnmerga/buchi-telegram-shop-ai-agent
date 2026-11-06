@@ -5,87 +5,26 @@ import {
   checkAmount,
   checkReference,
   checkTime,
-  isSupported,
   matchingAccount,
-  readReceipt,
-  type SupportedReceipt,
 } from './payments.domain';
-import type { ReceiptExtraction } from './payments.schemas';
-
-const sure = <T>(value: T) => ({ value, confidence: 0.95 });
-
-const extraction: ReceiptExtraction = {
-  provider: sure('telebirr'),
-  transactionRef: sure('dg92ot8yde'),
-  amount: sure('4500.00'),
-  receiverName: sure('SELAM TESFAYE ALEMU'),
-  receiverAccount: sure('2519****4567'),
-  payerName: sure('Hana Bekele'),
-  payerAccount: sure('2519****1111'),
-  paidAt: sure('2026-11-05T15:10:00'),
-};
+import type { ReadReceipt } from './receipt-reading.domain';
 
 const accounts: PaymentAccount[] = [
   { provider: 'telebirr', accountName: 'Selam Tesfaye', accountNumber: '0911234567' },
   { provider: 'cbe_bank', accountName: 'Selam Shoes', accountNumber: '1000123456789' },
 ];
 
-function receipt(overrides: Partial<SupportedReceipt> = {}): SupportedReceipt {
+function receipt(overrides: Partial<ReadReceipt> = {}): ReadReceipt {
   return {
     provider: 'telebirr',
     txRef: 'DG92OT8YDE',
     amount: Money.of('4500'),
     receiver: { name: 'SELAM TESFAYE', account: '2519****4567' },
+    receiverFirstNameOnly: false,
     paidAt: new Date('2026-11-05T12:10:00Z'),
     ...overrides,
   };
 }
-
-describe('R1: a readable payment receipt', () => {
-  it('reads the receipt, with the time in Addis Ababa and the reference in capitals', () => {
-    expect(readReceipt(extraction, 0.9)).toEqual({
-      provider: 'telebirr',
-      txRef: 'DG92OT8YDE',
-      amount: Money.of('4500'),
-      receiver: { name: 'SELAM TESFAYE ALEMU', account: '2519****4567' },
-      paidAt: new Date('2026-11-05T12:10:00Z'),
-    });
-  });
-
-  it('uses the fields alone when the classifier was unavailable', () => {
-    expect(readReceipt(extraction, null)).toBeDefined();
-  });
-
-  it('fails when the image is a receipt with confidence below 0.7', () => {
-    expect(readReceipt(extraction, 0.6)).toBeUndefined();
-  });
-
-  it('fails when a needed field is unsure or missing', () => {
-    expect(readReceipt({ ...extraction, amount: { value: '4500', confidence: 0.5 } }, 0.9)).toBe(
-      undefined,
-    );
-    expect(readReceipt({ ...extraction, transactionRef: sure(null) }, 0.9)).toBeUndefined();
-  });
-
-  it('fails when neither the receiver name nor the account can be read', () => {
-    const noReceiver = { ...extraction, receiverName: sure(null), receiverAccount: sure(null) };
-    expect(readReceipt(noReceiver, 0.9)).toBeUndefined();
-  });
-
-  it('fails when the time is not a real date', () => {
-    expect(readReceipt({ ...extraction, paidAt: sure('2026-13-45T10:00') }, 0.9)).toBeUndefined();
-  });
-});
-
-describe('R2: a supported provider', () => {
-  it('accepts Telebirr, CBE Birr, and CBE banking', () => {
-    expect(isSupported(receipt({ provider: 'cbe_birr' }))).toBe(true);
-  });
-
-  it('refuses any other provider', () => {
-    expect(isSupported({ ...receipt(), provider: 'other' })).toBe(false);
-  });
-});
 
 describe('R3: the amount due', () => {
   it('passes the exact amount', () => {
@@ -121,6 +60,13 @@ describe("R4: the shop's account", () => {
   it('fails for another account, even with the same name', () => {
     const other = receipt({ receiver: { name: 'Selam Tesfaye', account: '2519****9999' } });
     expect(matchingAccount(other, accounts)).toBeUndefined();
+  });
+
+  it("matches only the account holder's first name when the receipt shows no more", () => {
+    const firstName = { receiverFirstNameOnly: true, receiver: { name: 'Selam', account: null } };
+    expect(matchingAccount(receipt(firstName), accounts)).toEqual(accounts[0]);
+    const other = { ...firstName, receiver: { name: 'Tesfaye', account: null } };
+    expect(matchingAccount(receipt(other), accounts)).toBeUndefined();
   });
 
   it('fails when the provider has no account in the shop', () => {

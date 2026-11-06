@@ -6,6 +6,7 @@ import { negotiatedPriceSuite } from './runners/negotiated-price';
 import { operationsSituationsSuite } from './runners/operations-situations';
 import { ownerCommandsSuite } from './runners/owner-commands';
 import { ownerQuestionsSuite } from './runners/owner-questions';
+import { receiptsSuite } from './runners/receipts';
 
 /** Every suite the CLI runs, in report order. */
 export function createSuites(db: Database): Suite[] {
@@ -16,5 +17,6 @@ export function createSuites(db: Database): Suite[] {
     farPriceAgentSuite(db),
     ownerCommandsSuite(db),
     ownerQuestionsSuite(db),
+    receiptsSuite(),
   ];
 }

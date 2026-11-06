@@ -28,7 +28,9 @@ import { PaymentReports } from '../../src/modules/payments/payment-reports.servi
 import { PaymentReview } from '../../src/modules/payments/payment-review.service';
 import { PaymentVerification } from '../../src/modules/payments/payment-verification.service';
 import { createPaymentHandlers } from '../../src/modules/payments/payments.handlers';
+import { ReceiptLinks } from '../../src/modules/payments/receipt-links.service';
 import { ReceiptReader } from '../../src/modules/payments/receipt-reader.service';
+import type { PageReading } from '../../src/integrations/receipts/receipt-check';
 import { RiskSignalsRepo } from '../../src/modules/payments/risk-signals.repo';
 import { RiskService } from '../../src/modules/payments/risk.service';
 import { ShopsRepo } from '../../src/modules/shops/shops.repo';
@@ -108,6 +110,12 @@ const checkout = new CheckoutService(
 const script: ScriptedTurn[] = [];
 /** What the fake bank page says next. */
 let bankSays: BankCheck = 'CONFIRMED';
+/** The fake Telebirr receipt page that a customer's link opens. */
+let telebirrPage: PageReading = 'UNAVAILABLE';
+const bank = {
+  check: () => Promise.resolve(bankSays),
+  read: () => Promise.resolve(telebirrPage),
+};
 
 interface Call {
   method: string;
@@ -159,7 +167,7 @@ const verification = new PaymentVerification(
   proofs,
   refs,
   reader,
-  { check: () => Promise.resolve(bankSays) },
+  bank,
   risk,
   orders,
   shops,
@@ -198,6 +206,7 @@ const bot = createBot({
     createConversationHandlers({ conversations, customers }),
     createPaymentHandlers({
       intake,
+      links: new ReceiptLinks(orders, shops, bank, verification),
       review,
       reports,
       customers,
@@ -226,6 +235,10 @@ const photo = (from: User): Update => ({
     from,
     photo: [{ file_id: `photo-${String(updateId)}`, file_unique_id: 'u', width: 1, height: 1 }],
   },
+});
+const textMessage = (from: User, text: string): Update => ({
+  update_id: updateId++,
+  message: { message_id: updateId, date: 0, chat: privateChat(from), from, text },
 });
 const tap = (from: User, data: string): Update => ({
   update_id: updateId++,
@@ -275,19 +288,16 @@ async function order(customer: User, shopId: string, variantId: string): Promise
   return placed.id;
 }
 
-/** The current time in Addis Ababa as a receipt prints it, moved by some minutes. */
+/** The current time in Addis Ababa as the Telebirr web receipt prints it, moved by some minutes. */
 function receiptTime(minutesFromNow: number): string {
-  const time = new Date(Date.now() + minutesFromNow * 60_000);
-  return new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Africa/Addis_Ababa',
-    dateStyle: 'short',
-    timeStyle: 'medium',
-  })
-    .format(time)
-    .replace(' ', 'T');
+  const local = new Date(Date.now() + minutesFromNow * 60_000 + 3 * 60 * 60_000).toISOString();
+  const [date = '', time = ''] = local.slice(0, 19).split('T');
+  const [year, month, day] = date.split('-');
+  return `${day ?? ''}-${month ?? ''}-${year ?? ''} ${time}`;
 }
 
 const sure = <T>(value: T) => ({ value, confidence: 0.95 });
+const absent = sure(null);
 
 /** The model classifies the photo as a receipt and reads these fields from it. */
 function receiptScript(fields: {
@@ -301,14 +311,18 @@ function receiptScript(fields: {
     { text: JSON.stringify({ kind: 'receipt', confidence: 0.97 }) },
     {
       text: JSON.stringify({
-        provider: sure('telebirr'),
+        layout: sure('telebirr_web'),
         transactionRef: sure(fields.ref),
-        amount: sure(fields.amount),
+        amount: sure(`${fields.amount} Birr`),
+        serviceCharge: absent,
+        vat: absent,
+        totalAmount: absent,
+        paidAt: sure(fields.paidAt ?? receiptTime(1)),
         receiverName: sure(fields.receiver),
         receiverAccount: sure(fields.account),
-        payerName: sure(null),
-        payerAccount: sure(null),
-        paidAt: sure(fields.paidAt ?? receiptTime(1)),
+        payerName: absent,
+        payerAccount: absent,
+        status: sure('Completed'),
       }),
     },
   );
@@ -406,6 +420,66 @@ describe('a payment screenshot', () => {
 
     expect(await statusOf(shopA.id, orderId)).toBe('awaiting_payment');
     expect(lastTo(liya.id)?.text).toContain('tap Buy on the product');
+  });
+});
+
+describe('a receipt link', () => {
+  it('pays the order from the Telebirr page that the link opens, without the model', async () => {
+    const selam = userOf(424321, 'Selamawit');
+    const orderId = await order(selam, shopA.id, shopA.smallVariant);
+    telebirrPage = {
+      txRef: 'LINK123456',
+      amount: '800',
+      receiver: { name: toShopA.receiver, account: toShopA.account },
+      completed: true,
+      paidAt: receiptTime(1),
+    };
+    const modelCalls = model.requests.length;
+
+    await bot.handleUpdate(
+      textMessage(selam, 'https://transactioninfo.ethiotelecom.et/receipt/LINK123456'),
+    );
+
+    expect(await statusOf(shopA.id, orderId)).toBe('paid');
+    expect(model.requests).toHaveLength(modelCalls);
+    expect(lastTo(ownerA)?.text).toContain('bank-verified');
+  });
+
+  it('asks for the screenshot of a CBE app receipt link and leaves the order waiting', async () => {
+    const yared = userOf(424322, 'Yared');
+    const orderId = await order(yared, shopA.id, shopA.smallVariant);
+
+    await bot.handleUpdate(textMessage(yared, 'https://mbreciept.cbe.com.et/v2-abcDEF123'));
+
+    expect(await statusOf(shopA.id, orderId)).toBe('awaiting_payment');
+    expect(lastTo(yared.id)?.text).toContain('Please send the screenshot');
+  });
+
+  it('closes the order on a rejected link, whose Report a problem reaches the owners', async () => {
+    const mekdes = userOf(424323, 'Mekdes');
+    const orderId = await order(mekdes, shopA.id, shopA.smallVariant);
+    telebirrPage = {
+      txRef: 'LINK654321',
+      amount: '800',
+      receiver: { name: toShopA.receiver, account: toShopA.account },
+      completed: true,
+      paidAt: receiptTime(-60),
+    };
+    const link = 'https://transactioninfo.ethiotelecom.et/receipt/LINK654321';
+
+    await bot.handleUpdate(textMessage(mekdes, link));
+
+    expect(await statusOf(shopA.id, orderId)).toBe('payment_rejected');
+    expect(markupOf(lastTo(mekdes.id))).toContain(`payreport:${orderId}`);
+    await bot.handleUpdate(textMessage(mekdes, link));
+    expect(lastTo(mekdes.id)?.text).toContain('was not accepted, so this order is closed');
+
+    await bot.handleUpdate(tap(mekdes, `payreport:${orderId}`));
+
+    expect(lastAnswer()?.text).toContain('The shop will check your payment');
+    expect(lastTo(ownerA)?.text).toContain('LINK654321');
+    const queued = (await records.reviewQueue(shopA.id)).find((i) => i.orderId === orderId);
+    expect(queued).toMatchObject({ customerReported: true, reasons: ['time'] });
   });
 });
 

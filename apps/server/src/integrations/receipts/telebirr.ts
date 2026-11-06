@@ -1,12 +1,10 @@
-import type { BankCheck } from '@buchi/shared';
 import { load } from 'cheerio';
 import type { FetchPage } from './fetch-page';
 import {
   amountOf,
   bankReceiptSchema,
-  compareReceipt,
+  type PageReading,
   type ParsedPage,
-  type ReceiptClaim,
   type ReceiptClient,
 } from './receipt-check';
 
@@ -18,15 +16,14 @@ const TX_REF = /^[A-Z0-9]{10}$/;
 export class TelebirrReceipts implements ReceiptClient {
   constructor(private readonly fetchPage: FetchPage) {}
 
-  async check(claim: ReceiptClaim): Promise<BankCheck> {
-    const txRef = claim.txRef.toUpperCase();
+  async read(reference: string): Promise<PageReading> {
+    const txRef = reference.toUpperCase();
     if (!TX_REF.test(txRef)) return 'NOT_FOUND';
     try {
       const response = await this.fetchPage(`${RECEIPT_URL}${txRef}`);
       if (!response.ok) return 'UNAVAILABLE';
       const page = parseTelebirrReceipt(await response.text());
-      if (page === 'UNREADABLE') return 'UNAVAILABLE';
-      return page === 'NOT_FOUND' ? 'NOT_FOUND' : compareReceipt(page, { ...claim, txRef });
+      return page === 'UNREADABLE' ? 'UNAVAILABLE' : page;
     } catch {
       // Timeouts, blocked foreign IP addresses, and network errors all mean no evidence either way.
       return 'UNAVAILABLE';
@@ -64,6 +61,7 @@ export function parseTelebirrReceipt(html: string): ParsedPage {
       account: after('/Credited party account no') || null,
     },
     completed: after('/transaction status')?.toLowerCase() === 'completed',
+    paidAt: after('/Invoice No.', 4) ?? null,
   });
   return parsed.success ? parsed.data : 'UNREADABLE';
 }

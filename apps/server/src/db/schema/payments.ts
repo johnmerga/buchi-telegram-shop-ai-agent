@@ -47,7 +47,8 @@ export const paymentProofs = pgTable(
       .notNull()
       .references(() => shops.id, { onDelete: 'cascade' }),
     orderId: uuid('order_id').notNull(),
-    telegramFileId: text('telegram_file_id').notNull(),
+    /** Null for a payment proven by a link to the bank's own receipt page. */
+    telegramFileId: text('telegram_file_id'),
     extraction: jsonb('extraction').$type<Record<string, unknown>>(),
     provider: paymentProvider('provider'),
     txRef: text('tx_ref'),

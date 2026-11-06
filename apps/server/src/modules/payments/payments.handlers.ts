@@ -9,9 +9,12 @@ import { reportNotAvailable, reportReceived } from './payment-messages.domain';
 import type { PaymentReports } from './payment-reports.service';
 import type { PaymentReview, ReviewResult } from './payment-review.service';
 import { reportCallbackSchema, reviewActionSchema } from './payments.schemas';
+import { receiptLinkIn } from './receipt-links.domain';
+import type { ReceiptLinks } from './receipt-links.service';
 
 interface PaymentDeps {
   intake: ImageIntake;
+  links: ReceiptLinks;
   review: PaymentReview;
   reports: Pick<PaymentReports, 'report'>;
   customers: Pick<CustomersService, 'sessionOf'>;
@@ -28,11 +31,11 @@ const reviewAnswers: Record<ReviewResult, string> = {
 };
 
 /**
- * Customer images and the owner's payment review buttons. It runs after the conversation
- * handlers, so an image in a chat that an owner has taken over goes to the owner instead.
+ * Customer images, receipt links, and the owner's payment review buttons. It runs after the
+ * conversation handlers, so a message in a chat that an owner has taken over goes to the owner.
  */
 export function createPaymentHandlers(deps: PaymentDeps): Composer<BuchiContext> {
-  const { intake, review, reports, customers, chat } = deps;
+  const { intake, links, review, reports, customers, chat } = deps;
   const handlers = new Composer<BuchiContext>();
 
   handlers.on(['message:photo', 'message:document'], async (ctx, next) => {
@@ -55,6 +58,18 @@ export function createPaymentHandlers(deps: PaymentDeps): Composer<BuchiContext>
     const reported = button.success && (await reports.report(ctx.from.id, button.data.orderId));
     await ctx.answerCallbackQuery({ text: reported ? reportReceived : reportNotAvailable });
     if (reported) await ctx.editMessageReplyMarkup();
+  });
+
+  handlers.on('message:text', async (ctx, next) => {
+    const link = receiptLinkIn(ctx.msg.text);
+    if (!link) return next();
+    const session = await customers.sessionOf(ctx.from.id);
+    const ownShop = ctx.actor.role === 'owner' && ctx.actor.shopIds.includes(session?.shopId ?? '');
+    if (!session || ownShop) return next();
+    const message = { chatId: ctx.msg.chat.id, messageId: ctx.msg.message_id };
+    const reply = await links.receive(session.shopId, ctx.from.id, link, message);
+    const markup = reply.buttons.length > 0 ? { reply_markup: inlineKeyboard(reply.buttons) } : {};
+    await ctx.reply(reply.text, markup);
   });
 
   handlers.callbackQuery(/^payment:/, async (ctx) => {

@@ -368,6 +368,17 @@ including across two shops.
 - **Deliverables:** image classification (receipt, product, other) and structured extraction with a
   `zod` schema and per-field confidence.
 - **Acceptance:** malformed model output leads to owner review, never to approval.
+- **Built as:** the model only transcribes. `ai/prompts/receipts.ts` names five layouts by their
+  labels (Telebirr app, Telebirr web receipt, CBE app sheet, CBE web receipt, CBE PDF) and returns
+  the `layout`, or `unknown`, with each field copied as printed. `receipt-layouts.domain.ts` reads
+  each layout's date format in Addis Ababa time (the Telebirr app prints year/day/month), amounts
+  with signs, commas, and currency words, and each provider's reference format.
+  `receipt-reading.domain.ts` asks for a clearer screenshot when a needed field is missing or
+  unsure, and sends to the owner an unknown layout, a confident field that does not parse, a status
+  other than Completed, a CBE reference whose day of the year is neither the printed date nor the
+  next day, and an amount whose charges do not add up to the printed total. The Telebirr app shows
+  only the receiver's first name, so its payments need the bank page to approve automatically. The
+  `receipts` eval suite reads 15 synthetic screenshots that `evals/scripts/receipt-images.ts` draws.
 
 ### 3.2 Rules R1 to R6
 
@@ -381,6 +392,13 @@ including across two shops.
 - **Deliverables:** Telebirr and CBE receipt clients in `integrations/receipts/` that return
   `CONFIRMED`, `NOT_FOUND`, `MISMATCH`, or `UNAVAILABLE`, with timeouts.
 - **Acceptance:** parser tests use saved pages as fixtures. A timeout returns `UNAVAILABLE`.
+- **Built as:** a customer may send a receipt link as text instead of a screenshot.
+  `receipt-links.domain.ts` reads the Telebirr transaction number, the CBE PDF's reference and
+  account digits, or a bare CBE `FT` reference, which is looked up with the shop's CBE accounts.
+  The page then goes through R3 to R6 as the receipt itself, without Gemini. A CBE `mbreciept` link
+  loads from a private API, so Buchi asks for the screenshot or the `FT` reference instead. A proof
+  from a link has no `telegram_file_id`; a rejected one is final like a screenshot, and its
+  **Report a problem** reaches the owners as text.
 
 ### 3.4 Decision matrix and risk signals
 

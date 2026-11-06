@@ -23,3 +23,12 @@ export function checkInvite(
   if (opener.username?.toLowerCase() !== invite.username) return 'wrong_user';
   return undefined;
 }
+
+/**
+ * The name customers see for a driver. A Telegram name can be only symbols, such as ".", so a
+ * name without a letter falls back to the username the owner invited.
+ */
+export function driverDisplayName(driver: { name: string | null; username: string }): string {
+  const { name } = driver;
+  return name !== null && /\p{L}/u.test(name) ? name.trim() : `@${driver.username}`;
+}

@@ -2,6 +2,7 @@ import type { MoneyString } from '@buchi/shared';
 import type { Database, Transaction } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import type { DeliveryJobsRepo, JobRow } from './delivery-jobs.repo';
+import { driverDisplayName } from './drivers.domain';
 import type { DriversRepo } from './drivers.repo';
 
 interface TripDriver {
@@ -101,7 +102,7 @@ export class TripDetails {
           ? undefined
           : {
               telegramUserId: driver.telegramUserId,
-              name: driver.name ?? driver.username,
+              name: driverDisplayName(driver),
               phone: driver.phone,
             },
       stops: stops.map((stop) => ({

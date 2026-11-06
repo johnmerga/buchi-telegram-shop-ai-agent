@@ -132,6 +132,7 @@ import { PaymentReview } from './modules/payments/payment-review.service';
 import { PaymentVerification } from './modules/payments/payment-verification.service';
 import { createPaymentHandlers } from './modules/payments/payments.handlers';
 import { createPaymentsRouter } from './modules/payments/payments.routes';
+import { ReceiptLinks } from './modules/payments/receipt-links.service';
 import { ReceiptReader } from './modules/payments/receipt-reader.service';
 import { RiskSignalsRepo } from './modules/payments/risk-signals.repo';
 import { RiskService } from './modules/payments/risk.service';
@@ -411,15 +412,16 @@ const paymentProofs = new PaymentProofsRepo();
 const paymentRefs = new PaymentRefsRepo(database.db);
 const risk = new RiskService(new RiskSignalsRepo(database.db), env.RISK_HASH_SECRET);
 const paymentNotifier = new PaymentNotifier(shops, orders, messenger, logger);
+const bankReceipts = new BankReceipts({
+  telebirr: new TelebirrReceipts(receiptPage),
+  cbe_bank: new CbeReceipts(receiptPage),
+});
 const verification = new PaymentVerification(
   database.db,
   paymentProofs,
   paymentRefs,
   receiptReader,
-  new BankReceipts({
-    telebirr: new TelebirrReceipts(receiptPage),
-    cbe_bank: new CbeReceipts(receiptPage),
-  }),
+  bankReceipts,
   risk,
   orders,
   shops,
@@ -737,6 +739,7 @@ const bot = createBot({
     }),
     createPaymentHandlers({
       intake: imageIntake,
+      links: new ReceiptLinks(orders, shops, bankReceipts, verification),
       review: paymentReview,
       reports: paymentReports,
       customers,

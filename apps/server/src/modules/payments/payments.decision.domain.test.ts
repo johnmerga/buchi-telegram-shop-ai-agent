@@ -20,6 +20,7 @@ function checked(overrides: Partial<Extract<DecisionInput, { stage: 'checked' }>
     paid: Money.of('900'),
     due: Money.of('900'),
     payerHighRisk: false,
+    receiverFirstNameOnly: false,
     ...overrides,
   });
 }
@@ -109,10 +110,28 @@ describe('the decision matrix', () => {
     });
   });
 
-  it('sends an unsupported provider to the owner', () => {
-    expect(decide({ stage: 'unsupported_provider' })).toEqual({
+  it('sends a receipt layout that Buchi does not know to the owner', () => {
+    expect(decide({ stage: 'unknown_layout' })).toEqual({
       outcome: 'review',
-      reason: 'unsupported_provider',
+      reason: 'unknown_layout',
+    });
+  });
+
+  it('sends a receipt whose fields contradict each other to the owner', () => {
+    expect(decide({ stage: 'implausible', reason: 'reference_date' })).toEqual({
+      outcome: 'review',
+      reason: 'reference_date',
+    });
+  });
+
+  it("sends a receipt with only the receiver's first name to the owner without the bank page", () => {
+    expect(checked({ bank: 'UNAVAILABLE', receiverFirstNameOnly: true })).toEqual({
+      outcome: 'review',
+      reason: 'receiver_unconfirmed',
+    });
+    expect(checked({ receiverFirstNameOnly: true })).toEqual({
+      outcome: 'approve',
+      bankVerified: true,
     });
   });
 });

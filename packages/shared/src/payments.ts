@@ -10,9 +10,9 @@ const extractedFieldSchema = z.object({
   confidence: z.number().min(0).max(1),
 });
 
-/** What Gemini read from a receipt, field by field, with its confidence. */
+/** What Gemini copied from a receipt, field by field as printed, with its confidence. */
 export const receiptFieldsSchema = z.object({
-  provider: extractedFieldSchema,
+  layout: extractedFieldSchema,
   transactionRef: extractedFieldSchema,
   amount: extractedFieldSchema,
   receiverName: extractedFieldSchema,
@@ -20,6 +20,7 @@ export const receiptFieldsSchema = z.object({
   payerName: extractedFieldSchema,
   payerAccount: extractedFieldSchema,
   paidAt: extractedFieldSchema,
+  status: extractedFieldSchema,
 });
 export type ReceiptFields = z.infer<typeof receiptFieldsSchema>;
 

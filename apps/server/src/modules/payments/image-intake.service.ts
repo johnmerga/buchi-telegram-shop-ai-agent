@@ -57,6 +57,7 @@ export class ImageIntake {
     if (!order) return text(await this.withoutUnpaidOrder(shopId, telegramUserId));
     if (order.status !== 'awaiting_payment') return text(alreadyChecking(order.id));
     const verified = await this.verification.verify(order, {
+      kind: 'screenshot',
       fileId: incoming.fileId,
       message: incoming.message,
       image,

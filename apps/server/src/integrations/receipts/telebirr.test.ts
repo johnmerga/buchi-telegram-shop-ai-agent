@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { BankReceipts } from './bank-receipts';
 import { parseTelebirrReceipt, TelebirrReceipts } from './telebirr';
 
 const page = readFileSync(
@@ -26,6 +27,7 @@ describe('parseTelebirrReceipt', () => {
       amount: '4500',
       receiver: { name: 'SELAM TESFAYE ALEMU', account: '2519****4567' },
       completed: true,
+      paidAt: '05-11-2026 15:10:00',
     });
   });
 
@@ -40,38 +42,41 @@ describe('parseTelebirrReceipt', () => {
 });
 
 describe('TelebirrReceipts', () => {
-  it('confirms a page that matches the screenshot, looked up by its reference', async () => {
+  it('reads the page of a transaction number', async () => {
     const urls: string[] = [];
     const client = new TelebirrReceipts((url) => {
       urls.push(url);
       return Promise.resolve(new Response(page));
     });
-    expect(await client.check(claim)).toBe('CONFIRMED');
+    expect(await client.read('dg92ot8yde')).toMatchObject({ txRef: 'DG92OT8YDE', amount: '4500' });
     expect(urls).toEqual(['https://transactioninfo.ethiotelecom.et/receipt/DG92OT8YDE']);
   });
 
-  it('finds a mismatch in the amount or the receiver', async () => {
-    const client = new TelebirrReceipts(serving(page));
-    expect(await client.check({ ...claim, amount: '5400.00' })).toBe('MISMATCH');
+  it('confirms a matching claim and finds a mismatch in the amount, receiver, or status', async () => {
+    const bank = (body: string) =>
+      new BankReceipts({ telebirr: new TelebirrReceipts(serving(body)) });
+    expect(await bank(page).check('telebirr', claim)).toBe('CONFIRMED');
+    expect(await bank(page).check('telebirr', { ...claim, amount: '5400.00' })).toBe('MISMATCH');
     const otherAccount = { accountName: 'Selam Tesfaye', accountNumber: '0911239999' };
-    expect(await client.check({ ...claim, account: otherAccount })).toBe('MISMATCH');
-  });
-
-  it('finds a mismatch in a transaction that did not complete', async () => {
+    expect(await bank(page).check('telebirr', { ...claim, account: otherAccount })).toBe(
+      'MISMATCH',
+    );
     const failed = page.replace('>Completed<', '>Failed<');
-    expect(await new TelebirrReceipts(serving(failed)).check(claim)).toBe('MISMATCH');
+    expect(await bank(failed).check('telebirr', claim)).toBe('MISMATCH');
   });
 
   it('reports an unknown transaction, without a lookup for an impossible reference', async () => {
-    expect(await new TelebirrReceipts(serving(notFound)).check(claim)).toBe('NOT_FOUND');
+    expect(await new TelebirrReceipts(serving(notFound)).read('DG92OT8YDE')).toBe('NOT_FOUND');
     const unused = new TelebirrReceipts(() => Promise.reject(new Error('not called')));
-    expect(await unused.check({ ...claim, txRef: 'FT26189X24XP' })).toBe('NOT_FOUND');
+    expect(await unused.read('FT26189X24XP')).toBe('NOT_FOUND');
   });
 
   it('is unavailable after a timeout, an error status, or an unreadable page', async () => {
     const timeout = () => Promise.reject(new DOMException('timed out', 'TimeoutError'));
-    expect(await new TelebirrReceipts(timeout).check(claim)).toBe('UNAVAILABLE');
-    expect(await new TelebirrReceipts(serving('', 503)).check(claim)).toBe('UNAVAILABLE');
-    expect(await new TelebirrReceipts(serving('<html></html>')).check(claim)).toBe('UNAVAILABLE');
+    expect(await new TelebirrReceipts(timeout).read('DG92OT8YDE')).toBe('UNAVAILABLE');
+    expect(await new TelebirrReceipts(serving('', 503)).read('DG92OT8YDE')).toBe('UNAVAILABLE');
+    expect(await new TelebirrReceipts(serving('<html></html>')).read('DG92OT8YDE')).toBe(
+      'UNAVAILABLE',
+    );
   });
 });

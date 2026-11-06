@@ -2,6 +2,7 @@ import { Money, type BankCheck, type PaymentAccount } from '@buchi/shared';
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import type { BankReceipts } from '../../integrations/receipts/bank-receipts';
+import type { BankReceipt } from '../../integrations/receipts/receipt-check';
 import type { CustomersService } from '../customers/customers.service';
 import type { OrderService } from '../orders/orders.service';
 import { PAYMENT_HOLD_MS } from '../orders/orders.deadlines.domain';
@@ -22,6 +23,7 @@ import {
   decide,
   type CheckedRules,
   type Decision,
+  type ReviewReason,
   type RuleResults,
 } from './payments.decision.domain';
 import {
@@ -29,28 +31,39 @@ import {
   checkAmount,
   checkReference,
   checkTime,
-  isSupported,
   matchingAccount,
-  readReceipt,
-  type ReadReceipt,
-  type SupportedReceipt,
 } from './payments.domain';
 import { reviewCallbackData, type ReceiptExtraction } from './payments.schemas';
 import type { Image, ReceiptReader } from './receipt-reader.service';
+import type { ReceiptProvider } from './receipt-layouts.domain';
+import {
+  decideUnread,
+  interpretReceipt,
+  readBankPage,
+  type ReadReceipt,
+  type Reading,
+} from './receipt-reading.domain';
 import type { Payer } from './risk.domain';
 import type { RiskService } from './risk.service';
 
 /** An order waiting for payment, as the order service returns it. */
 type OrderRow = NonNullable<Awaited<ReturnType<OrderService['latestUnpaid']>>>;
 
-/** A screenshot as it arrived: Telegram's file ID, the chat message, and the image itself. */
-interface ReceivedReceipt {
-  fileId: string;
-  message: MessageRef;
-  image: Image;
-  /** The classifier's confidence that this is a receipt, or `null` when it was unavailable. */
-  classificationConfidence: number | null;
-}
+/**
+ * A payment proof as it arrived: a screenshot with Telegram's file ID and the image itself, or
+ * the bank's own page that a customer's link or reference pointed to. `message` is the chat
+ * message that owners see in a review.
+ */
+export type ReceivedProof =
+  | {
+      kind: 'screenshot';
+      fileId: string;
+      message: MessageRef;
+      image: Image;
+      /** The classifier's confidence that this is a receipt, or `null` when it was unavailable. */
+      classificationConfidence: number | null;
+    }
+  | { kind: 'bank_page'; message: MessageRef; provider: ReceiptProvider; page: BankReceipt };
 
 interface Evaluation {
   decision: Decision;
@@ -59,7 +72,7 @@ interface Evaluation {
   receipt: ReadReceipt | undefined;
   bank: BankCheck | null;
   /** Set when this order holds the reference, so a rejection can free it. */
-  claimed: SupportedReceipt | undefined;
+  claimed: ReadReceipt | undefined;
 }
 
 /** What the customer reads after the check, with **Report a problem** under a rejection. */
@@ -68,7 +81,10 @@ export interface CustomerReply {
   buttons: Button[];
 }
 
-/** Checks a payment screenshot in the design doc's four layers and acts on the decision. */
+/**
+ * Checks a payment screenshot, or the bank page that a link opened, in the design doc's four
+ * layers and acts on the decision.
+ */
 export class PaymentVerification {
   constructor(
     private readonly db: Database,
@@ -84,14 +100,16 @@ export class PaymentVerification {
     private readonly now: () => Date,
   ) {}
 
-  async verify(order: OrderRow, received: ReceivedReceipt): Promise<CustomerReply> {
+  async verify(order: OrderRow, received: ReceivedProof): Promise<CustomerReply> {
     const { shopId } = order;
     await this.orders.transition(
       shopId,
       order.id,
       'payment_submitted',
       'customer',
-      'Payment screenshot received',
+      received.kind === 'screenshot'
+        ? 'Payment screenshot received'
+        : 'Payment receipt link received',
     );
     const customer = await this.customers.get(shopId, order.customerId);
     const payer: Payer = { telegramUserId: customer.telegramUserId, phone: customer.phone };
@@ -101,9 +119,9 @@ export class PaymentVerification {
       this.proofs.insert(tx, {
         shopId,
         orderId: order.id,
-        telegramFileId: received.fileId,
+        telegramFileId: received.kind === 'screenshot' ? received.fileId : null,
         extraction: evaluation.extraction ?? null,
-        provider: receipt && isSupported(receipt) ? receipt.provider : null,
+        provider: receipt?.provider ?? null,
         txRef: receipt?.txRef ?? null,
         amount: receipt?.amount.toString() ?? null,
         rules: evaluation.rules,
@@ -120,37 +138,46 @@ export class PaymentVerification {
     };
   }
 
+  /** The model only copies a screenshot's text, and code reads it. A bank page needs no model. */
+  private async read(
+    received: ReceivedProof,
+  ): Promise<{ extraction?: ReceiptExtraction; reading: Reading } | undefined> {
+    if (received.kind === 'bank_page') {
+      return { reading: readBankPage(received.provider, received.page) };
+    }
+    const extraction = await this.reader.extract(received.image);
+    if (!extraction) return undefined;
+    return { extraction, reading: interpretReceipt(extraction, received.classificationConfidence) };
+  }
+
   private async evaluate(
     order: OrderRow,
-    received: ReceivedReceipt,
+    received: ReceivedProof,
     payer: Payer,
   ): Promise<Evaluation> {
-    const extraction = await this.reader.extract(received.image);
-    const none = { extraction, rules: null, receipt: undefined, bank: null, claimed: undefined };
-    if (!extraction)
-      return { ...none, decision: { outcome: 'review', reason: 'extraction_failed' } };
-
+    const read = await this.read(received);
+    const none = { rules: null, receipt: undefined, bank: null, claimed: undefined };
+    if (!read) return { ...none, extraction: undefined, decision: review('extraction_failed') };
+    const { extraction, reading } = read;
     const earlier = await withShop(this.db, order.shopId, (tx) =>
       this.proofs.forOrder(tx, order.id),
     );
-    const receipt = readReceipt(extraction, received.classificationConfidence);
-    if (!receipt) {
-      const earlierUnreadable = earlier.filter((p) => p.decision === 'ask_clearer').length;
-      return {
-        ...none,
-        rules: { r1: 'fail' },
-        decision: decide({ stage: 'unreadable', earlierUnreadable }),
-      };
+    if (reading.status === 'read') {
+      const checked = await this.checkRules(order, reading.receipt, earlier, received, payer);
+      return { extraction, ...checked };
     }
-    if (!isSupported(receipt)) {
-      return {
-        ...none,
-        receipt,
-        rules: { r1: 'pass', r2: 'fail' },
-        decision: decide({ stage: 'unsupported_provider' }),
-      };
-    }
+    const earlierUnreadable = earlier.filter((p) => p.decision === 'ask_clearer').length;
+    return { ...none, extraction, ...decideUnread(reading, earlierUnreadable) };
+  }
 
+  /** Rules R3 to R6 and the bank check, for a receipt that code could read. */
+  private async checkRules(
+    order: OrderRow,
+    receipt: ReadReceipt,
+    earlier: PaymentProofRow[],
+    received: ReceivedProof,
+    payer: Payer,
+  ): Promise<Omit<Evaluation, 'extraction'>> {
     const { paymentAccounts } = await this.shops.get(order.shopId);
     const account = matchingAccount(receipt, paymentAccounts);
     const due = amountDue(Money.of(order.total), partialPayments(earlier), receipt.txRef);
@@ -163,21 +190,26 @@ export class PaymentVerification {
       r5: checkTime(receipt.paidAt, order.createdAt),
       r6: checkReference(holder, order.id),
     };
-    const bank = account ? await this.checkBank(receipt, account) : null;
+    // The bank's own page is the receipt, so it confirms itself. Without a matching account there
+    // is nothing to look up, and R4 rejects the receipt anyway.
+    const bank =
+      received.kind === 'bank_page'
+        ? 'CONFIRMED'
+        : account && (await this.checkBank(receipt, account));
     const decision = decide({
       stage: 'checked',
       rules,
-      // Without a matching account there is nothing to look up, and R4 rejects the receipt anyway.
       bank: bank ?? 'UNAVAILABLE',
       paid: receipt.amount,
       due,
       payerHighRisk: await this.risk.isHighRisk(payer),
+      receiverFirstNameOnly: receipt.receiverFirstNameOnly,
     });
     const claimed = rules.r6 === 'pass' ? receipt : undefined;
-    return { decision, extraction, rules, receipt, bank, claimed };
+    return { decision, rules, receipt, bank: bank ?? null, claimed };
   }
 
-  private checkBank(receipt: SupportedReceipt, account: PaymentAccount): Promise<BankCheck> {
+  private checkBank(receipt: ReadReceipt, account: PaymentAccount): Promise<BankCheck> {
     return this.bank.check(receipt.provider, {
       txRef: receipt.txRef,
       amount: receipt.amount.toString(),
@@ -277,6 +309,8 @@ function partialPayments(proofs: PaymentProofRow[]): { txRef: string; amount: Mo
       : [],
   );
 }
+
+const review = (reason: ReviewReason): Decision => ({ outcome: 'review', reason });
 
 function reasonsOf(decision: Decision): string[] {
   if (decision.outcome === 'reject') return decision.reasons;

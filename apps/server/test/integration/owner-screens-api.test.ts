@@ -235,14 +235,15 @@ async function orderInReview(telegramUserId: number, name: string): Promise<stri
       orderId,
       telegramFileId: `file-${orderId}`,
       extraction: {
-        provider: { value: 'telebirr', confidence: 0.95 },
+        layout: { value: 'telebirr_web', confidence: 0.95 },
         transactionRef: { value: 'CHK12345', confidence: 0.9 },
         amount: { value: '3630.00', confidence: 0.92 },
         receiverName: { value: 'Selam Shoes', confidence: 0.9 },
         receiverAccount: { value: null, confidence: 0 },
         payerName: { value: name, confidence: 0.8 },
         payerAccount: { value: null, confidence: 0 },
-        paidAt: { value: '2026-11-05T10:00', confidence: 0.9 },
+        paidAt: { value: '05-11-2026 10:00:00', confidence: 0.9 },
+        status: { value: 'Completed', confidence: 0.9 },
       },
       provider: 'telebirr',
       txRef: 'CHK12345',
@@ -310,6 +311,15 @@ describe('payment review', () => {
 
     const blocked = await get(`/shops/${shopId}/payment-reviews/${proofId}/screenshot`, stranger);
     expect(blocked.status).toBe(403);
+  });
+
+  it('has no screenshot for a payment proven by a receipt link', async () => {
+    const orderId = await orderOf(70101, 'Link Customer');
+    const proof = await withShop(db, shopId, (tx) =>
+      proofs.insert(tx, { shopId, orderId, telegramFileId: null, decision: 'approve' }),
+    );
+    const res = await get(`/shops/${shopId}/payment-reviews/${proof.id}/screenshot`, owner);
+    expect(res.status).toBe(404);
   });
 
   it('approves once through the same review service as the chat buttons', async () => {

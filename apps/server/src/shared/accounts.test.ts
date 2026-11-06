@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { receiverMatches } from './accounts';
+import { firstNameMatches, receiverMatches } from './accounts';
 
 const telebirr = { accountName: 'Selam Tesfaye', accountNumber: '0911234567' };
 
@@ -26,5 +26,19 @@ describe('receiverMatches', () => {
     const single = { accountName: 'Selam', accountNumber: '0911234567' };
     expect(receiverMatches({ name: 'Selam Tesfaye', account: null }, single)).toBe(false);
     expect(receiverMatches({ name: 'SELAM', account: null }, single)).toBe(true);
+  });
+});
+
+describe('firstNameMatches', () => {
+  const known = { accountName: 'Liya Bekele Tadesse', accountNumber: '0911000000' };
+
+  it("matches the account holder's first name alone, in any case", () => {
+    expect(firstNameMatches('LIYA', known)).toBe(true);
+  });
+
+  it('refuses another first name, more than one word, or no name', () => {
+    expect(firstNameMatches('Bekele', known)).toBe(false);
+    expect(firstNameMatches('Liya Abebe', known)).toBe(false);
+    expect(firstNameMatches(null, known)).toBe(false);
   });
 });

@@ -23,6 +23,15 @@ export function receiverMatches(printed: PrintedReceiver, known: KnownAccount): 
 }
 
 /**
+ * The Telebirr app prints only the receiver's first name, which must be the account holder's
+ * first name. It proves less than a full name, so callers treat it as weaker evidence.
+ */
+export function firstNameMatches(printed: string | null, known: KnownAccount): boolean {
+  const shown = words(printed ?? '');
+  return shown.length === 1 && shown[0] === words(known.accountName)[0];
+}
+
+/**
  * Compares from the last digit backwards, because receipts mask middle digits ("2519****4567")
  * and write phone numbers with or without the country code.
  */

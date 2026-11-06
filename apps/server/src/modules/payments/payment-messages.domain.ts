@@ -3,7 +3,7 @@ import { orderReference } from '../orders/orders.domain';
 import type { Button } from '../owner/owner.domain';
 import { reportCallbackData } from './payments.schemas';
 import type { Decision, RejectReason, ReviewReason } from './payments.decision.domain';
-import type { ReadReceipt } from './payments.domain';
+import type { ReadReceipt } from './receipt-reading.domain';
 
 /** Buchi never accuses a customer: each reason says only what did not match. */
 const rejectReasons: Record<RejectReason, string> = {
@@ -16,7 +16,14 @@ const rejectReasons: Record<RejectReason, string> = {
 const reviewReasons: Record<ReviewReason, string> = {
   extraction_failed: 'Buchi could not read the screenshot.',
   unreadable: 'The screenshot was unclear twice.',
-  unsupported_provider: 'The payment provider is not one the shop accepts.',
+  unknown_layout: 'Buchi does not know this receipt layout.',
+  unparseable: 'A field on the receipt is not in the format that its layout prints.',
+  reference_date:
+    "The transaction reference does not match the receipt's date, so it may be edited.",
+  amount_total: "The amount and charges do not add up to the receipt's total, so it may be edited.",
+  not_completed: 'The receipt does not show a completed transaction.',
+  receiver_unconfirmed:
+    "The receipt shows only the receiver's first name, and the bank's page was unavailable.",
   overpaid: 'The customer paid more than the total.',
   underpaid_unconfirmed: 'The customer paid less than the total, and the bank did not confirm it.',
   bank_not_found: "The bank's receipt page does not show this transaction.",
@@ -75,6 +82,12 @@ export const reportNotAvailable = 'This payment was already reported or decided.
 
 export const alreadyChecking = (orderId: string) =>
   `🔎 We are already checking the payment for order ${orderReference(orderId)}. We will confirm it here soon.`;
+
+export const cbeAppLinkReply =
+  'ይቅርታ / Sorry, Buchi cannot open this CBE receipt link. Please send the screenshot of the receipt, or its reference that starts with FT.';
+
+export const receiptPageUnavailable =
+  "ይቅርታ / Sorry, we could not open the bank's receipt page right now. Please send the screenshot of the receipt.";
 
 export const noUnpaidOrder =
   'ይቅርታ / Sorry, you have no order waiting for payment. Tap Buy on a channel post to order.';

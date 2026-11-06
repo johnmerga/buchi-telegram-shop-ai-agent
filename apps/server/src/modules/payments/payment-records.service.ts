@@ -34,6 +34,9 @@ export class PaymentRecords {
   async screenshotFileId(shopId: string, proofId: string): Promise<string> {
     const proof = await withShop(this.db, shopId, (tx) => this.proofs.find(tx, proofId));
     if (!proof) throw new AppError('NOT_FOUND', 'Payment proof not found');
+    if (proof.telegramFileId === null) {
+      throw new AppError('NOT_FOUND', 'This payment was proven by a receipt link');
+    }
     return proof.telegramFileId;
   }
 

@@ -18,15 +18,21 @@ export const bankReceiptSchema = z.object({
     account: z.string().min(4).nullable(),
   }),
   completed: z.boolean(),
+  /** The payment time exactly as the page prints it. Payments code reads its format. */
+  paidAt: z.string().min(1).nullable(),
 });
-type BankReceipt = z.infer<typeof bankReceiptSchema>;
+export type BankReceipt = z.infer<typeof bankReceiptSchema>;
 
 /** A parsed page: the receipt, the bank's "no such transaction" page, or a page Buchi cannot read. */
 export type ParsedPage = BankReceipt | 'NOT_FOUND' | 'UNREADABLE';
 
+/** A receipt looked up on a bank's page, or why there is none. */
+export type PageReading = BankReceipt | 'NOT_FOUND' | 'UNAVAILABLE';
+
 /** One bank's public receipt page. It never throws: any failure is `UNAVAILABLE`. */
 export interface ReceiptClient {
-  check(claim: ReceiptClaim): Promise<BankCheck>;
+  /** Looks a receipt up by its reference. CBE also needs the receiving account's number. */
+  read(txRef: string, accountNumber: string | null): Promise<PageReading>;
 }
 
 /** The page confirms the claim only when the reference, amount, and receiver all agree. */

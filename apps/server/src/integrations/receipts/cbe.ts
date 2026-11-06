@@ -1,12 +1,10 @@
-import type { BankCheck } from '@buchi/shared';
 import { PDFParse } from 'pdf-parse';
 import type { FetchPage } from './fetch-page';
 import {
   amountOf,
   bankReceiptSchema,
-  compareReceipt,
+  type PageReading,
   type ParsedPage,
-  type ReceiptClaim,
   type ReceiptClient,
 } from './receipt-check';
 
@@ -20,10 +18,10 @@ const ACCOUNT_SUFFIX_DIGITS = 8;
 export class CbeReceipts implements ReceiptClient {
   constructor(private readonly fetchPage: FetchPage) {}
 
-  async check(claim: ReceiptClaim): Promise<BankCheck> {
-    const txRef = claim.txRef.toUpperCase();
-    if (!TX_REF.test(txRef)) return 'NOT_FOUND';
-    const suffix = claim.account.accountNumber.replace(/\D/g, '').slice(-ACCOUNT_SUFFIX_DIGITS);
+  async read(reference: string, accountNumber: string | null): Promise<PageReading> {
+    const txRef = reference.toUpperCase();
+    if (!TX_REF.test(txRef) || accountNumber === null) return 'NOT_FOUND';
+    const suffix = accountNumber.replace(/\D/g, '').slice(-ACCOUNT_SUFFIX_DIGITS);
     try {
       const response = await this.fetchPage(`${RECEIPT_URL}${txRef}${suffix}`);
       if (response.status === 404) return 'NOT_FOUND';
@@ -32,8 +30,7 @@ export class CbeReceipts implements ReceiptClient {
       // The page answers an unknown reference with something other than a PDF.
       if (!isPdf(bytes)) return 'NOT_FOUND';
       const page = parseCbeReceipt(await pdfText(bytes));
-      if (page === 'UNREADABLE') return 'UNAVAILABLE';
-      return page === 'NOT_FOUND' ? 'NOT_FOUND' : compareReceipt(page, { ...claim, txRef });
+      return page === 'UNREADABLE' ? 'UNAVAILABLE' : page;
     } catch {
       // Timeouts, certificate errors, and an unreachable host all mean no evidence either way.
       return 'UNAVAILABLE';
@@ -70,6 +67,7 @@ export function parseCbeReceipt(text: string): ParsedPage {
     },
     // CBE issues a receipt only for a completed transfer.
     completed: true,
+    paidAt: /Payment Date & Time[ \t]+(.+?)[ \t]*(?=\n|$)/.exec(text)?.[1] ?? null,
   });
   return parsed.success ? parsed.data : 'UNREADABLE';
 }

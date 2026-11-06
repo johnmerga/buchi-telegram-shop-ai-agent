@@ -1,0 +1,1 @@
+ALTER TABLE "payment_proofs" ALTER COLUMN "telegram_file_id" DROP NOT NULL;

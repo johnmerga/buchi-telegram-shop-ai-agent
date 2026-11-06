@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { historyContents, salesContext } from './conversation.domain';
+import { historyContents, replyLanguage, salesContext } from './conversation.domain';
 
 describe('historyContents', () => {
   it('maps customer turns to user and Buchi turns to model', () => {
@@ -57,5 +57,25 @@ describe('salesContext', () => {
     expect(unpriced.text).toContain('fixed price 1000.00 birr');
     expect(unpriced.text).toContain('price not agreed yet');
     expect(unpriced.prices).toEqual(['1000.00']);
+  });
+});
+
+describe('replyLanguage', () => {
+  it("asks for Amharic when the customer writes in Ge'ez script", () => {
+    expect(replyLanguage('ዋጋው ስንት ነው?')).toBe('Reply in Amharic.');
+  });
+
+  it('asks for English when the customer writes only Latin letters', () => {
+    expect(replyLanguage('How much are these boots?')).toBe('Reply in English.');
+  });
+
+  it('asks for the same mix when the message has both scripts', () => {
+    expect(replyLanguage('How much is the ቀሚስ?')).toBe(
+      'Reply in the same mix of Amharic and English.',
+    );
+  });
+
+  it('asks for nothing when the message has no letters', () => {
+    expect(replyLanguage('900? 👍')).toBeUndefined();
   });
 });

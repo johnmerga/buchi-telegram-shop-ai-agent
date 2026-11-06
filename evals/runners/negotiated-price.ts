@@ -29,6 +29,11 @@ const input = z
   );
 type Input = z.output<typeof input>;
 
+const lettersOf = (text: string, script: RegExp) => text.match(script)?.length ?? 0;
+/** Mostly Ge'ez letters. An English reply may still quote an Amharic product title. */
+const isAmharic = (text: string) =>
+  lettersOf(text, /\p{Script=Ethiopic}/gu) > lettersOf(text, /\p{Script=Latin}/gu);
+
 interface Actual {
   outcome: string;
   reply: string;
@@ -86,11 +91,16 @@ export function negotiatedPriceSuite(db: Database): Suite {
     name: 'negotiated-price',
     dataset: 'negotiated-price.jsonl',
     input,
-    expected: z.strictObject({ outcome: z.enum(['reply', 'handed_to_owner']) }),
+    expected: z.strictObject({
+      outcome: z.enum(['reply', 'handed_to_owner']),
+      /** Set on English messages about Amharic products, which used to get Amharic replies. */
+      language: z.literal('english').optional(),
+    }),
     metrics: {
       outcomeMatch: { atLeast: 0.85 },
       priceOutsideRange: { atMost: 0 },
       fixedPriceDiscount: { atMost: 0 },
+      amharicReplyToEnglish: { atMost: 0 },
     },
     run,
     score: (actual, { input: testCase, expected }) => {
@@ -109,6 +119,7 @@ export function negotiatedPriceSuite(db: Database): Suite {
           fixed && (actual.acceptedPrices.length > 0 || actual.cartPrice !== testCase.price)
             ? 1
             : 0,
+        amharicReplyToEnglish: expected.language === 'english' && isAmharic(actual.reply) ? 1 : 0,
       };
     },
   });

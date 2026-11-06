@@ -416,7 +416,10 @@ and completes an order, while the guard holds every limit.
   `conversations.recent_turns`, without tool results, so stale prices never return. Every price in
   a reply must come from a tool result or the code-built context, or the reply is replaced. Product
   embeddings are computed by a `product.embed` timer saved with the product; the match cutoff
-  (cosine distance 0.3) is tuned in Task 10.1. "Forget my details" is recognized in code.
+  (cosine distance 0.3) is tuned in Task 10.1. "Forget my details" is recognized in code. The
+  turn context names the reply language, read in code from the scripts of the customer's latest
+  message (Ge'ez, Latin, or both), because Amharic product titles pulled English chats into
+  Amharic. Latin-script Amharic, such as "last price ngerign", gets an English reply.
 
 ### 4.3 Product search from a photo
 
@@ -649,12 +652,12 @@ loading, empty, and error states.
 - **Deliverables:** the eight datasets from the design doc's evaluation table, with recordings for
   replay mode, and target thresholds in CI. The live nightly run samples cases, because about 400
   cases at 10 requests a minute exceed the free tier's daily quota.
-- **Built as:** recorded against Gemini 3.5 Flash-Lite: 40 sales conversations (English, Amharic,
-  code-switched, and adversarial), 31 operations situations, 21 owner commands, 21 owner
+- **Built as:** recorded against Gemini 3.5 Flash-Lite: 43 sales conversations (English, Amharic,
+  code-switched, adversarial, and English about Amharic products), 31 operations situations, 21 owner commands, 21 owner
   questions (5 refusals), 12 far-price agent trips, and 3 × 200 synthetic trips. Goals stay at
   0.85 (sales outcome, owner rows), 0.8/0.9 (operations action/autonomy), and 0.9 (owner rules);
-  prices outside the range, fixed-price discounts, rules saved without Confirm, and far prices
-  outside the limits are all 0. The one model miss left is Amharic promotion keywords with the
+  prices outside the range, fixed-price discounts, Amharic replies to English messages, rules
+  saved without Confirm, and far prices outside the limits are all 0. The one model miss left is Amharic promotion keywords with the
   የ prefix ("የሀበሻ ቀሚስ" instead of "ቀሚስ"). Seeds use fixed IDs, because tool results reach the
   recorded requests. Receipt, product photo, and landmark sets are still pending.
 

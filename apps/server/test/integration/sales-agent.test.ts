@@ -370,6 +370,19 @@ describe('sales agent tools', () => {
   });
 });
 
+describe('reply language', () => {
+  it('tells the model to answer an English message in English, beside the shop context', async () => {
+    const abel = userOf(425031, 'Abel');
+    await bot.handleUpdate(start(abel, bootsLink));
+    script.push({ text: 'They are leather boots.' });
+
+    await bot.handleUpdate(text(abel, 'What are these made of?'));
+
+    const [context] = model.requests.at(-1)?.contents.at(-1)?.parts ?? [];
+    expect(context?.text).toMatch(/^\[Shop context[\s\S]*\nReply in English\.$/);
+  });
+});
+
 describe('first reply time', () => {
   it('records when the message reached Telegram and when the answer did', async () => {
     const hanna = userOf(425030, 'Hanna');

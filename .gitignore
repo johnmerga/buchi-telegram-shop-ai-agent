@@ -6,3 +6,6 @@ coverage/
 !.env.example
 *.log
 evals/report.json
+
+# Real receipts and photos for building evaluation sets. Personal data: never commit.
+evals/inbox/

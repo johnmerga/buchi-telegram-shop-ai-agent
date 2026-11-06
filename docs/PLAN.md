@@ -672,6 +672,7 @@ loading, empty, and error states.
   cases at 10 requests a minute exceed the free tier's daily quota.
 - **Built as:** recorded against Gemini 3.5 Flash-Lite: 43 sales conversations (English, Amharic,
   code-switched, adversarial, and English about Amharic products), 24 operations situations, 21 owner
+  commands, 21 owner
   questions (5 refusals), 12 far-price agent trips, and 3 × 200 synthetic trips. Goals stay at
   0.85 (sales outcome, owner rows), 0.8/0.9 (operations action/autonomy), and 0.9 (owner rules);
   prices outside the range, fixed-price discounts, Amharic replies to English messages, rules

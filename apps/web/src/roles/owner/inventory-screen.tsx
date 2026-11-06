@@ -53,7 +53,7 @@ function ProductCard({ shopId, product }: { shopId: string; product: ProductWith
       </div>
       <p className="text-sm">
         {negotiable
-          ? `Asking ${formatBirr(product.price)} · lowest ${formatBirr(product.lowestPrice ?? product.price)} (private)`
+          ? `Asking ${formatBirr(product.price)} in chat · lowest ${formatBirr(product.lowestPrice ?? product.price)}, never shown to customers`
           : formatBirr(product.price)}
       </p>
       {product.variants.length === 0 ? (

@@ -126,7 +126,11 @@ function ProductForm({
           ))}
         </fieldset>
         <Field
-          label={pricingMode === 'fixed' ? 'Price (birr)' : 'Asking price (birr, private)'}
+          label={
+            pricingMode === 'fixed'
+              ? 'Price (birr)'
+              : 'Asking price (birr, said in chat, not on the post)'
+          }
           inputMode="decimal"
           value={price}
           onChange={(e) => {
@@ -136,7 +140,7 @@ function ProductForm({
         />
         {pricingMode === 'negotiable' && (
           <Field
-            label="Lowest price (birr, private)"
+            label="Lowest price (birr, never shown to customers)"
             hint="Buchi never sells below it and never tells customers what it is."
             inputMode="decimal"
             value={lowestPrice}

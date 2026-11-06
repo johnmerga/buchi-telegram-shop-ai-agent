@@ -606,7 +606,9 @@ loading, empty, and error states.
   origin; live order updates stream from `GET /shops/:shopId/events`. The map picker returns the pin
   with `Telegram.WebApp.sendData`, which arrives as `web_app_data` through the existing webhook. The
   official `telegram-web-app.js` script provides the SDK. `WEB_APP_URL` (HTTPS) enables the Mini App
-  buttons, and the server build bundles `@buchi/shared`.
+  buttons, and the server build bundles `@buchi/shared`. Price labels say who sees each price:
+  the asking price is said in chat, not on the post, and the lowest price is never shown to
+  customers.
 - **Place search:** the shop location step searches places anywhere in Ethiopia through the
   signed-in `GET /places?q=` (Nominatim, up to 5 results, cached and sharing the landmark search's
   one request a second), and warns when "Use my location" is worse than 1 km.

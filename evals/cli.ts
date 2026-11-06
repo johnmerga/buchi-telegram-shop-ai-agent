@@ -29,6 +29,8 @@ type Mode = z.infer<typeof modeSchema>;
 const argsSchema = z.object({
   mode: modeSchema,
   updateBaseline: z.boolean(),
+  /** Runs one suite, so a prompt change re-records only the suites it affects. */
+  suite: z.string().min(1).optional(),
 });
 
 const envSchema = z.object({
@@ -38,24 +40,33 @@ const envSchema = z.object({
 async function main(): Promise<boolean> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
-    options: { 'update-baseline': { type: 'boolean', default: false } },
+    options: {
+      'update-baseline': { type: 'boolean', default: false },
+      suite: { type: 'string' },
+    },
   });
   const args = argsSchema.safeParse({
     mode: positionals[0],
     updateBaseline: values['update-baseline'],
+    suite: values.suite,
   });
-  if (!args.success) throw new Error('Usage: cli.ts <replay|record|live> [--update-baseline]');
-  const { mode, updateBaseline } = args.data;
+  if (!args.success) {
+    throw new Error('Usage: cli.ts <replay|record|live> [--suite <name>] [--update-baseline]');
+  }
+  const { mode, updateBaseline, suite } = args.data;
   const { EVALS_DATABASE_URL } = envSchema.parse(process.env);
   const modelFor = modelSource(mode);
 
   await recreateEvalDatabase(EVALS_DATABASE_URL);
   const { db, close } = connectDatabase(EVALS_DATABASE_URL);
   try {
-    const suites = await evaluate(createSuites(db), {
+    const chosen = createSuites(db).filter((s) => suite === undefined || s.name === suite);
+    if (chosen.length === 0) throw new Error(`There is no suite named ${suite ?? ''}`);
+    const baseline = await readBaseline(baselinePath);
+    const suites = await evaluate(chosen, {
       readRows: (dataset) => readDataset(pathIn(`./datasets/${dataset}`)),
       modelFor,
-      baseline: await readBaseline(baselinePath),
+      baseline,
     });
     const report = buildReport(mode, suites, new Date());
     await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -65,7 +76,8 @@ async function main(): Promise<boolean> {
       console.error('The baseline was not updated, because a metric misses its goal.');
       return false;
     }
-    await writeBaseline(baselinePath, scoresOf(report));
+    // A run of one suite keeps the other suites' baselines.
+    await writeBaseline(baselinePath, { ...baseline, ...scoresOf(report) });
     console.log(`Baseline updated: ${baselinePath}`);
     return true;
   } finally {

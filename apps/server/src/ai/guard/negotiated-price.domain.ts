@@ -16,7 +16,7 @@ export type PriceDecision =
   | { result: 'accepted'; reason: 'within_limits' | 'concession'; value: Money }
   | {
       result: 'rejected';
-      reason: 'above_asking' | 'too_low' | 'no_concessions_left';
+      reason: 'above_asking' | 'above_last_offer' | 'too_low' | 'no_concessions_left';
       counteroffer: Money;
     };
 
@@ -25,8 +25,9 @@ const PRICE_STEP = Money.of('50');
 
 /**
  * Checks a price the sales agent wants to offer. An accepted price is always within
- * [lowest, asking]. A rejection carries a counteroffer that this checker would accept if the agent
- * proposed it next, so the agent never loops on prices that cannot pass.
+ * [lowest, asking], and never above the agent's last offer, because a customer who was offered a
+ * price must not see it rise. A rejection carries a counteroffer that this checker would accept if
+ * the agent proposed it next, so the agent never loops on prices that cannot pass.
  */
 export function checkNegotiatedPrice(
   proposed: Money,
@@ -36,11 +37,13 @@ export function checkNegotiatedPrice(
   if (limits.lowest.compare(limits.asking) > 0) {
     throw new RangeError('The lowest price is above the asking price');
   }
-  if (proposed.compare(limits.asking) > 0) {
-    return { result: 'rejected', reason: 'above_asking', counteroffer: limits.asking };
-  }
-
   const standing = standingOffer(limits, state.lastOffer);
+  if (proposed.compare(limits.asking) > 0) {
+    return { result: 'rejected', reason: 'above_asking', counteroffer: standing };
+  }
+  if (proposed.compare(standing) > 0) {
+    return { result: 'rejected', reason: 'above_last_offer', counteroffer: standing };
+  }
   const concession = proposed.compare(standing) < 0;
   if (concession && state.concessionsMade >= MAX_CONCESSIONS) {
     return { result: 'rejected', reason: 'no_concessions_left', counteroffer: standing };

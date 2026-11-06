@@ -52,6 +52,24 @@ describe('checkNegotiatedPrice', () => {
     });
   });
 
+  it('rejects raising the price above the last offer, with the last offer', () => {
+    const state = { lastOffer: birr('900'), concessionsMade: 2 };
+    expect(check('950', state)).toEqual({
+      result: 'rejected',
+      reason: 'above_last_offer',
+      counteroffer: '900.00',
+    });
+  });
+
+  it('counters a price above the asking price with the last offer once one was made', () => {
+    const state = { lastOffer: birr('900'), concessionsMade: 1 };
+    expect(check('1200', state)).toEqual({
+      result: 'rejected',
+      reason: 'above_asking',
+      counteroffer: '900.00',
+    });
+  });
+
   it('rejects a price below the lowest price with a counteroffer above the lowest', () => {
     // 800 + a quarter of 200 = 850, already a multiple of 50.
     expect(check('700')).toEqual({ result: 'rejected', reason: 'too_low', counteroffer: '850.00' });

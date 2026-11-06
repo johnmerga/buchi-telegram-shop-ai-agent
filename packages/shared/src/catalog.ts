@@ -61,4 +61,8 @@ export const variantSchema = z.object({
 export const productWithVariantsSchema = productSchema.extend({ variants: z.array(variantSchema) });
 export type ProductWithVariants = z.infer<typeof productWithVariantsSchema>;
 
+/** Telegram accepts photos up to 10 MB in these formats. */
+export const productPhotoTypes = ['image/jpeg', 'image/png', 'image/webp'];
+export const MAX_PRODUCT_PHOTO_BYTES = 10 * 1024 * 1024;
+
 export const channelPostSchema = z.object({ postId: z.uuid() });

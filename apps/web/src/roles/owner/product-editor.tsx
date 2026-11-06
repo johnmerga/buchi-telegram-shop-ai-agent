@@ -14,6 +14,7 @@ import { Card } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/form';
 import { useProducts, useSaveProduct } from './owner-api';
+import { ProductPhotos } from './product-photos';
 import { useShopId } from './use-shop-id';
 import { VariantsEditor, type VariantDraft } from './variants-editor';
 
@@ -126,7 +127,11 @@ function ProductForm({
           ))}
         </fieldset>
         <Field
-          label={pricingMode === 'fixed' ? 'Price (birr)' : 'Asking price (birr, private)'}
+          label={
+            pricingMode === 'fixed'
+              ? 'Price (birr)'
+              : 'Asking price (birr, said in chat, not on the post)'
+          }
           inputMode="decimal"
           value={price}
           onChange={(e) => {
@@ -136,7 +141,7 @@ function ProductForm({
         />
         {pricingMode === 'negotiable' && (
           <Field
-            label="Lowest price (birr, private)"
+            label="Lowest price (birr, never shown to customers)"
             hint="Buchi never sells below it and never tells customers what it is."
             inputMode="decimal"
             value={lowestPrice}
@@ -144,6 +149,13 @@ function ProductForm({
               setLowestPrice(e.target.value);
             }}
             error={errors.lowestPrice}
+          />
+        )}
+        {product && (
+          <ProductPhotos
+            shopId={shopId}
+            productId={product.id}
+            count={product.photoFileIds.length}
           />
         )}
         <VariantsEditor

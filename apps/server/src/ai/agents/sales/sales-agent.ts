@@ -6,7 +6,7 @@ import type { ConversationService } from '../../../modules/owner/conversations.s
 import { salesPrompt } from '../../prompts/sales';
 import type { AgentDefinition, AgentRuntime, RunResult } from '../../runtime';
 import { failureOf } from '../../structured-output';
-import { historyContents } from './conversation.domain';
+import { historyContents, replyLanguage } from './conversation.domain';
 import { numbersIn, unverifiedPrices } from './reply-prices.domain';
 import type { SalesContext } from './sales-context';
 
@@ -81,6 +81,7 @@ export class SalesAgent {
     // Recorded before the run, so a fact the agent saves can cite this message as its source.
     await this.conversations.recordTurns(shopId, buyer, [{ role: 'customer', text: message }]);
     const context = await this.context.build(shopId, customer);
+    const turnContext = [context.text, replyLanguage(message)].filter(Boolean).join('\n');
 
     let result: RunResult;
     try {
@@ -89,7 +90,7 @@ export class SalesAgent {
         actor: { kind: 'telegram_user', telegramUserId: buyer.telegramUserId },
         history: [
           ...historyContents(history),
-          { role: 'user', parts: [{ text: context.text }, { text: message }] },
+          { role: 'user', parts: [{ text: turnContext }, { text: message }] },
         ],
       });
     } catch (err) {

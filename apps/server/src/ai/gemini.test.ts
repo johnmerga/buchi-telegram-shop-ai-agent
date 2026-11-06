@@ -23,11 +23,28 @@ function setUp(
   generateContent: Models['generateContent'],
   requestsPerMinute = 100,
   embedContent = vi.fn<Models['embedContent']>(),
+  wait = vi.fn((_ms: number) => Promise.resolve()),
 ) {
   const quotas = { generate: quotaOf(requestsPerMinute), embed: quotaOf(100) };
-  return new GeminiModel({ generateContent, embedContent }, config, quotas, () =>
-    Promise.resolve(),
-  );
+  return new GeminiModel({ generateContent, embedContent }, config, quotas, wait);
+}
+
+/** A 429 as the SDK throws it: the JSON error body is the message. */
+function rateLimited(retryDelay: string, quotaId = 'GenerateRequestsPerMinutePerProjectPerModel') {
+  const body = {
+    error: {
+      code: 429,
+      status: 'RESOURCE_EXHAUSTED',
+      details: [
+        {
+          '@type': 'type.googleapis.com/google.rpc.QuotaFailure',
+          violations: [{ quotaId }],
+        },
+        { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay },
+      ],
+    },
+  };
+  return new ApiError({ message: JSON.stringify(body), status: 429 });
 }
 
 const request: GenerateRequest = { tier: 'smart', priority: 'customer', contents: [] };
@@ -63,6 +80,61 @@ describe('GeminiModel', () => {
       .mockResolvedValue(responseWith('ok'));
 
     expect((await setUp(generate).generate(request)).text).toBe('ok');
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits the delay Google gives for a rate limit, then retries', async () => {
+    const wait = vi.fn((_ms: number) => Promise.resolve());
+    const generate = vi
+      .fn<Models['generateContent']>()
+      .mockRejectedValueOnce(rateLimited('7.5s'))
+      .mockResolvedValue(responseWith('ok'));
+
+    const model = setUp(generate, 100, undefined, wait);
+    expect((await model.generate(request)).text).toBe('ok');
+    expect(wait).toHaveBeenCalledExactlyOnceWith(7500);
+  });
+
+  it('fails at once when the delay is longer than a customer can wait', async () => {
+    const wait = vi.fn((_ms: number) => Promise.resolve());
+    const generate = vi.fn<Models['generateContent']>().mockRejectedValue(rateLimited('14s'));
+
+    await expect(setUp(generate, 100, undefined, wait).generate(request)).rejects.toThrow(
+      'RESOURCE_EXHAUSTED',
+    );
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(wait).not.toHaveBeenCalled();
+  });
+
+  it('lets owner requests wait longer than customer requests', async () => {
+    const wait = vi.fn((_ms: number) => Promise.resolve());
+    const generate = vi
+      .fn<Models['generateContent']>()
+      .mockRejectedValueOnce(rateLimited('14s'))
+      .mockResolvedValue(responseWith('ok'));
+
+    const model = setUp(generate, 100, undefined, wait);
+    expect((await model.generate({ ...request, priority: 'owner' })).text).toBe('ok');
+    expect(wait).toHaveBeenCalledExactlyOnceWith(14_000);
+  });
+
+  it('fails at once when the daily quota is spent, whatever the delay', async () => {
+    const generate = vi
+      .fn<Models['generateContent']>()
+      .mockRejectedValue(rateLimited('3s', 'GenerateRequestsPerDayPerProjectPerModel-FreeTier'));
+
+    await expect(setUp(generate).generate({ ...request, priority: 'owner' })).rejects.toThrow(
+      'PerDay',
+    );
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes quota for every rate-limited attempt', async () => {
+    const generate = vi.fn<Models['generateContent']>().mockRejectedValue(rateLimited('1s'));
+
+    await expect(
+      setUp(generate, 2).generate({ ...request, priority: 'payment' }),
+    ).rejects.toMatchObject({ code: 'QUOTA_EXHAUSTED' });
     expect(generate).toHaveBeenCalledTimes(2);
   });
 

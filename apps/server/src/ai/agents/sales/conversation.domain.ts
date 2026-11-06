@@ -70,3 +70,16 @@ export function salesContext(input: SalesContextInput): { text: string; prices: 
   }
   return { text: lines.join('\n'), prices };
 }
+
+/**
+ * The reply language, read from the scripts in the customer's latest message. Product titles are
+ * often Amharic, which pulls the model into Amharic when the prompt rule alone asks for English.
+ */
+export function replyLanguage(message: string): string | undefined {
+  const amharic = /\p{Script=Ethiopic}/u.test(message);
+  const english = /\p{Script=Latin}/u.test(message);
+  if (amharic && english) return 'Reply in the same mix of Amharic and English.';
+  if (amharic) return 'Reply in Amharic.';
+  if (english) return 'Reply in English.';
+  return undefined;
+}

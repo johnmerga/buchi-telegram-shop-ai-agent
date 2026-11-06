@@ -4,6 +4,7 @@ export const errorStatus = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  TOO_LARGE: 413,
   RATE_LIMITED: 429,
   QUOTA_EXHAUSTED: 503,
   /** An external service failed, so the request can succeed later. */

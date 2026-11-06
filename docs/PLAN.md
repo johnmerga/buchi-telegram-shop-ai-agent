@@ -303,6 +303,9 @@ trace is stored, and the evaluation runner replays a recorded conversation.
   window, a daily budget that resets at midnight Pacific time (as Gemini's does), and priorities; retries with backoff; a fake client for tests.
 - **Acceptance:** when the budget is spent, low-priority calls fail fast with `QUOTA_EXHAUSTED`
   while payment checks still run.
+- **Built as:** a 429 waits the `RetryInfo` delay Google sends when it is at most 10 s for payment
+  and customer calls, or 20 s for operations and owner calls. A longer delay or a spent daily quota
+  fails at once. Every attempt takes quota.
 
 ### 2.2 Tool registry and actor scoping
 
@@ -413,7 +416,10 @@ and completes an order, while the guard holds every limit.
   `conversations.recent_turns`, without tool results, so stale prices never return. Every price in
   a reply must come from a tool result or the code-built context, or the reply is replaced. Product
   embeddings are computed by a `product.embed` timer saved with the product; the match cutoff
-  (cosine distance 0.3) is tuned in Task 10.1. "Forget my details" is recognized in code.
+  (cosine distance 0.3) is tuned in Task 10.1. "Forget my details" is recognized in code. The
+  turn context names the reply language, read in code from the scripts of the customer's latest
+  message (Ge'ez, Latin, or both), because Amharic product titles pulled English chats into
+  Amharic. Latin-script Amharic, such as "last price ngerign", gets an English reply.
 
 ### 4.3 Product search from a photo
 
@@ -603,7 +609,14 @@ loading, empty, and error states.
   origin; live order updates stream from `GET /shops/:shopId/events`. The map picker returns the pin
   with `Telegram.WebApp.sendData`, which arrives as `web_app_data` through the existing webhook. The
   official `telegram-web-app.js` script provides the SDK. `WEB_APP_URL` (HTTPS) enables the Mini App
-  buttons, and the server build bundles `@buchi/shared`.
+  buttons, and the server build bundles `@buchi/shared`. Price labels say who sees each price:
+  the asking price is said in chat, not on the post, and the lowest price is never shown to
+  customers.
+- **Product photos:** **Add photo** in the editor posts the raw image (JPEG, PNG, or WebP, at
+  most 10 MB) to `POST /shops/:shopId/products/:productId/photos`. The server sends it silently
+  to the owner's chat with the bot to get a Telegram file ID, deletes that message, and attaches
+  the photo, so photos stay on Telegram. Thumbnails stream from Telegram through
+  `GET /shops/:shopId/products/:productId/photos/:index`, like payment screenshots.
 - **Place search:** the shop location step searches places anywhere in Ethiopia through the
   signed-in `GET /places?q=` (Nominatim, up to 5 results, cached and sharing the landmark search's
   one request a second), and warns when "Use my location" is worse than 1 km.
@@ -644,12 +657,12 @@ loading, empty, and error states.
 - **Deliverables:** the eight datasets from the design doc's evaluation table, with recordings for
   replay mode, and target thresholds in CI. The live nightly run samples cases, because about 400
   cases at 10 requests a minute exceed the free tier's daily quota.
-- **Built as:** recorded against Gemini 3.5 Flash-Lite: 40 sales conversations (English, Amharic,
-  code-switched, and adversarial), 31 operations situations, 21 owner commands, 21 owner
+- **Built as:** recorded against Gemini 3.5 Flash-Lite: 43 sales conversations (English, Amharic,
+  code-switched, adversarial, and English about Amharic products), 31 operations situations, 21 owner commands, 21 owner
   questions (5 refusals), 12 far-price agent trips, and 3 × 200 synthetic trips. Goals stay at
   0.85 (sales outcome, owner rows), 0.8/0.9 (operations action/autonomy), and 0.9 (owner rules);
-  prices outside the range, fixed-price discounts, rules saved without Confirm, and far prices
-  outside the limits are all 0. The one model miss left is Amharic promotion keywords with the
+  prices outside the range, fixed-price discounts, Amharic replies to English messages, rules
+  saved without Confirm, and far prices outside the limits are all 0. The one model miss left is Amharic promotion keywords with the
   የ prefix ("የሀበሻ ቀሚስ" instead of "ቀሚስ"). Seeds use fixed IDs, because tool results reach the
   recorded requests. Receipt, product photo, and landmark sets are still pending.
 

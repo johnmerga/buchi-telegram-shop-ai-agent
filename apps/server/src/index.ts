@@ -180,6 +180,7 @@ import { TelebirrReceipts } from './integrations/receipts/telebirr';
 import { createBot } from './telegram/bot';
 import { TelegramCustomerChat } from './telegram/customer-chat';
 import { TelegramFiles } from './telegram/files';
+import { TelegramPhotoUploads } from './telegram/photo-uploads';
 import { TelegramMessenger } from './telegram/messenger';
 import { TelegramIngress } from './telegram/ingress';
 import { MiniAppLinks } from './telegram/mini-app-links';
@@ -779,7 +780,13 @@ const app = createApp({
     createJobsRouter(jobs, env.JOB_SECRET),
     createAuthRouter(auth, botInfo.username),
     createShopsRouter({ shops, requireAuth: signedIn, requireShopOwner: shopOwner }),
-    createCatalogRouter({ catalog, requireAuth: signedIn, requireShopOwner: shopOwner }),
+    createCatalogRouter({
+      catalog,
+      uploads: new TelegramPhotoUploads(telegramApi),
+      files: telegramFiles,
+      requireAuth: signedIn,
+      requireShopOwner: shopOwner,
+    }),
     createDeliveryRouter({
       delivery,
       saverSchedule,

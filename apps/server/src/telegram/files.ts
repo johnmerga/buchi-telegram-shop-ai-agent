@@ -1,5 +1,6 @@
 import { Readable } from 'node:stream';
 import type { Api } from 'grammy';
+import type { PhotoFiles } from '../modules/catalog/catalog.routes';
 import type { ImageFiles } from '../modules/payments/image-intake.service';
 import type { ScreenshotFiles, ScreenshotStream } from '../modules/payments/payments.routes';
 
@@ -14,8 +15,11 @@ const imageTypes: Record<string, string> = {
   webp: 'image/webp',
 };
 
-/** Downloads files that customers send, for Gemini to read and for the owner to see. Nothing is stored. */
-export class TelegramFiles implements ImageFiles, ScreenshotFiles {
+/**
+ * Downloads files kept on Telegram: what customers send, for Gemini to read and for the owner to
+ * see, and product photos. Nothing is stored.
+ */
+export class TelegramFiles implements ImageFiles, ScreenshotFiles, PhotoFiles {
   constructor(
     private readonly api: Api,
     private readonly token: string,

@@ -1,18 +1,10 @@
-import { useEffect, useMemo } from 'react';
 import { useScreenshot } from './review-api';
+import { useObjectUrl } from './use-object-url';
 
 /** The customer's payment screenshot, streamed from Telegram and shown from memory only. */
 export function Screenshot({ shopId, proofId }: { shopId: string; proofId: string }) {
   const image = useScreenshot(shopId, proofId);
-  const url = useMemo(() => image.data && URL.createObjectURL(image.data), [image.data]);
-
-  // An object URL keeps the image in memory until it is revoked.
-  useEffect(() => {
-    if (url === undefined) return;
-    return () => {
-      URL.revokeObjectURL(url);
-    };
-  }, [url]);
+  const url = useObjectUrl(image.data);
 
   if (image.isError) {
     return <p className="text-sm text-muted-foreground">The screenshot could not be loaded.</p>;

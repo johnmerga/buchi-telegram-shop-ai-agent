@@ -22,6 +22,12 @@ export class Api {
     return this.request(path, jsonInit(method, body), schema);
   }
 
+  /** Posts a file as the raw body, typed by its own content type. */
+  upload<T extends z.ZodType>(path: string, file: Blob, schema: T): Promise<z.infer<T>> {
+    const init = { method: 'POST', headers: { 'content-type': file.type }, body: file };
+    return this.request(path, init, schema);
+  }
+
   /** A file such as an image, which the page shows through an object URL. */
   async blob(path: string): Promise<Blob> {
     return (await this.fetch(path, { method: 'GET' })).blob();

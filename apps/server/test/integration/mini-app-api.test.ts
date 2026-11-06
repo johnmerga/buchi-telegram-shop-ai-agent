@@ -181,7 +181,12 @@ const app = createApp({
   trustProxyHops: 0,
   routers: [
     createShopsRouter({ shops, ...guards }),
-    createCatalogRouter({ catalog, ...guards }),
+    createCatalogRouter({
+      catalog,
+      uploads: { upload: () => Promise.reject(new Error('not used')) },
+      files: { open: () => Promise.reject(new Error('not used')) },
+      ...guards,
+    }),
     createDeliveryRouter({
       delivery,
       saverSchedule: new SaverScheduleService(db, deliverySettings, timers, clock),

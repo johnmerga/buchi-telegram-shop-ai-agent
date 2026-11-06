@@ -23,6 +23,27 @@ const MAX_ATTEMPTS = 3;
 const BASE_BACKOFF_MS = 500;
 /** Rate limits and temporary server errors pass after a short wait. Anything else is final. */
 const RETRYABLE_STATUSES = new Set([429, 500, 503]);
+/**
+ * The longest wait for Google's rate-limit delay. A customer is waiting for a reply and a payment
+ * check holds an order, so they give up sooner than background operations and owner requests.
+ */
+const MAX_RATE_LIMIT_WAIT_MS: Record<Priority, number> = {
+  payment: 10_000,
+  customer: 10_000,
+  operations: 20_000,
+  owner: 20_000,
+};
+
+/**
+ * What a 429 says about waiting: Google's `RetryInfo` delay, or `Infinity` when the daily quota is
+ * spent. The SDK puts the JSON error body in the message, so anything unreadable has no delay.
+ */
+function rateLimitDelayMs(err: ApiError): number | undefined {
+  if (err.status !== 429) return undefined;
+  if (/PerDay/.test(err.message)) return Infinity;
+  const delay = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(err.message)?.[1];
+  return delay === undefined ? undefined : Number(delay) * 1000;
+}
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => {
@@ -90,9 +111,10 @@ export class GeminiModel implements LanguageModel {
       try {
         return await call();
       } catch (err) {
-        const retryable = err instanceof ApiError && RETRYABLE_STATUSES.has(err.status);
-        if (!retryable || attempt === MAX_ATTEMPTS) throw err;
-        await this.wait(BASE_BACKOFF_MS * 2 ** (attempt - 1) * (1 + Math.random()));
+        if (!(err instanceof ApiError) || !RETRYABLE_STATUSES.has(err.status)) throw err;
+        const delay = rateLimitDelayMs(err);
+        if (attempt === MAX_ATTEMPTS || (delay ?? 0) > MAX_RATE_LIMIT_WAIT_MS[priority]) throw err;
+        await this.wait(delay ?? BASE_BACKOFF_MS * 2 ** (attempt - 1) * (1 + Math.random()));
       }
     }
   }

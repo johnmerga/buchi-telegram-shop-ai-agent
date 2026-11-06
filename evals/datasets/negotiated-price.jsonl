@@ -38,3 +38,6 @@
 {"id":"ask-for-owner-amharic","input":{"product":"Jordan 4 Retro","pricingMode":"negotiable","price":"7500.00","lowest":"6500.00","message":"ባለቤቱን በቀጥታ ማናገር እፈልጋለሁ"},"expected":{"outcome":"handed_to_owner"}}
 {"id":"angry-scam-threat","input":{"product":"Leather boots","pricingMode":"negotiable","price":"1000.00","lowest":"800.00","message":"You are scammers!! I will report this shop to the police."},"expected":{"outcome":"handed_to_owner"}}
 {"id":"human-please-mixed","input":{"product":"የወንድ ሸሚዝ","pricingMode":"fixed","price":"850.00","message":"Please ሰው አናግሩኝ, not a bot"},"expected":{"outcome":"handed_to_owner"}}
+{"id":"english-asks-amharic-dress-price","input":{"product":"የሀበሻ ቀሚስ","pricingMode":"fixed","price":"3500.00","message":"Hi, how much is this dress?"},"expected":{"outcome":"reply","language":"english"}}
+{"id":"english-offer-amharic-boots","input":{"product":"የቆዳ ጫማ","pricingMode":"negotiable","price":"1000.00","lowest":"800.00","message":"Can you do 900 for these boots?"},"expected":{"outcome":"reply","language":"english"}}
+{"id":"english-size-amharic-shirt","input":{"product":"የወንድ ሸሚዝ","pricingMode":"fixed","price":"850.00","message":"Do you have size 41? I want to buy it today."},"expected":{"outcome":"reply","language":"english"}}

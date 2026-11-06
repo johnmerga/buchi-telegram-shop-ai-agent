@@ -14,6 +14,7 @@ export const statusLabels: Record<OrderStatus, string> = {
   delivered: 'Delivered · ደርሷል',
   expired: 'Expired · ጊዜው አልፏል',
   cancelled: 'Cancelled · ተሰርዟል',
+  payment_rejected: 'Payment rejected · ክፍያ ውድቅ ሆኗል',
 };
 
 export const deliveryLabels: Record<DeliveryType, string> = {

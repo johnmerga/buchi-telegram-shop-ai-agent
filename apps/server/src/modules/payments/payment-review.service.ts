@@ -1,5 +1,6 @@
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
+import { AppError } from '../../shared/errors';
 import type { CustomersService } from '../customers/customers.service';
 import type { OrderService } from '../orders/orders.service';
 import { paymentConfirmed, paymentDeclinedByOwner } from './payment-messages.domain';
@@ -9,9 +10,13 @@ import type { PaymentRefsRepo } from './payment-refs.repo';
 import type { ReviewAction } from './payments.schemas';
 import type { RiskService } from './risk.service';
 
-export type ReviewResult = 'approved' | 'rejected' | 'not_found' | 'already_decided';
+export type ReviewResult =
+  'approved' | 'rejected' | 'out_of_stock' | 'not_found' | 'already_decided';
 
-/** The owner's **Approve** and **Reject** buttons on a payment that Buchi could not decide. */
+/**
+ * The owner's **Approve** and **Reject** buttons on a payment that Buchi could not decide, or on a
+ * rejected payment that the customer reported.
+ */
 export class PaymentReview {
   constructor(
     private readonly db: Database,
@@ -29,9 +34,15 @@ export class PaymentReview {
     action: ReviewAction,
   ): Promise<ReviewResult> {
     const proof = await this.findInOwnedShop(ownerShopIds, proofId);
-    if (proof?.decision !== 'review') return 'not_found';
+    const reported = proof?.decision === 'reject' && proof.reportedAt !== null;
+    if (!proof || (proof.decision !== 'review' && !reported)) return 'not_found';
     if (proof.ownerDecision !== null) return 'already_decided';
+    if (!reported) return this.decideUnclear(proof, action);
+    return action === 'approve' ? this.approveReported(proof) : this.rejectReported(proof);
+  }
 
+  /** The order waits in `needs_review`, and the owner's answer moves it like Buchi's would. */
+  private async decideUnclear(proof: PaymentProofRow, action: ReviewAction): Promise<ReviewResult> {
     const { shopId, orderId } = proof;
     const moved = await this.orders.transitionIfStill(
       shopId,
@@ -42,12 +53,9 @@ export class PaymentReview {
       action === 'approve' ? 'Owner approved the payment' : 'Owner rejected the payment',
     );
     if (!moved) return 'already_decided';
-    await withShop(this.db, shopId, (tx) =>
-      this.proofs.decideByOwner(tx, proof.id, action === 'approve' ? 'approved' : 'rejected'),
-    );
+    await this.recordDecision(proof, action);
 
-    const order = await this.orders.get(shopId, orderId);
-    const customer = await this.customers.get(shopId, order.customerId);
+    const customer = await this.customerOf(proof);
     if (action === 'approve') {
       await this.notifier.toCustomer(customer.telegramUserId, paymentConfirmed(orderId));
       return 'approved';
@@ -61,6 +69,56 @@ export class PaymentReview {
     });
     await this.notifier.toCustomer(customer.telegramUserId, paymentDeclinedByOwner(orderId));
     return 'rejected';
+  }
+
+  /**
+   * The rejection released the order's stock and its reference, so approval sells the items again
+   * only if they are still free, and claims the reference back.
+   */
+  private async approveReported(proof: PaymentProofRow): Promise<ReviewResult> {
+    const { shopId, orderId } = proof;
+    let moved: boolean;
+    try {
+      moved = await this.orders.transitionIfStill(
+        shopId,
+        orderId,
+        'payment_rejected',
+        'reported_payment_approved',
+        'owner',
+        'Owner approved a reported payment',
+      );
+    } catch (err) {
+      // The status is checked first, so the only conflict left is an item that sold out meanwhile.
+      if (err instanceof AppError && err.code === 'CONFLICT') return 'out_of_stock';
+      throw err;
+    }
+    if (!moved) return 'already_decided';
+    await this.recordDecision(proof, 'approve');
+    if (proof.provider !== null && proof.txRef !== null) {
+      await this.refs.claim(proof.provider, proof.txRef, orderId);
+    }
+    const customer = await this.customerOf(proof);
+    await this.notifier.toCustomer(customer.telegramUserId, paymentConfirmed(orderId));
+    return 'approved';
+  }
+
+  /** The order stays closed. Buchi already recorded the risk signal when it rejected the payment. */
+  private async rejectReported(proof: PaymentProofRow): Promise<ReviewResult> {
+    if (!(await this.recordDecision(proof, 'reject'))) return 'already_decided';
+    const customer = await this.customerOf(proof);
+    await this.notifier.toCustomer(customer.telegramUserId, paymentDeclinedByOwner(proof.orderId));
+    return 'rejected';
+  }
+
+  private recordDecision(proof: PaymentProofRow, action: ReviewAction): Promise<boolean> {
+    return withShop(this.db, proof.shopId, (tx) =>
+      this.proofs.decideByOwner(tx, proof.id, action === 'approve' ? 'approved' : 'rejected'),
+    );
+  }
+
+  private async customerOf(proof: PaymentProofRow) {
+    const order = await this.orders.get(proof.shopId, proof.orderId);
+    return this.customers.get(proof.shopId, order.customerId);
   }
 
   /** Row-level security finds the proof only in a shop that the owner owns. */

@@ -9,6 +9,7 @@ import {
   type PricingMode,
 } from '@buchi/shared';
 import { promotedPrice } from '../rules/rules.domain';
+import { PAYMENT_HOLD_MS } from './orders.deadlines.domain';
 import type { PromotionParameters } from '../rules/rules.schemas';
 
 export type OrderEvent =
@@ -17,6 +18,8 @@ export type OrderEvent =
   | 'payment_approved'
   | 'payment_unclear'
   | 'payment_rejected'
+  | 'payment_retry'
+  | 'reported_payment_approved'
   | 'dispatched'
   | 'driver_assigned'
   | 'picked_up'
@@ -27,10 +30,10 @@ export type OrderEvent =
   | 'cancelled';
 
 /**
- * What a transition does to the stock that the order reserved:
- * `release` returns it to sale, and `commit` turns it into a sale.
+ * What a transition does to the stock that the order reserved: `release` returns it to sale,
+ * `commit` turns it into a sale, and `take` sells units again after a release, if they are free.
  */
-export type StockEffect = 'release' | 'commit' | 'none';
+export type StockEffect = 'release' | 'commit' | 'take' | 'none';
 
 interface Transition {
   from: readonly OrderStatus[];
@@ -44,7 +47,16 @@ const transitions: Record<OrderEvent, Transition> = {
   payment_submitted: { from: ['awaiting_payment'], to: 'verifying', stock: 'none' },
   payment_approved: { from: ['verifying', 'needs_review'], to: 'paid', stock: 'commit' },
   payment_unclear: { from: ['verifying'], to: 'needs_review', stock: 'none' },
-  payment_rejected: { from: ['verifying', 'needs_review'], to: 'awaiting_payment', stock: 'none' },
+  // A rejected screenshot is final for the order, so its stock goes back on sale at once.
+  payment_rejected: {
+    from: ['verifying', 'needs_review'],
+    to: 'payment_rejected',
+    stock: 'release',
+  },
+  // A screenshot that was unclear or paid only part: the customer sends another one.
+  payment_retry: { from: ['verifying'], to: 'awaiting_payment', stock: 'none' },
+  // The owner approves a rejected payment that the customer reported, if the stock is still free.
+  reported_payment_approved: { from: ['payment_rejected'], to: 'paid', stock: 'take' },
   dispatched: { from: ['paid'], to: 'dispatching', stock: 'none' },
   // A far-area driver already holds the job when the customer pays, so paid can skip dispatching.
   driver_assigned: { from: ['paid', 'dispatching'], to: 'assigned', stock: 'none' },
@@ -155,6 +167,8 @@ function amountLines(input: {
   ].join('\n');
 }
 
+const holdMinutes = String(PAYMENT_HOLD_MS / 60_000);
+
 /**
  * Payment instructions come from this template, never from the model, so account numbers and
  * amounts are always exactly what the shop configured.
@@ -175,6 +189,6 @@ export function paymentInstructions(input: {
     `✅ ትዕዛዝ ${orderReference(input.orderId)} ተይዞልዎታል / Order ${orderReference(input.orderId)} is reserved for you.`,
     amountLines(input),
     ['ከእነዚህ በአንዱ ይክፈሉ / Pay to one of these accounts:', ...accounts].join('\n'),
-    `Pay before ${addisTime.format(input.deadline)} (Addis Ababa time), then send the payment screenshot here.`,
+    `⏳ ለ${holdMinutes} ደቂቃ ብቻ ተይዞልዎታል / We hold it for you for ${holdMinutes} minutes only: pay before ${addisTime.format(input.deadline)} (Addis Ababa time), then send the payment screenshot here.`,
   ].join('\n\n');
 }

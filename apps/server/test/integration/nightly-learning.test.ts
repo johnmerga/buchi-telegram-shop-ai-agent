@@ -25,6 +25,7 @@ import { TimersRepo } from '../../src/modules/jobs/timers.repo';
 import { TimerService } from '../../src/modules/jobs/timers.service';
 import { OrdersRepo } from '../../src/modules/orders/orders.repo';
 import { OrderService } from '../../src/modules/orders/orders.service';
+import type { OrderEvent } from '../../src/modules/orders/orders.domain';
 import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
 import { NegotiationService } from '../../src/modules/sales/negotiation.service';
 import { ShopsRepo } from '../../src/modules/shops/shops.repo';
@@ -165,7 +166,11 @@ describe('the nightly learning', () => {
 describe('forgetting exact locations', () => {
   const pin = { latitude: 8.99, longitude: 38.79 };
 
-  async function deliveredOrder(customerId: string, variantId: string): Promise<string> {
+  async function endedOrder(
+    customerId: string,
+    variantId: string,
+    events: OrderEvent[] = ['cancelled'],
+  ): Promise<string> {
     const order = await orders.create(
       shopId,
       {
@@ -176,14 +181,9 @@ describe('forgetting exact locations', () => {
       },
       'customer',
     );
-    await orders.transitionIfStill(
-      shopId,
-      order.id,
-      'awaiting_payment',
-      'cancelled',
-      'customer',
-      'No',
-    );
+    for (const event of events) {
+      await orders.transition(shopId, order.id, event, 'customer', 'No');
+    }
     return order.id;
   }
 
@@ -196,13 +196,17 @@ describe('forgetting exact locations', () => {
     const variantId = (await catalog.listProducts(shopId))[0]?.variants[0]?.id ?? '';
     const old = await customers.identify(shopId, 770101, 'Old');
     const recent = await customers.identify(shopId, 770102, 'Recent');
-    const oldOrder = await deliveredOrder(old.id, variantId);
-    const recentOrder = await deliveredOrder(recent.id, variantId);
+    const oldOrder = await endedOrder(old.id, variantId);
+    const rejectedOrder = await endedOrder(old.id, variantId, [
+      'payment_submitted',
+      'payment_rejected',
+    ]);
+    const recentOrder = await endedOrder(recent.id, variantId);
     await customers.setDeliveryPin(shopId, old.id, pin);
     await customers.setDeliveryPin(shopId, recent.id, pin);
     // The nightly job runs eight days later for the old rows, by moving them back in time.
     await db.execute(
-      sql`update orders set updated_at = ${daysAgo(8).toISOString()}::timestamptz where id = ${oldOrder}`,
+      sql`update orders set updated_at = ${daysAgo(8).toISOString()}::timestamptz where id in (${oldOrder}, ${rejectedOrder})`,
     );
     await db.execute(
       sql`update customers set delivery_pin_at = ${daysAgo(8).toISOString()}::timestamptz where id = ${old.id}`,
@@ -224,7 +228,7 @@ describe('forgetting exact locations', () => {
 
     const summary = await nightly.run();
 
-    expect(summary).toMatchObject({ orderPinsForgotten: 1, pendingPinsForgotten: 1 });
+    expect(summary).toMatchObject({ orderPinsForgotten: 2, pendingPinsForgotten: 1 });
     expect(summary.updatesDeleted).toBeGreaterThanOrEqual(1);
     const rows = await withShop(db, shopId, (tx) => tx.select().from(ordersTable));
     expect(rows.find((o) => o.id === oldOrder)).toMatchObject({
@@ -232,6 +236,7 @@ describe('forgetting exact locations', () => {
       deliveryLongitude: null,
       deliveryZone: zoneOf(pin),
     });
+    expect(rows.find((o) => o.id === rejectedOrder)?.deliveryLatitude).toBeNull();
     expect(rows.find((o) => o.id === recentOrder)?.deliveryLatitude).toBe(pin.latitude);
     const pins = await withShop(db, shopId, (tx) =>
       tx

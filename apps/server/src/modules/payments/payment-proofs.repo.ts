@@ -1,10 +1,15 @@
-import { and, asc, desc, eq, isNull, or } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { paymentProofs } from '../../db/schema';
 
 export type PaymentProofRow = typeof paymentProofs.$inferSelect;
 type NewPaymentProof = typeof paymentProofs.$inferInsert;
 type OwnerPaymentDecision = NonNullable<PaymentProofRow['ownerDecision']>;
+
+const waitsForOwner = or(
+  eq(paymentProofs.decision, 'review'),
+  and(eq(paymentProofs.decision, 'reject'), isNotNull(paymentProofs.reportedAt)),
+);
 
 /** Every query runs inside `withShop`, so row-level security limits it to one shop. */
 export class PaymentProofsRepo {
@@ -24,13 +29,29 @@ export class PaymentProofsRepo {
     return tx.select().from(paymentProofs).where(eq(paymentProofs.orderId, orderId));
   }
 
-  /** Screenshots that wait for the owner, oldest first. */
+  /** Screenshots that wait for the owner, oldest first: unclear ones, and reported rejections. */
   awaitingOwner(tx: Transaction): Promise<PaymentProofRow[]> {
     return tx
       .select()
       .from(paymentProofs)
-      .where(and(eq(paymentProofs.decision, 'review'), isNull(paymentProofs.ownerDecision)))
+      .where(and(waitsForOwner, isNull(paymentProofs.ownerDecision)))
       .orderBy(asc(paymentProofs.createdAt));
+  }
+
+  /** Reports a rejected screenshot once, in one statement, so two taps cannot both count. */
+  async markReported(tx: Transaction, id: string): Promise<boolean> {
+    const updated = await tx
+      .update(paymentProofs)
+      .set({ reportedAt: sql`now()` })
+      .where(
+        and(
+          eq(paymentProofs.id, id),
+          eq(paymentProofs.decision, 'reject'),
+          isNull(paymentProofs.reportedAt),
+        ),
+      )
+      .returning({ id: paymentProofs.id });
+    return updated.length > 0;
   }
 
   /** The proof that paid an order, whether Buchi or the owner approved it. */
@@ -58,13 +79,7 @@ export class PaymentProofsRepo {
     const updated = await tx
       .update(paymentProofs)
       .set({ ownerDecision: decision })
-      .where(
-        and(
-          eq(paymentProofs.id, id),
-          eq(paymentProofs.decision, 'review'),
-          isNull(paymentProofs.ownerDecision),
-        ),
-      )
+      .where(and(eq(paymentProofs.id, id), waitsForOwner, isNull(paymentProofs.ownerDecision)))
       .returning({ id: paymentProofs.id });
     return updated.length > 0;
   }

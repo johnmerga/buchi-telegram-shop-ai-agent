@@ -15,7 +15,7 @@ const columns: { title: string; statuses: OrderStatus[] }[] = [
   { title: 'Paid', statuses: ['paid', 'ready_for_pickup'] },
   { title: 'Delivering', statuses: ['dispatching', 'assigned', 'out_for_delivery'] },
   { title: 'Done', statuses: ['delivered'] },
-  { title: 'Closed', statuses: ['expired', 'cancelled'] },
+  { title: 'Closed', statuses: ['expired', 'cancelled', 'payment_rejected'] },
 ];
 
 export default function OrdersScreen() {

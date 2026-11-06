@@ -100,7 +100,6 @@ export async function seedOrder(
     customerId: string;
     status: keyof typeof paths;
     paymentDeadline: Date;
-    deadlineExtensions: number;
   },
 ): Promise<void> {
   const path = paths[order.status];
@@ -117,7 +116,6 @@ export async function seedOrder(
       total: '3625.00',
       ...customerPin,
       paymentDeadline: order.paymentDeadline,
-      deadlineExtensions: order.deadlineExtensions,
       createdAt: startedAt,
     });
     await tx.insert(orderItems).values({

@@ -1,10 +1,5 @@
 import { approvedActionOf, type ApprovedAction } from '../../approvals/owner-approvals.service';
 import type { Tool } from '../../tool';
-import {
-  extendDeadlineApproval,
-  extendDeadlineTool,
-  type DeadlineToolDeps,
-} from './tools/deadline';
 import { rescheduleDeliveryTool, saveAreaNoteTool, type DeliveryToolDeps } from './tools/delivery';
 import { startExchangeTool, type ExchangeToolDeps } from './tools/exchange';
 import {
@@ -23,7 +18,6 @@ import {
 
 export type OperationsToolDeps = MessageToolDeps &
   DeliveryToolDeps &
-  DeadlineToolDeps &
   ExchangeToolDeps &
   ProposalToolDeps;
 
@@ -35,7 +29,6 @@ export function operationsTools(deps: OperationsToolDeps): Tool[] {
     updateEtaTool(deps),
     rescheduleDeliveryTool(deps),
     saveAreaNoteTool(deps),
-    extendDeadlineTool(deps),
     startExchangeTool(deps),
     proposeRefundTool(deps),
     proposeRestockTool(deps),
@@ -44,16 +37,7 @@ export function operationsTools(deps: OperationsToolDeps): Tool[] {
   ];
 }
 
-/**
- * What an owner's approval runs for each operations decision: an `owner_confirms` tool's own
- * handler, and the extension that the guard held for the owner.
- */
-export function operationsApprovals(
-  tools: readonly Tool[],
-  deps: DeadlineToolDeps,
-): ApprovedAction[] {
-  return [
-    ...tools.filter((tool) => tool.autonomy === 'owner_confirms').map(approvedActionOf),
-    extendDeadlineApproval(deps),
-  ];
+/** What an owner's approval runs for each operations decision: an `owner_confirms` tool's handler. */
+export function operationsApprovals(tools: readonly Tool[]): ApprovedAction[] {
+  return tools.filter((tool) => tool.autonomy === 'owner_confirms').map(approvedActionOf);
 }

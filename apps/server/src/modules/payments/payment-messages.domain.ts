@@ -1,5 +1,7 @@
 import { formatBirr, type BankCheck, type MoneyString } from '@buchi/shared';
 import { orderReference } from '../orders/orders.domain';
+import type { Button } from '../owner/owner.domain';
+import { reportCallbackData } from './payments.schemas';
 import type { Decision, RejectReason, ReviewReason } from './payments.decision.domain';
 import type { ReadReceipt } from './payments.domain';
 
@@ -37,8 +39,8 @@ export function customerMessage(decision: Decision, orderId: string): string {
       return paymentConfirmed(orderId);
     case 'reject':
       return [
-        `ይቅርታ / Sorry, we could not confirm the payment for order ${reference}: ${decision.reasons.map((r) => rejectReasons[r]).join('; ')}.`,
-        "Please check that you paid the shop's account for this order and send that screenshot here.",
+        `ይቅርታ / Sorry, the payment for order ${reference} was not accepted: ${decision.reasons.map((r) => rejectReasons[r]).join('; ')}.`,
+        'This order is now closed and the item is back on sale. If you think this is a mistake, tap Report a problem and the shop will check it.',
       ].join('\n');
     case 'review':
       return `🔎 እናመሰግናለን / Thank you! The shop is checking your payment for order ${reference} and will confirm it here soon.`;
@@ -54,8 +56,22 @@ export function paymentConfirmed(orderId: string): string {
 }
 
 export function paymentDeclinedByOwner(orderId: string): string {
-  return `ይቅርታ / Sorry, the shop could not confirm the payment for order ${orderReference(orderId)}. Please check the payment and send the screenshot again, or contact the shop.`;
+  return `ይቅርታ / Sorry, the shop could not confirm the payment for order ${orderReference(orderId)}, so this order is closed. Please contact the shop if you paid.`;
 }
+
+/** The reply to another screenshot for an order whose payment was rejected. */
+export function orderClosed(orderId: string): string {
+  return `ይቅርታ / Sorry, the payment for order ${orderReference(orderId)} was not accepted, so this order is closed and takes no more screenshots. Tap Buy on a channel post to order again.`;
+}
+
+export function reportButton(orderId: string): Button {
+  return { text: '⚠️ ችግር ሪፖርት አድርግ / Report a problem', data: reportCallbackData(orderId) };
+}
+
+export const reportReceived =
+  'እናመሰግናለን / Thank you. The shop will check your payment and reply here.';
+
+export const reportNotAvailable = 'This payment was already reported or decided.';
 
 export const alreadyChecking = (orderId: string) =>
   `🔎 We are already checking the payment for order ${orderReference(orderId)}. We will confirm it here soon.`;
@@ -79,8 +95,33 @@ export function ownerApproved(
 export function ownerRejected(orderId: string, reasons: RejectReason[]): string {
   return [
     `⚠️ Payment for order ${orderReference(orderId)} not accepted: ${reasons.map((r) => rejectReasons[r]).join('; ')}.`,
-    'Buchi asked the customer to check it.',
+    'The order is closed and its stock is back on sale. The customer can report a problem.',
   ].join('\n');
+}
+
+/** What owners read when a customer reports a rejected screenshot, with what Buchi read. */
+export function reportedCaption(input: {
+  orderId: string;
+  total: MoneyString;
+  reasons: string[];
+  receipt: { amount: MoneyString; provider: string; txRef: string } | undefined;
+  bank: BankCheck | null;
+}): string {
+  const { receipt } = input;
+  const reasons = input.reasons.map((r) => (isRejectReason(r) ? rejectReasons[r] : r));
+  return [
+    `🙋 The customer reports a problem with the rejected payment for order ${orderReference(input.orderId)} · total ${formatBirr(input.total)}`,
+    `Rejected because ${reasons.join('; ')}.`,
+    receipt && `Screenshot: ${formatBirr(receipt.amount)} · ${receipt.provider} · ${receipt.txRef}`,
+    input.bank && `Bank page: ${bankResults[input.bank]}`,
+    'Approve sells the order if the item is still in stock. The screenshot is in Payment review.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function isRejectReason(reason: string): reason is RejectReason {
+  return reason in rejectReasons;
 }
 
 /** The caption of the screenshot that owners review, with what Buchi read and why it stopped. */

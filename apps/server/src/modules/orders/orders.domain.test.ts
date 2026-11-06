@@ -15,8 +15,10 @@ const allowed: [OrderStatus, OrderEvent, OrderStatus, string][] = [
   ['verifying', 'payment_approved', 'paid', 'commit'],
   ['needs_review', 'payment_approved', 'paid', 'commit'],
   ['verifying', 'payment_unclear', 'needs_review', 'none'],
-  ['verifying', 'payment_rejected', 'awaiting_payment', 'none'],
-  ['needs_review', 'payment_rejected', 'awaiting_payment', 'none'],
+  ['verifying', 'payment_rejected', 'payment_rejected', 'release'],
+  ['needs_review', 'payment_rejected', 'payment_rejected', 'release'],
+  ['verifying', 'payment_retry', 'awaiting_payment', 'none'],
+  ['payment_rejected', 'reported_payment_approved', 'paid', 'take'],
   ['paid', 'dispatched', 'dispatching', 'none'],
   ['paid', 'driver_assigned', 'assigned', 'none'],
   ['dispatching', 'driver_assigned', 'assigned', 'none'],
@@ -88,7 +90,8 @@ describe('paymentInstructions', () => {
     expect(text).toContain('CBE (Commercial Bank of Ethiopia): 1000123456789');
   });
 
-  it('shows the deadline in Addis Ababa time', () => {
+  it('says the item is held for three minutes, until the deadline in Addis Ababa time', () => {
+    expect(text).toContain('We hold it for you for 3 minutes only');
     expect(text).toContain('5 Nov, 18:30');
   });
 

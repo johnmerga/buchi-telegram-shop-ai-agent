@@ -56,6 +56,9 @@ export function createPaymentsRouter(deps: {
     const result = await review.decide([shopId], proofId, action);
     if (result === 'not_found') throw new AppError('NOT_FOUND', 'No payment waits for review');
     if (result === 'already_decided') throw new AppError('CONFLICT', 'Already decided');
+    if (result === 'out_of_stock') {
+      throw new AppError('CONFLICT', 'The item sold out after the order was closed');
+    }
     res.json({ result });
   });
 

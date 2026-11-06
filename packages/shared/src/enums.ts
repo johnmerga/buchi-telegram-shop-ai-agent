@@ -14,6 +14,8 @@ export const orderStatuses = [
   'delivered',
   'expired',
   'cancelled',
+  /** Closed after a rejected screenshot. The owner can still approve it if the customer reports it. */
+  'payment_rejected',
 ] as const;
 export const orderStatusSchema = z.enum(orderStatuses);
 export type OrderStatus = z.infer<typeof orderStatusSchema>;

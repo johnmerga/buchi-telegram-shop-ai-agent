@@ -4,12 +4,15 @@ import { withShop } from '../../db/with-shop';
 import type { BankReceipts } from '../../integrations/receipts/bank-receipts';
 import type { CustomersService } from '../customers/customers.service';
 import type { OrderService } from '../orders/orders.service';
+import { PAYMENT_HOLD_MS } from '../orders/orders.deadlines.domain';
+import type { Button } from '../owner/owner.domain';
 import type { MessageRef } from '../owner/owner-notifier.service';
 import type { ShopsService } from '../shops/shops.service';
 import {
   customerMessage,
   ownerApproved,
   ownerRejected,
+  reportButton,
   reviewCaption,
 } from './payment-messages.domain';
 import type { PaymentNotifier } from './payment-notifier.service';
@@ -59,6 +62,12 @@ interface Evaluation {
   claimed: SupportedReceipt | undefined;
 }
 
+/** What the customer reads after the check, with **Report a problem** under a rejection. */
+export interface CustomerReply {
+  text: string;
+  buttons: Button[];
+}
+
 /** Checks a payment screenshot in the design doc's four layers and acts on the decision. */
 export class PaymentVerification {
   constructor(
@@ -72,10 +81,10 @@ export class PaymentVerification {
     private readonly shops: Pick<ShopsService, 'get'>,
     private readonly customers: Pick<CustomersService, 'get'>,
     private readonly notifier: PaymentNotifier,
+    private readonly now: () => Date,
   ) {}
 
-  /** Returns the reply for the customer. */
-  async verify(order: OrderRow, received: ReceivedReceipt): Promise<string> {
+  async verify(order: OrderRow, received: ReceivedReceipt): Promise<CustomerReply> {
     const { shopId } = order;
     await this.orders.transition(
       shopId,
@@ -104,7 +113,11 @@ export class PaymentVerification {
       }),
     );
     await this.act(order, proof, evaluation, received.message, payer);
-    return customerMessage(evaluation.decision, order.id);
+    const { decision } = evaluation;
+    return {
+      text: customerMessage(decision, order.id),
+      buttons: decision.outcome === 'reject' ? [reportButton(order.id)] : [],
+    };
   }
 
   private async evaluate(
@@ -234,24 +247,25 @@ export class PaymentVerification {
         return;
       }
       case 'ask_difference':
-        await this.orders.transition(
-          shopId,
-          orderId,
-          'payment_rejected',
-          'system',
-          'Partial payment',
-        );
+        await this.orders.awaitPaymentAgain(shopId, orderId, 'Partial payment', this.holdUntil());
         return;
       case 'ask_clearer':
-        await this.orders.transition(
+        await this.orders.awaitPaymentAgain(
           shopId,
           orderId,
-          'payment_rejected',
-          'system',
           'Unreadable screenshot',
+          this.holdUntil(),
         );
         return;
     }
+  }
+
+  /**
+   * A new hold from now, because the check may have outlasted the first one and the customer still
+   * needs time to send the rest or a clearer screenshot.
+   */
+  private holdUntil(): Date {
+    return new Date(this.now().getTime() + PAYMENT_HOLD_MS);
   }
 }
 

@@ -99,7 +99,7 @@ The following table breaks the admin role into sub-functions, ranked by business
 | P1 | Owner assistant: commands, questions, weekly suggestions | Lets the owner run the shop by talking |
 | P1 | Photo search, landmark addresses, and customer memory | Answers what customers really send |
 | P1 | Grouped Saver deliveries with route planning | Lowers the delivery cost per order |
-| P1 | Unpaid-order reminders and automatic expiry | Frees stock with no human effort |
+| P1 | Three-minute payment holds and automatic expiry | Frees stock with no human effort |
 | P1 | Snap-to-list and restock waitlist | Saves listing time and recovers demand for sold-out sizes |
 | P2 | Evening summary, morning brief, and results for each channel post | Gives the owner visibility |
 
@@ -114,7 +114,7 @@ Every action that an agent can take has one of three levels:
 
 | Level | Rule | Examples |
 | --- | --- | --- |
-| Automatic | The AI acts within limits that code enforces, and the action is logged. | Replies, negotiated prices within the owner's range, far-delivery prices up to the cap, one deadline extension of up to two hours, rescheduling a delivery, size exchanges when stock exists |
+| Automatic | The AI acts within limits that code enforces, and the action is logged. | Replies, negotiated prices within the owner's range, far-delivery prices up to the cap, rescheduling a delivery, size exchanges when stock exists |
 | Owner confirms | The AI prepares the action, and the owner approves it with one tap. | Promotions, delivery pauses, setting changes, refunds, restock suggestions, prices above the cap |
 | Code only | No agent has a tool for it. | Marking an order paid, changing stock, payment decisions, the limits themselves |
 
@@ -144,9 +144,10 @@ Quoting (far areas only) → AwaitingPayment → Verifying → Paid or NeedsRevi
   → Dispatching → Assigned → OutForDelivery → Delivered
 ```
 
-A rejected screenshot returns the order to `AwaitingPayment`. Pickup orders go from `Paid` to
-`ReadyForPickup` to `Delivered`. Unpaid orders end as `Expired` or `Cancelled`, and both states
-release the reserved stock and any driver hold. A single `OrderService.transition()` function
+A rejected screenshot is final: the order ends as `PaymentRejected`. An unclear screenshot or a
+partial payment returns the order to `AwaitingPayment` with a new three-minute hold. Pickup orders
+go from `Paid` to `ReadyForPickup` to `Delivered`. Unpaid orders end as `Expired`, `Cancelled`, or
+`PaymentRejected`, and all three release the reserved stock and any driver hold. A single `OrderService.transition()` function
 validates each move, updates stock in the same Postgres transaction, and writes an audit event.
 
 ### Shop onboarding
@@ -186,8 +187,14 @@ A customer places an order in the following steps:
    these steps.
 5. The customer confirms. Buchi asks for the delivery location and the phone number, using
    Telegram's **Share contact** button.
-6. The backend reserves stock atomically, sets a payment deadline, and sends payment instructions
-   from a code template. The total includes the agreed price and the delivery fee.
+6. The backend reserves stock atomically, holds it for the customer for three minutes, and sends
+   payment instructions from a code template. The total includes the agreed price and the delivery
+   fee.
+
+If no screenshot arrives within the three minutes, the order expires, the stock returns to sale,
+and the customer can tap **Order again**. Nobody can extend the hold. An order whose screenshot is
+being checked or waits for owner review keeps its stock. The tick runs every minute, so an order
+expires up to a minute after its deadline.
 
 The owner sets a pricing mode for each product:
 
@@ -329,6 +336,12 @@ shops never see each other's customers. A payer with signals from two or more sh
 | Any | `MISMATCH`: the page differs from the screenshot | Reject and flag to the owner. |
 | R3 underpayment | `CONFIRMED` | Ask the customer for the remainder. |
 
+A rejection is final for the order. The order closes as `PaymentRejected`, its stock is back on
+sale at once, and Buchi accepts no more screenshots for it. The customer gets a **Report a
+problem** button. A report puts the screenshot, what Buchi read, and the rejection reasons in the
+owner's payment review, marked as reported by the customer. If the owner approves it, the order is
+paid only if its items are still in stock; otherwise Buchi tells the owner that the item sold out.
+
 Buchi never accuses a customer. A rejection states what did not match and what to do next. Buchi
 does not claim to detect image editing. It catches an edited screenshot because the screenshot does
 not match the bank's receipt page or fails a rule. I considered image fingerprints to find reused
@@ -361,7 +374,7 @@ actions from its tools, and the policy guard applies the autonomy levels.
 
 | Situation | Typical agent action |
 | --- | --- |
-| A customer near the payment deadline writes "I'll pay after work". | Extends the deadline once, by up to two hours, and confirms the time. |
+| A customer whose order waits for payment writes "I'll pay after work". | Replies that the item is held only for a few minutes, and that they can order again when they are ready. |
 | A driver writes "ደንበኛው ስልክ አያነሳም" ("The customer isn't answering"). | Messages the customer with the driver's number. Without a reply in 15 minutes, moves the delivery to the next run and tells the driver to continue the route. |
 | A driver reports "Stuck at Megenagna, 30 minutes late". | Sends the customer an updated arrival time, and saves the report as evidence for that area. |
 | No driver accepts an Express job within 10 minutes. | Asks the owner to add a bonus, with a suggested amount. |
@@ -406,7 +419,7 @@ A customer who writes "forget my details" has the facts deleted.
 
 ### Owner review and takeover
 
-Each `NeedsReview` case and each escalation reaches the owner as a Telegram message with buttons,
+Each `NeedsReview` case, each reported rejection, and each escalation reaches the owner as a Telegram message with buttons,
 and in the review queue of the owner Mini App. The owner can take over any conversation. Buchi stops
 replying in that chat until the owner selects **Hand back** or stays silent for two hours. In
 Telegram, the owner replies to a relayed customer message, and Buchi delivers the reply; a reply
@@ -422,7 +435,7 @@ Render instance awake.
 
 | Job | Schedule (Africa/Addis_Ababa) | Action |
 | --- | --- | --- |
-| Tick | Every minute | Runs due timers: price raises, quote and hold expiry, a payment reminder one hour after the order, and order expiry after the deadline. |
+| Tick | Every minute | Runs due timers: price raises, quote and hold expiry, and order expiry three minutes after the payment instructions. |
 | Saver run | Owner-set times, as per-shop timers | Groups Saver orders into routes and offers them to drivers. |
 | Evening summary | 6:00 PM (ከምሽቱ 12 ሰዓት) | Sends orders, revenue, delivery cost, fraud blocked, and open reviews. Appends a row to Google Sheets. |
 | Morning brief | 8:00 AM (ከጠዋቱ 2 ሰዓት) | Sends low-stock alerts, open reviews, and waitlist demand. |
@@ -539,7 +552,6 @@ policy guard applies the autonomy level of each tool:
 | Sales | `offer_price` | Automatic, for negotiable products only, between the lowest and the asking price, with at most two concessions in a conversation |
 | Sales | `request_far_quote`, `request_human` | Automatic. Starts the quote flow or alerts the owner. |
 | Operations | `message_customer`, `message_driver`, `update_eta`, `reschedule_delivery` | Automatic |
-| Operations | `extend_deadline` | Automatic once, up to two hours. Longer needs the owner. |
 | Operations | `propose_delivery_price` | Automatic between the formula payout and the cap. Above the cap needs the owner. |
 | Operations | `start_exchange` | Automatic when the size is in stock |
 | Operations | `propose_refund`, `propose_restock`, `propose_bonus`, `escalate` | Owner confirms. Approving `escalate` hands the chat to the owner. |
@@ -622,7 +634,7 @@ orders             customer, agreed prices, delivery fee, total, status, deadlin
 order_items        product variant, quantity, unit price
 order_events       state history: from, to, actor, reason
 payment_proofs     Telegram file ID, extracted fields, rule results, bank check,
-                   decision
+                   decision, owner decision, customer report time
 payment_refs       platform-wide: UNIQUE (provider, tx_ref), order ID
 risk_signals       platform-wide: hashed payer, signal type, time
 drivers            shop, Telegram user ID, username, availability
@@ -686,7 +698,7 @@ alerts, and screenshots. The Mini Apps handle everything that needs a map, a lis
 | --- | --- |
 | Customer Mini App | Map picker for the delivery pin, delivery options with fees, and order tracking with the driver's progress |
 | Driver Mini App | Open jobs, **Special offers**, a route map with stops in order, **Accept**, **Picked up**, and **Delivered**, trip history, and payouts owed |
-| Owner Mini App and browser dashboard | **Onboarding**, **Orders** (a live board from `Quoting` to `Delivered`), **Payment review** (the screenshot beside the extracted fields, rule results, the bank result, and risk signals), **Deliveries** (a live map of jobs and routes), **Zones** (a hexagon map of learned factors), **Drivers**, **Conversations** with **Take over** and **Hand back**, **Inventory** with pricing modes, listing drafts, and **Post to channel**, **AI decisions** (every guard decision with its reason and evidence), **Insights**, and **Settings** with all limits and **Run now** buttons |
+| Owner Mini App and browser dashboard | **Onboarding**, **Orders** (a live board from `Quoting` to `Delivered`), **Payment review** (the screenshot beside the extracted fields, rule results, the bank result, risk signals, and whether the customer reported a rejection), **Deliveries** (a live map of jobs and routes), **Zones** (a hexagon map of learned factors), **Drivers**, **Conversations** with **Take over** and **Hand back**, **Inventory** with pricing modes, listing drafts, and **Post to channel**, **AI decisions** (every guard decision with its reason and evidence), **Insights**, and **Settings** with all limits and **Run now** buttons |
 
 ## Risks and mitigations
 

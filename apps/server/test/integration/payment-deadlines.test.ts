@@ -1,5 +1,5 @@
-import { productInputSchema, type MoneyString } from '@buchi/shared';
-import { and, eq, sql } from 'drizzle-orm';
+import { productInputSchema } from '@buchi/shared';
+import { eq } from 'drizzle-orm';
 import type { Update } from 'grammy/types';
 import { pino } from 'pino';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -14,7 +14,7 @@ import { SessionsRepo } from '../../src/modules/customers/sessions.repo';
 import { TimersRepo } from '../../src/modules/jobs/timers.repo';
 import { TimerService } from '../../src/modules/jobs/timers.service';
 import { CheckoutService } from '../../src/modules/orders/checkout.service';
-import { orderTimerKinds } from '../../src/modules/orders/orders.deadlines.domain';
+import { orderTimerKinds, PAYMENT_HOLD_MS } from '../../src/modules/orders/orders.deadlines.domain';
 import {
   PaymentDeadlineService,
   type OrderNotifier,
@@ -66,32 +66,18 @@ const orders = new OrderService(
   noPromotions,
   new StockHoldsRepo(),
 );
-const checkout = new CheckoutService(
-  customers,
-  orders,
-  shops,
-  pickupOnlyDelivery,
-  () => new Date(),
-);
+let now = new Date();
+const checkout = new CheckoutService(customers, orders, shops, pickupOnlyDelivery, () => now);
 
 /** Records what customers would be told, instead of calling Telegram. */
-const told = {
-  reminders: [] as { chatId: number; orderId: string; total: MoneyString; minutesLeft: number }[],
-  expiries: [] as { chatId: number; orderId: string }[],
-};
+const told = { expiries: [] as { chatId: number; orderId: string }[] };
 const notifier: OrderNotifier = {
-  paymentReminder: (chatId, reminder) => {
-    told.reminders.push({ chatId, ...reminder });
-    return Promise.resolve();
-  },
   orderExpired: (chatId, orderId) => {
     told.expiries.push({ chatId, orderId });
     return Promise.resolve();
   },
 };
-let now = new Date();
 const deadlines = new PaymentDeadlineService(orders, customers, notifier, () => now);
-timers.register(orderTimerKinds.paymentReminder, (timer) => deadlines.remind(timer));
 timers.register(orderTimerKinds.expire, (timer) => deadlines.expire(timer));
 
 const buyer = { id: 515151, is_bot: false, first_name: 'Hana' };
@@ -137,13 +123,6 @@ const timersOf = (orderId: string) =>
     .where(eq(timersTable.targetId, orderId))
     .orderBy(timersTable.dueAt);
 
-/** Moves a timer's due time to now, as if its hour had passed. */
-const fastForward = (orderId: string, kind: string) =>
-  db
-    .update(timersTable)
-    .set({ dueAt: sql`now()` })
-    .where(and(eq(timersTable.targetId, orderId), eq(timersTable.kind, kind)));
-
 const stockOf = (variantId: string) =>
   withShop(db, shopId, async (tx) => {
     const [row] = await tx
@@ -165,39 +144,33 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await db.delete(timersTable);
-  told.reminders.length = 0;
   told.expiries.length = 0;
   now = new Date();
 });
 
 describe('scheduling payment deadlines', () => {
-  it("schedules the reminder and the expiry in the order's transaction", async () => {
-    const deadline = minutesFromNow(180);
-    const order = await placeOrder(await variantWithStock(2), deadline);
+  it("holds a new order's stock for three minutes, with its expiry in the order's transaction", async () => {
+    const variantId = await variantWithStock(2);
+    const hana = { telegramUserId: buyer.id, name: buyer.first_name };
+    await checkout.completeWithPhone(shopId, hana, '+251911515151', variantId);
+    const order = await orders.latestUnpaid(shopId, buyer.id);
+    if (!order) throw new Error('No order was placed');
 
+    expect(PAYMENT_HOLD_MS).toBe(3 * 60_000);
+    expect(order.paymentDeadline).toEqual(new Date(now.getTime() + PAYMENT_HOLD_MS));
     expect(await timersOf(order.id)).toEqual([
-      {
-        kind: 'order.payment_reminder',
-        shopId,
-        dueAt: new Date(order.createdAt.getTime() + 3_600_000),
-        status: 'pending',
-      },
-      { kind: 'order.expire', shopId, dueAt: deadline, status: 'pending' },
+      { kind: 'order.expire', shopId, dueAt: order.paymentDeadline, status: 'pending' },
     ]);
+    expect(await stockOf(variantId)).toEqual({ stock: 2, reserved: 1 });
+    await orders.transition(shopId, order.id, 'cancelled', 'customer', 'Test cleanup');
   });
 
-  it('leaves neither the order nor its timers when scheduling fails', async () => {
-    let scheduled = 0;
+  it('leaves neither the order nor its timer when scheduling fails', async () => {
     const crashing = new OrderService(
       db,
       new OrdersRepo(),
       bus,
-      {
-        schedule: (...args: Parameters<TimerService['schedule']>) =>
-          scheduled++ > 0
-            ? Promise.reject(new Error('Crashed before the second timer'))
-            : timers.schedule(...args),
-      },
+      { schedule: () => Promise.reject(new Error('Crashed while scheduling')) },
       new NegotiationService(db, new NegotiationsRepo()),
       noPromotions,
       new StockHoldsRepo(),
@@ -205,11 +178,10 @@ describe('scheduling payment deadlines', () => {
     const variantId = await variantWithStock(2);
     const before = (await ordersOfCustomer()).length;
 
-    await expect(placeOrder(variantId, minutesFromNow(180), crashing)).rejects.toThrow(
-      'Crashed before the second timer',
+    await expect(placeOrder(variantId, minutesFromNow(3), crashing)).rejects.toThrow(
+      'Crashed while scheduling',
     );
 
-    expect(scheduled).toBe(2);
     expect(await db.select().from(timersTable)).toEqual([]);
     expect(await ordersOfCustomer()).toHaveLength(before);
     expect(await stockOf(variantId)).toEqual({ stock: 2, reserved: 0 });
@@ -229,11 +201,15 @@ describe('payment deadline timers', () => {
     expect(await timersOf(order.id)).toMatchObject([{ kind: 'order.expire', status: 'done' }]);
   });
 
+  // A screenshot being checked or reviewed keeps the stock: the customer may well have paid.
   it.each([
-    ['paid', ['payment_submitted', 'payment_approved'] as const],
-    ['cancelled', ['cancelled'] as const],
-  ])('leaves a %s order alone when its deadline passes', async (status, events) => {
-    const order = await placeOrder(await variantWithStock(2), minutesFromNow(-1));
+    ['paid', ['payment_submitted', 'payment_approved'] as const, 0],
+    ['cancelled', ['cancelled'] as const, 0],
+    ['verifying', ['payment_submitted'] as const, 2],
+    ['needs_review', ['payment_submitted', 'payment_unclear'] as const, 2],
+  ])('leaves a %s order alone when its deadline passes', async (status, events, reserved) => {
+    const variantId = await variantWithStock(2);
+    const order = await placeOrder(variantId, minutesFromNow(-1));
     for (const event of events) {
       await orders.transition(shopId, order.id, event, 'system', 'Test setup');
     }
@@ -241,31 +217,9 @@ describe('payment deadline timers', () => {
     expect(await timers.tick()).toEqual({ requeued: 0, done: 1, failed: 0 });
 
     expect((await orders.get(shopId, order.id)).status).toBe(status);
+    expect((await stockOf(variantId))?.reserved).toBe(reserved);
     expect(told.expiries).toEqual([]);
     expect(await timersOf(order.id)).toMatchObject([{ status: 'done' }]);
-  });
-
-  it('reminds the customer with the time left while the order awaits payment', async () => {
-    const deadline = minutesFromNow(180);
-    const order = await placeOrder(await variantWithStock(2), deadline);
-    await fastForward(order.id, 'order.payment_reminder');
-    now = new Date(deadline.getTime() - 90 * 60_000);
-
-    expect(await timers.tick()).toEqual({ requeued: 0, done: 1, failed: 0 });
-
-    expect(told.reminders).toEqual([
-      { chatId: buyer.id, orderId: order.id, total: '3000.00', minutesLeft: 90 },
-    ]);
-  });
-
-  it('sends no reminder once the customer has sent a payment', async () => {
-    const order = await placeOrder(await variantWithStock(2), minutesFromNow(180));
-    await orders.transition(shopId, order.id, 'payment_submitted', 'customer', 'Screenshot sent');
-    await fastForward(order.id, 'order.payment_reminder');
-
-    expect(await timers.tick()).toEqual({ requeued: 0, done: 1, failed: 0 });
-
-    expect(told.reminders).toEqual([]);
   });
 });
 
@@ -349,7 +303,7 @@ describe('Order again button', () => {
   });
 
   it('refuses an order that has not expired', async () => {
-    const order = await placeOrder(await variantWithStock(2), minutesFromNow(180));
+    const order = await placeOrder(await variantWithStock(2), minutesFromNow(3));
 
     await bot.handleUpdate(tapOrderAgain(buyer, order.id));
 
@@ -359,7 +313,7 @@ describe('Order again button', () => {
   it('says which item is out of stock', async () => {
     const variantId = await variantWithStock(2);
     const expired = await expiredOrder(variantId);
-    await placeOrder(variantId, minutesFromNow(180));
+    await placeOrder(variantId, minutesFromNow(3));
 
     await bot.handleUpdate(tapOrderAgain(buyer, expired.id));
 

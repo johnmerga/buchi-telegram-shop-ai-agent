@@ -94,6 +94,11 @@ function ReviewCard({ shopId, item }: { shopId: string; item: PaymentReviewItem 
               {item.reasons.join(', ')}
             </p>
           )}
+          {item.customerReported && (
+            <Badge tone="warning">
+              Reported by the customer · ደንበኛው ሪፖርት አድርጓል. Buchi rejected this payment.
+            </Badge>
+          )}
           {item.payerHighRisk && (
             <Badge tone="warning">High risk: other shops flagged this payer</Badge>
           )}

@@ -2,27 +2,12 @@ import { formatBirr, type MoneyString } from '@buchi/shared';
 import { addisClockTime } from '../../shared/time';
 import { orderReference } from '../orders/orders.domain';
 
-/** A customer message counts as near the payment deadline within this many minutes of it. */
-export const NEAR_DEADLINE_MINUTES = 30;
-
 /** The design doc's example: a waitlist of 10 people for a sold-out size is worth a restock. */
 export const WAITLIST_THRESHOLD = 10;
-
-/** True while the deadline is still ahead but at most `NEAR_DEADLINE_MINUTES` away. */
-export function isNearDeadline(deadline: Date | null, now: Date): boolean {
-  if (deadline === null) return false;
-  const left = deadline.getTime() - now.getTime();
-  return left > 0 && left <= NEAR_DEADLINE_MINUTES * 60_000;
-}
 
 /** Only the join that reaches the threshold counts, so one waitlist wakes the agent once. */
 export function reachesWaitlistThreshold(waiting: number): boolean {
   return waiting === WAITLIST_THRESHOLD;
-}
-
-export function deadlineExtended(orderId: string, deadline: Date): string {
-  const time = addisClockTime(deadline);
-  return `⏰ ትዕዛዝ ${orderReference(orderId)}: እስከ ${time} መክፈል ይችላሉ / You can pay for order ${orderReference(orderId)} until ${time} (Addis Ababa time).`;
 }
 
 export function newArrivalTime(orderId: string, arrival: Date): string {

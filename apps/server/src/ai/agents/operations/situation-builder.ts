@@ -136,7 +136,6 @@ export class SituationBuilder {
       deliveryType: order.deliveryType,
       total: order.total,
       paymentDeadline: order.paymentDeadline,
-      deadlineExtensions: order.deadlineExtensions,
       customerFirstName: firstName(summary.customerName),
       items: summary.lines,
       timeline: events.map((event) => ({

@@ -48,8 +48,6 @@ export const orders = pgTable(
     /** The pin's H3 resolution-7 zone. It stays after the nightly job deletes the exact pin. */
     deliveryZone: text('delivery_zone'),
     paymentDeadline: timestamp('payment_deadline', { withTimezone: true }),
-    /** How often an agent or the owner moved the deadline. The policy guard allows one automatically. */
-    deadlineExtensions: integer('deadline_extensions').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

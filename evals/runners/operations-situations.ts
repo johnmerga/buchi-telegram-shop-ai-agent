@@ -11,11 +11,7 @@ import { idsOf, NOW, seedJob, seedOrder, seedProduct, type CaseIds } from './ope
 const CUSTOMER = { telegramUserId: 1, name: 'Hana Tesfaye' };
 
 const input = z.discriminatedUnion('situation', [
-  z.strictObject({
-    situation: z.literal('payment_deadline'),
-    message: z.string().min(1),
-    extensionsMade: z.number().int().min(0),
-  }),
+  z.strictObject({ situation: z.literal('payment_deadline'), message: z.string().min(1) }),
   z.strictObject({ situation: z.literal('driver_report'), message: z.string().min(1) }),
   z.strictObject({ situation: z.literal('delivery_late') }),
   z.strictObject({ situation: z.literal('no_driver_accepted') }),
@@ -116,17 +112,16 @@ async function seedSituation(
   const soldOut = testCase.situation === 'waitlist';
   const size43 = testCase.situation === 'delivery_problem' && testCase.wantedSizeInStock ? 3 : 0;
   await seedProduct(db, shopId, ids, { size42: 5, size43: soldOut ? 0 : size43 });
-  const order = (status: Parameters<typeof seedOrder>[3]['status'], extensions = 0) =>
+  const order = (status: Parameters<typeof seedOrder>[3]['status']) =>
     seedOrder(db, shopId, ids, {
       customerId,
       status,
-      paymentDeadline: new Date(NOW.getTime() + 20 * 60_000),
-      deadlineExtensions: extensions,
+      paymentDeadline: new Date(NOW.getTime() + 2 * 60_000),
     });
 
   switch (testCase.situation) {
     case 'payment_deadline':
-      await order('awaiting_payment', testCase.extensionsMade);
+      await order('awaiting_payment');
       return shop.situations.paymentDeadline(shopId, ids.order, CUSTOMER, testCase.message);
     case 'driver_report':
     case 'delivery_late': {

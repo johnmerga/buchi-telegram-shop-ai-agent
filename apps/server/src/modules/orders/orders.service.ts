@@ -9,7 +9,7 @@ import type { TimerService } from '../jobs/timers.service';
 import type { PromotionParameters } from '../rules/rules.schemas';
 import type { StockHoldsRepo } from './stock-holds.repo';
 import { zoneOf } from '../delivery/zones.domain';
-import { orderTimerKinds, paymentTimers } from './orders.deadlines.domain';
+import { orderTimerKinds } from './orders.deadlines.domain';
 import {
   nextState,
   paidStatuses,
@@ -94,7 +94,7 @@ export class OrderService {
   async acceptQuote(
     shopId: string,
     orderId: string,
-    quote: { fee: Money; acceptedAt: Date; paymentDeadline: Date },
+    quote: { fee: Money; paymentDeadline: Date },
   ): Promise<OrderRow> {
     const { order, change } = await withShop(this.db, shopId, async (tx) => {
       const locked = await this.lock(tx, orderId);
@@ -111,8 +111,13 @@ export class OrderService {
         'customer',
         'Accepted the delivery price',
       );
-      const timers = paymentTimers(quote.acceptedAt, quote.paymentDeadline);
-      await this.scheduleAll(tx, shopId, orderId, timers);
+      await this.timers.schedule(
+        tx,
+        orderTimerKinds.expire,
+        orderId,
+        shopId,
+        quote.paymentDeadline,
+      );
       return { order: await this.lock(tx, orderId), change: applied };
     });
     await this.events.publish('order.transitioned', { shopId, orderId, ...change });
@@ -226,7 +231,10 @@ export class OrderService {
     return true;
   }
 
-  /** Expires an unpaid order only once its deadline has passed, which an extension may have moved. */
+  /**
+   * Expires an order only while it still waits for payment and its deadline has passed. An order
+   * whose screenshot is being checked or reviewed keeps its stock.
+   */
   async expireIfOverdue(shopId: string, orderId: string, now: Date): Promise<boolean> {
     const change = await withShop(this.db, shopId, async (tx) => {
       const order = await this.lock(tx, orderId);
@@ -241,20 +249,29 @@ export class OrderService {
   }
 
   /**
-   * Moves an unpaid order's deadline and schedules its expiry at the new time. The expiry timer of
-   * the old deadline finds the order not yet overdue and leaves it alone.
+   * Returns an order whose screenshot did not settle it to waiting for payment, with a new
+   * deadline, because the customer now sends a clearer screenshot or pays the rest.
    */
-  extendDeadline(shopId: string, orderId: string, minutes: number): Promise<Date> {
-    return withShop(this.db, shopId, async (tx) => {
-      const order = await this.lock(tx, orderId);
-      if (order.status !== 'awaiting_payment' || order.paymentDeadline === null) {
-        throw new AppError('CONFLICT', 'Only an order that waits for payment has a deadline');
-      }
-      const deadline = new Date(order.paymentDeadline.getTime() + minutes * 60_000);
-      await this.repo.extendDeadline(tx, orderId, deadline);
+  async awaitPaymentAgain(
+    shopId: string,
+    orderId: string,
+    reason: string,
+    deadline: Date,
+  ): Promise<void> {
+    const change = await withShop(this.db, shopId, async (tx) => {
+      const moved = await this.apply(
+        tx,
+        await this.lock(tx, orderId),
+        'payment_retry',
+        'system',
+        reason,
+      );
+      await this.repo.setPaymentDeadline(tx, orderId, deadline);
       await this.timers.schedule(tx, orderTimerKinds.expire, orderId, shopId, deadline);
-      return deadline;
+      return moved;
     });
+
+    await this.events.publish('order.transitioned', { shopId, orderId, ...change });
   }
 
   /** Takes an order off its trip, to wait for the next Saver run with the other paid orders. */
@@ -347,7 +364,14 @@ export class OrderService {
 
   /** The customer's latest order in this shop that waits for a payment or has one being checked. */
   latestUnpaid(shopId: string, telegramUserId: number): Promise<OrderRow | undefined> {
-    return withShop(this.db, shopId, (tx) => this.repo.latestUnpaid(tx, telegramUserId));
+    return withShop(this.db, shopId, (tx) =>
+      this.repo.latest(tx, telegramUserId, ['awaiting_payment', 'verifying', 'needs_review']),
+    );
+  }
+
+  /** The customer's latest order in this shop, whatever its status. */
+  latest(shopId: string, telegramUserId: number): Promise<OrderRow | undefined> {
+    return withShop(this.db, shopId, (tx) => this.repo.latest(tx, telegramUserId));
   }
 
   /** Finds an order of the customer with this Telegram user ID, in whichever shop it was placed. */
@@ -451,27 +475,16 @@ export class OrderService {
         actor,
         reason: 'Order created',
       });
-      const timers =
+      const timer =
         start.status === 'quoting'
-          ? [{ kind: orderTimerKinds.quoteExpire, dueAt: start.holdUntil }]
-          : paymentTimers(row.createdAt, start.paymentDeadline);
-      await this.scheduleAll(tx, shopId, row.id, timers);
+          ? { kind: orderTimerKinds.quoteExpire, dueAt: start.holdUntil }
+          : { kind: orderTimerKinds.expire, dueAt: start.paymentDeadline };
+      await this.timers.schedule(tx, timer.kind, row.id, shopId, timer.dueAt);
       return row;
     });
 
     await this.events.publish('order.created', { shopId, orderId: created.id });
     return created;
-  }
-
-  private async scheduleAll(
-    tx: Transaction,
-    shopId: string,
-    orderId: string,
-    timers: { kind: string; dueAt: Date }[],
-  ): Promise<void> {
-    for (const timer of timers) {
-      await this.timers.schedule(tx, timer.kind, orderId, shopId, timer.dueAt);
-    }
   }
 
   private async lock(tx: Transaction, orderId: string): Promise<OrderRow> {
@@ -508,8 +521,14 @@ export class OrderService {
   private async applyStock(tx: Transaction, orderId: string, effect: StockEffect): Promise<void> {
     if (effect === 'none') return;
     for (const item of await this.repo.items(tx, orderId)) {
-      if (effect === 'release') await this.repo.release(tx, item.variantId, item.quantity);
-      else await this.repo.commit(tx, item.variantId, item.quantity);
+      if (effect === 'release') {
+        await this.repo.release(tx, item.variantId, item.quantity);
+        continue;
+      }
+      if (effect === 'take' && !(await this.repo.reserve(tx, item.variantId, item.quantity))) {
+        throw new AppError('CONFLICT', 'An item of this order is no longer in stock');
+      }
+      await this.repo.commit(tx, item.variantId, item.quantity);
     }
   }
 }

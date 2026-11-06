@@ -12,6 +12,7 @@ import { SessionsRepo } from '../../src/modules/customers/sessions.repo';
 import { TimersRepo } from '../../src/modules/jobs/timers.repo';
 import { TimerService } from '../../src/modules/jobs/timers.service';
 import { CheckoutService } from '../../src/modules/orders/checkout.service';
+import { PAYMENT_HOLD_MS } from '../../src/modules/orders/orders.deadlines.domain';
 import { OrdersRepo } from '../../src/modules/orders/orders.repo';
 import { OrderService } from '../../src/modules/orders/orders.service';
 import { createConversationHandlers } from '../../src/modules/owner/conversations.handlers';
@@ -22,6 +23,8 @@ import { ImageIntake } from '../../src/modules/payments/image-intake.service';
 import { PaymentNotifier } from '../../src/modules/payments/payment-notifier.service';
 import { PaymentProofsRepo } from '../../src/modules/payments/payment-proofs.repo';
 import { PaymentRefsRepo } from '../../src/modules/payments/payment-refs.repo';
+import { PaymentRecords } from '../../src/modules/payments/payment-records.service';
+import { PaymentReports } from '../../src/modules/payments/payment-reports.service';
 import { PaymentReview } from '../../src/modules/payments/payment-review.service';
 import { PaymentVerification } from '../../src/modules/payments/payment-verification.service';
 import { createPaymentHandlers } from '../../src/modules/payments/payments.handlers';
@@ -162,6 +165,7 @@ const verification = new PaymentVerification(
   shops,
   customers,
   paymentNotifier,
+  () => new Date(),
 );
 const photoSearch = new PhotoSearchService(
   db,
@@ -182,6 +186,8 @@ const intake = new ImageIntake(
 const chatApi = new Api('test');
 fakeTelegram(chatApi);
 const review = new PaymentReview(db, proofs, refs, risk, orders, customers, paymentNotifier);
+const reports = new PaymentReports(db, proofs, orders, paymentNotifier);
+const records = new PaymentRecords(db, proofs, orders, customers, risk);
 
 const bot = createBot({
   token: 'test',
@@ -190,7 +196,13 @@ const bot = createBot({
   driverShopIds: () => Promise.resolve([]),
   handlers: [
     createConversationHandlers({ conversations, customers }),
-    createPaymentHandlers({ intake, review, customers, chat: new TelegramCustomerChat(chatApi) }),
+    createPaymentHandlers({
+      intake,
+      review,
+      reports,
+      customers,
+      chat: new TelegramCustomerChat(chatApi),
+    }),
   ],
 });
 fakeTelegram(bot.api);
@@ -308,6 +320,11 @@ const toShopB = { receiver: 'ABEL GIRMA', account: '2519****0000' };
 const statusOf = async (shopId: string, orderId: string) =>
   (await orders.get(shopId, orderId)).status;
 
+const variantOf = async (shopId: string, variantId: string) =>
+  (await catalog.listProducts(shopId)).flatMap((p) => p.variants).find((v) => v.id === variantId);
+
+const markupOf = (call: Call | undefined) => JSON.stringify(call?.payload.reply_markup);
+
 beforeAll(async () => {
   await setUpShop(shopA, ownerA, { accountName: 'Selam Tesfaye', accountNumber: '0911234567' });
   await setUpShop(shopB, ownerB, { accountName: 'Abel Girma', accountNumber: '0922000000' });
@@ -340,8 +357,9 @@ describe('a payment screenshot', () => {
 
     await bot.handleUpdate(photo(dawit));
 
-    expect(await statusOf(shopB.id, orderId)).toBe('awaiting_payment');
+    expect(await statusOf(shopB.id, orderId)).toBe('payment_rejected');
     expect(lastTo(dawit.id)?.text).toContain('already used for another order');
+    expect(markupOf(lastTo(dawit.id))).toContain(`payreport:${orderId}`);
     expect(lastTo(ownerB)?.text).toContain('not accepted');
     expect(lastTo(ownerB)?.text).not.toContain(String(dawit.id));
   });
@@ -350,8 +368,13 @@ describe('a payment screenshot', () => {
     const sara = userOf(424303, 'Sara');
     const orderId = await order(sara, shopA.id, shopA.bigVariant);
     receiptScript({ ref: 'AAAA111111', amount: '1000', ...toShopA });
+    const checkedAt = Date.now();
     await bot.handleUpdate(photo(sara));
     expect(lastTo(sara.id)?.text).toContain('3,500.00 ብር is still missing');
+    // The customer gets a new hold to pay the rest, since the check may have outlasted the first.
+    const waiting = await orders.get(shopA.id, orderId);
+    expect(waiting.status).toBe('awaiting_payment');
+    expect(waiting.paymentDeadline?.getTime()).toBeGreaterThanOrEqual(checkedAt + PAYMENT_HOLD_MS);
 
     receiptScript({ ref: 'AAAA111111', amount: '1000', ...toShopA });
     await bot.handleUpdate(photo(sara));
@@ -438,11 +461,12 @@ describe('owner review', () => {
     await order(kebede, shopB.id, shopB.smallVariant);
     receiptScript({ ref: 'DDDD444444', amount: '800', ...toShopB, paidAt: receiptTime(-60) });
     await bot.handleUpdate(photo(kebede));
-    const orderId = await order(kebede, shopA.id, shopA.smallVariant);
+    await order(kebede, shopA.id, shopA.smallVariant);
     receiptScript({ ref: 'EEEE555555', amount: '800', ...toShopA, paidAt: receiptTime(-60) });
     await bot.handleUpdate(photo(kebede));
     expect(lastTo(kebede.id)?.text).toContain('made before this order was placed');
 
+    const orderId = await order(kebede, shopA.id, shopA.smallVariant);
     receiptScript({ ref: 'FFFF666666', amount: '800', ...toShopA });
     bankSays = 'UNAVAILABLE';
     await bot.handleUpdate(photo(kebede));
@@ -451,7 +475,7 @@ describe('owner review', () => {
     expect(lastTo(ownerA)?.text).toContain('this payer had payment problems before');
   });
 
-  it('returns the order to the customer when the owner rejects it, and frees its reference', async () => {
+  it('closes the order when the owner rejects it, and frees its stock and reference', async () => {
     const tigist = userOf(424308, 'Tigist');
     const orderId = await order(tigist, shopA.id, shopA.bigVariant);
     receiptScript({ ref: 'GGGG777777', amount: '4500', ...toShopA });
@@ -460,11 +484,113 @@ describe('owner review', () => {
     const markup = JSON.stringify(lastTo(ownerA)?.payload.reply_markup);
     const reject = /payment:reject:[0-9a-f-]{36}/.exec(markup)?.[0] ?? '';
 
+    const reserved = (await variantOf(shopA.id, shopA.bigVariant))?.reserved ?? 0;
+
     await bot.handleUpdate(tap(userOf(ownerA, 'Selam'), reject));
 
-    expect(await statusOf(shopA.id, orderId)).toBe('awaiting_payment');
-    expect(lastTo(tigist.id)?.text).toContain('the shop could not confirm the payment');
+    expect(await statusOf(shopA.id, orderId)).toBe('payment_rejected');
+    expect((await variantOf(shopA.id, shopA.bigVariant))?.reserved).toBe(reserved - 1);
+    expect(lastTo(tigist.id)?.text).toContain('so this order is closed');
     const rightful = await order(userOf(424309, 'Yonas'), shopA.id, shopA.smallVariant);
     expect(await refs.claim('telebirr', 'GGGG777777', rightful)).toBe(rightful);
+  });
+});
+
+describe('a rejected payment', () => {
+  const selam = userOf(ownerA, 'Selam');
+  const ruth = userOf(424311, 'Ruth');
+  let orderId = '';
+
+  it('closes the order, frees its stock at once, and offers Report a problem', async () => {
+    const reserved = (await variantOf(shopA.id, shopA.smallVariant))?.reserved ?? 0;
+    orderId = await order(ruth, shopA.id, shopA.smallVariant);
+    receiptScript({ ref: 'HHHH888888', amount: '800', ...toShopA, paidAt: receiptTime(-60) });
+
+    await bot.handleUpdate(photo(ruth));
+
+    expect(await statusOf(shopA.id, orderId)).toBe('payment_rejected');
+    expect((await variantOf(shopA.id, shopA.smallVariant))?.reserved).toBe(reserved);
+    const reply = lastTo(ruth.id);
+    expect(reply?.text).toContain('This order is now closed and the item is back on sale');
+    expect(markupOf(reply)).toContain('Report a problem');
+    expect(markupOf(reply)).toContain(`payreport:${orderId}`);
+  });
+
+  it('takes no more screenshots for the closed order', async () => {
+    script.push({ text: JSON.stringify({ kind: 'receipt', confidence: 0.97 }) });
+
+    await bot.handleUpdate(photo(ruth));
+
+    expect(lastTo(ruth.id)?.text).toContain('was not accepted, so this order is closed');
+    expect(await statusOf(shopA.id, orderId)).toBe('payment_rejected');
+  });
+
+  it('sends a report from its own customer, once, to the owners with what Buchi read', async () => {
+    await bot.handleUpdate(tap(userOf(424312, 'Other'), `payreport:${orderId}`));
+    expect(lastAnswer()?.text).toBe('This payment was already reported or decided.');
+
+    await bot.handleUpdate(tap(ruth, `payreport:${orderId}`));
+
+    expect(lastAnswer()?.text).toContain('The shop will check your payment');
+    const report = lastTo(ownerA)?.text;
+    expect(report).toContain('The customer reports a problem with the rejected payment');
+    expect(report).toContain('the payment was made before this order was placed');
+    expect(report).toContain('HHHH888888');
+    const queued = (await records.reviewQueue(shopA.id)).find((i) => i.orderId === orderId);
+    expect(queued).toMatchObject({ customerReported: true, reasons: ['time'] });
+
+    await bot.handleUpdate(tap(ruth, `payreport:${orderId}`));
+    expect(lastAnswer()?.text).toBe('This payment was already reported or decided.');
+  });
+
+  it('sells the order after all when the owner approves the report', async () => {
+    const before = await variantOf(shopA.id, shopA.smallVariant);
+    const approve = /payment:approve:[0-9a-f-]{36}/.exec(markupOf(lastTo(ownerA)))?.[0] ?? '';
+
+    await bot.handleUpdate(tap(selam, approve));
+
+    expect(lastAnswer()?.text).toBe('Approved. The customer is told the payment is confirmed.');
+    expect(await statusOf(shopA.id, orderId)).toBe('paid');
+    expect(await variantOf(shopA.id, shopA.smallVariant)).toMatchObject({
+      stock: (before?.stock ?? 0) - 1,
+      reserved: before?.reserved,
+    });
+    expect(lastTo(ruth.id)?.text).toContain('Payment received for order');
+    const other = await order(userOf(424313, 'Yared'), shopA.id, shopA.smallVariant);
+    expect(await refs.claim('telebirr', 'HHHH888888', other)).toBe(orderId);
+  });
+
+  it('tells the owner when the item sold out meanwhile, and keeps the report open', async () => {
+    const product = await catalog.createProduct(
+      shopA.id,
+      productInputSchema.parse({ title: 'Last pair', pricingMode: 'fixed', price: '800' }),
+    );
+    await catalog.setVariants(shopA.id, product.id, [{ size: '40', color: null, stock: 1 }]);
+    const lastPair = (await catalog.listProducts(shopA.id)).find((p) => p.id === product.id)
+      ?.variants[0]?.id;
+    if (!lastPair) throw new Error('The variant is missing');
+    const abel = userOf(424314, 'Abel');
+    const rejected = await order(abel, shopA.id, lastPair);
+    receiptScript({ ref: 'JJJJ999999', amount: '800', ...toShopA, paidAt: receiptTime(-60) });
+    await bot.handleUpdate(photo(abel));
+    await order(userOf(424315, 'Liya'), shopA.id, lastPair);
+    await bot.handleUpdate(tap(abel, `payreport:${rejected}`));
+    const markup = markupOf(lastTo(ownerA));
+    const approve = /payment:approve:[0-9a-f-]{36}/.exec(markup)?.[0] ?? '';
+    const reject = /payment:reject:[0-9a-f-]{36}/.exec(markup)?.[0] ?? '';
+
+    await bot.handleUpdate(tap(selam, approve));
+
+    expect(lastAnswer()?.text).toContain('The item sold out after the order was closed');
+    expect(await statusOf(shopA.id, rejected)).toBe('payment_rejected');
+    expect(await variantOf(shopA.id, lastPair)).toMatchObject({ stock: 1, reserved: 1 });
+    expect((await records.reviewQueue(shopA.id)).map((i) => i.orderId)).toContain(rejected);
+
+    await bot.handleUpdate(tap(selam, reject));
+
+    expect(lastAnswer()?.text).toBe('Rejected. The customer is told the order is closed.');
+    expect(await statusOf(shopA.id, rejected)).toBe('payment_rejected');
+    expect(lastTo(abel.id)?.text).toContain('so this order is closed');
+    expect((await records.reviewQueue(shopA.id)).map((i) => i.orderId)).not.toContain(rejected);
   });
 });

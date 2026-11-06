@@ -162,7 +162,7 @@ export function createOperationsShop(
   const approvals = new OwnerApprovals(
     db,
     decisions,
-    operationsApprovals(tools, toolDeps),
+    operationsApprovals(tools),
     ownerAlerts,
     logger,
     now,

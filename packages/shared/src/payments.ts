@@ -39,6 +39,8 @@ export const paymentReviewItemSchema = z.object({
   bankCheck: z.enum(bankChecks).nullable(),
   reasons: z.array(z.string()),
   payerHighRisk: z.boolean(),
+  /** A screenshot that Buchi rejected, which the customer reported as a mistake. */
+  customerReported: z.boolean(),
 });
 export type PaymentReviewItem = z.infer<typeof paymentReviewItemSchema>;
 

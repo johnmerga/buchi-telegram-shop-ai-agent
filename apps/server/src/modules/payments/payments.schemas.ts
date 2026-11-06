@@ -53,3 +53,22 @@ export const reviewActionSchema = z
       proofId: z.uuid(),
     }),
   );
+
+const REPORT_PREFIX = 'payreport';
+
+/**
+ * The customer's **Report a problem** button under a rejected payment carries the order ID, which
+ * finds the order in whichever shop it was placed.
+ */
+export function reportCallbackData(orderId: string): string {
+  return `${REPORT_PREFIX}:${orderId}`;
+}
+
+/** The order ID of a **Report a problem** button, as `reportCallbackData` writes it. */
+export const reportCallbackSchema = z
+  .string()
+  .transform((data) => {
+    const [prefix, orderId] = data.split(':');
+    return { prefix, orderId };
+  })
+  .pipe(z.object({ prefix: z.literal(REPORT_PREFIX), orderId: z.uuid() }));

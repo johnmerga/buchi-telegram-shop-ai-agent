@@ -248,6 +248,32 @@ export class OrderService {
     return true;
   }
 
+  /**
+   * Returns an order whose screenshot did not settle it to waiting for payment, with a new
+   * deadline, because the customer now sends a clearer screenshot or pays the rest.
+   */
+  async awaitPaymentAgain(
+    shopId: string,
+    orderId: string,
+    reason: string,
+    deadline: Date,
+  ): Promise<void> {
+    const change = await withShop(this.db, shopId, async (tx) => {
+      const moved = await this.apply(
+        tx,
+        await this.lock(tx, orderId),
+        'payment_retry',
+        'system',
+        reason,
+      );
+      await this.repo.setPaymentDeadline(tx, orderId, deadline);
+      await this.timers.schedule(tx, orderTimerKinds.expire, orderId, shopId, deadline);
+      return moved;
+    });
+
+    await this.events.publish('order.transitioned', { shopId, orderId, ...change });
+  }
+
   /** Takes an order off its trip, to wait for the next Saver run with the other paid orders. */
   async reschedule(shopId: string, orderId: string, reason: string): Promise<void> {
     const change = await withShop(this.db, shopId, async (tx) => {
@@ -338,7 +364,14 @@ export class OrderService {
 
   /** The customer's latest order in this shop that waits for a payment or has one being checked. */
   latestUnpaid(shopId: string, telegramUserId: number): Promise<OrderRow | undefined> {
-    return withShop(this.db, shopId, (tx) => this.repo.latestUnpaid(tx, telegramUserId));
+    return withShop(this.db, shopId, (tx) =>
+      this.repo.latest(tx, telegramUserId, ['awaiting_payment', 'verifying', 'needs_review']),
+    );
+  }
+
+  /** The customer's latest order in this shop, whatever its status. */
+  latest(shopId: string, telegramUserId: number): Promise<OrderRow | undefined> {
+    return withShop(this.db, shopId, (tx) => this.repo.latest(tx, telegramUserId));
   }
 
   /** Finds an order of the customer with this Telegram user ID, in whichever shop it was placed. */
@@ -488,8 +521,14 @@ export class OrderService {
   private async applyStock(tx: Transaction, orderId: string, effect: StockEffect): Promise<void> {
     if (effect === 'none') return;
     for (const item of await this.repo.items(tx, orderId)) {
-      if (effect === 'release') await this.repo.release(tx, item.variantId, item.quantity);
-      else await this.repo.commit(tx, item.variantId, item.quantity);
+      if (effect === 'release') {
+        await this.repo.release(tx, item.variantId, item.quantity);
+        continue;
+      }
+      if (effect === 'take' && !(await this.repo.reserve(tx, item.variantId, item.quantity))) {
+        throw new AppError('CONFLICT', 'An item of this order is no longer in stock');
+      }
+      await this.repo.commit(tx, item.variantId, item.quantity);
     }
   }
 }

@@ -194,8 +194,12 @@ export class OrdersRepo {
     return rows.map((row) => row.shop_id);
   }
 
-  /** The customer's latest order that waits for a payment or has one being checked. */
-  async latestUnpaid(tx: Transaction, telegramUserId: number): Promise<OrderRow | undefined> {
+  /** The customer's latest order, or their latest order with one of `statuses`. */
+  async latest(
+    tx: Transaction,
+    telegramUserId: number,
+    statuses?: readonly OrderStatus[],
+  ): Promise<OrderRow | undefined> {
     const [row] = await tx
       .select({ order: orders })
       .from(orders)
@@ -203,7 +207,7 @@ export class OrdersRepo {
       .where(
         and(
           eq(customers.telegramUserId, telegramUserId),
-          inArray(orders.status, ['awaiting_payment', 'verifying', 'needs_review']),
+          statuses && inArray(orders.status, [...statuses]),
         ),
       )
       .orderBy(desc(orders.createdAt))
@@ -266,6 +270,13 @@ export class OrdersRepo {
     await tx
       .update(orders)
       .set({ deliveryType: type, updatedAt: sql`now()` })
+      .where(eq(orders.id, orderId));
+  }
+
+  async setPaymentDeadline(tx: Transaction, orderId: string, deadline: Date): Promise<void> {
+    await tx
+      .update(orders)
+      .set({ paymentDeadline: deadline, updatedAt: sql`now()` })
       .where(eq(orders.id, orderId));
   }
 

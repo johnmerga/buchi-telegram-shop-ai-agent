@@ -40,6 +40,7 @@ const review = {
   bankCheck: 'UNAVAILABLE',
   reasons: ['bank_unavailable'],
   payerHighRisk: true,
+  customerReported: true,
 };
 const decision = {
   agent: 'operations',
@@ -88,7 +89,7 @@ afterEach(() => {
 });
 
 describe('payment review screen', () => {
-  it('shows the screenshot beside what Buchi read, the rules, the bank, and risk', async () => {
+  it('shows the screenshot beside what Buchi read, the rules, the bank, risk, and a report', async () => {
     const { calls } = fakeServer({
       'POST /auth/mini-app': session,
       [`GET /shops/${shopId}`]: () => json(200, shop),
@@ -105,6 +106,7 @@ describe('payment review screen', () => {
     expect(card.textContent).toContain('R3 amount: underpaid');
     expect(card.textContent).toContain('UNAVAILABLE');
     expect(card.textContent).toContain('High risk');
+    expect(card.textContent).toContain('Reported by the customer');
     const image = await within(card).findByRole('img', { name: 'Payment screenshot' });
     expect(image.getAttribute('src')).toBe('blob:screenshot');
     const screenshot = calls.find((call) => call.key.endsWith('/screenshot'));

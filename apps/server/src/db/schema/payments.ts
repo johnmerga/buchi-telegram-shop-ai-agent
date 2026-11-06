@@ -60,6 +60,8 @@ export const paymentProofs = pgTable(
       .notNull()
       .default(sql`'{}'`),
     ownerDecision: ownerPaymentDecision('owner_decision'),
+    /** When the customer reported a rejected screenshot, which puts it in the owner's review queue. */
+    reportedAt: timestamp('reported_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

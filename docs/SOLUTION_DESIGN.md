@@ -144,9 +144,10 @@ Quoting (far areas only) → AwaitingPayment → Verifying → Paid or NeedsRevi
   → Dispatching → Assigned → OutForDelivery → Delivered
 ```
 
-A rejected screenshot returns the order to `AwaitingPayment`. Pickup orders go from `Paid` to
-`ReadyForPickup` to `Delivered`. Unpaid orders end as `Expired` or `Cancelled`, and both states
-release the reserved stock and any driver hold. A single `OrderService.transition()` function
+A rejected screenshot is final: the order ends as `PaymentRejected`. An unclear screenshot or a
+partial payment returns the order to `AwaitingPayment` with a new three-minute hold. Pickup orders
+go from `Paid` to `ReadyForPickup` to `Delivered`. Unpaid orders end as `Expired`, `Cancelled`, or
+`PaymentRejected`, and all three release the reserved stock and any driver hold. A single `OrderService.transition()` function
 validates each move, updates stock in the same Postgres transaction, and writes an audit event.
 
 ### Shop onboarding
@@ -335,6 +336,12 @@ shops never see each other's customers. A payer with signals from two or more sh
 | Any | `MISMATCH`: the page differs from the screenshot | Reject and flag to the owner. |
 | R3 underpayment | `CONFIRMED` | Ask the customer for the remainder. |
 
+A rejection is final for the order. The order closes as `PaymentRejected`, its stock is back on
+sale at once, and Buchi accepts no more screenshots for it. The customer gets a **Report a
+problem** button. A report puts the screenshot, what Buchi read, and the rejection reasons in the
+owner's payment review, marked as reported by the customer. If the owner approves it, the order is
+paid only if its items are still in stock; otherwise Buchi tells the owner that the item sold out.
+
 Buchi never accuses a customer. A rejection states what did not match and what to do next. Buchi
 does not claim to detect image editing. It catches an edited screenshot because the screenshot does
 not match the bank's receipt page or fails a rule. I considered image fingerprints to find reused
@@ -412,7 +419,7 @@ A customer who writes "forget my details" has the facts deleted.
 
 ### Owner review and takeover
 
-Each `NeedsReview` case and each escalation reaches the owner as a Telegram message with buttons,
+Each `NeedsReview` case, each reported rejection, and each escalation reaches the owner as a Telegram message with buttons,
 and in the review queue of the owner Mini App. The owner can take over any conversation. Buchi stops
 replying in that chat until the owner selects **Hand back** or stays silent for two hours. In
 Telegram, the owner replies to a relayed customer message, and Buchi delivers the reply; a reply
@@ -627,7 +634,7 @@ orders             customer, agreed prices, delivery fee, total, status, deadlin
 order_items        product variant, quantity, unit price
 order_events       state history: from, to, actor, reason
 payment_proofs     Telegram file ID, extracted fields, rule results, bank check,
-                   decision
+                   decision, owner decision, customer report time
 payment_refs       platform-wide: UNIQUE (provider, tx_ref), order ID
 risk_signals       platform-wide: hashed payer, signal type, time
 drivers            shop, Telegram user ID, username, availability
@@ -691,7 +698,7 @@ alerts, and screenshots. The Mini Apps handle everything that needs a map, a lis
 | --- | --- |
 | Customer Mini App | Map picker for the delivery pin, delivery options with fees, and order tracking with the driver's progress |
 | Driver Mini App | Open jobs, **Special offers**, a route map with stops in order, **Accept**, **Picked up**, and **Delivered**, trip history, and payouts owed |
-| Owner Mini App and browser dashboard | **Onboarding**, **Orders** (a live board from `Quoting` to `Delivered`), **Payment review** (the screenshot beside the extracted fields, rule results, the bank result, and risk signals), **Deliveries** (a live map of jobs and routes), **Zones** (a hexagon map of learned factors), **Drivers**, **Conversations** with **Take over** and **Hand back**, **Inventory** with pricing modes, listing drafts, and **Post to channel**, **AI decisions** (every guard decision with its reason and evidence), **Insights**, and **Settings** with all limits and **Run now** buttons |
+| Owner Mini App and browser dashboard | **Onboarding**, **Orders** (a live board from `Quoting` to `Delivered`), **Payment review** (the screenshot beside the extracted fields, rule results, the bank result, risk signals, and whether the customer reported a rejection), **Deliveries** (a live map of jobs and routes), **Zones** (a hexagon map of learned factors), **Drivers**, **Conversations** with **Take over** and **Hand back**, **Inventory** with pricing modes, listing drafts, and **Post to channel**, **AI decisions** (every guard decision with its reason and evidence), **Insights**, and **Settings** with all limits and **Run now** buttons |
 
 ## Risks and mitigations
 

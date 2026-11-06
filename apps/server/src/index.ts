@@ -127,6 +127,7 @@ import { PaymentNotifier } from './modules/payments/payment-notifier.service';
 import { PaymentProofsRepo } from './modules/payments/payment-proofs.repo';
 import { PaymentRecords } from './modules/payments/payment-records.service';
 import { PaymentRefsRepo } from './modules/payments/payment-refs.repo';
+import { PaymentReports } from './modules/payments/payment-reports.service';
 import { PaymentReview } from './modules/payments/payment-review.service';
 import { PaymentVerification } from './modules/payments/payment-verification.service';
 import { createPaymentHandlers } from './modules/payments/payments.handlers';
@@ -423,6 +424,7 @@ const verification = new PaymentVerification(
   shops,
   customers,
   paymentNotifier,
+  () => new Date(),
 );
 const demand = new DemandService(database.db, new DemandRepo(), events);
 const photoSearch = new PhotoSearchService(
@@ -452,6 +454,7 @@ const paymentReview = new PaymentReview(
   paymentNotifier,
 );
 
+const paymentReports = new PaymentReports(database.db, paymentProofs, orders, paymentNotifier);
 const paymentRecords = new PaymentRecords(database.db, paymentProofs, orders, customers, risk);
 
 const customerChat = new TelegramCustomerChat(
@@ -734,6 +737,7 @@ const bot = createBot({
     createPaymentHandlers({
       intake: imageIntake,
       review: paymentReview,
+      reports: paymentReports,
       customers,
       chat: customerChat,
     }),

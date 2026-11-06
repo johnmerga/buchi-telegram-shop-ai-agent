@@ -10,6 +10,7 @@ import {
   productInputSchema,
   zoneMapSchema,
 } from '@buchi/shared';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import { Api } from 'grammy';
 import { pino } from 'pino';
 import request from 'supertest';
@@ -19,7 +20,7 @@ import { DecisionLog } from '../../src/ai/approvals/decision-log.service';
 import { OwnerApprovals } from '../../src/ai/approvals/owner-approvals.service';
 import { DecisionsRepo } from '../../src/ai/guard/decisions.repo';
 import { connectDatabase } from '../../src/db/client';
-import { drivers as driversTable } from '../../src/db/schema';
+import { drivers as driversTable, productVariants } from '../../src/db/schema';
 import { withShop } from '../../src/db/with-shop';
 import { createApp } from '../../src/http/app';
 import { requireAuth } from '../../src/http/middleware/require-auth';
@@ -294,6 +295,7 @@ describe('payment review', () => {
       reasons: ['bank_unavailable'],
       rules: { r3: 'exact' },
       payerHighRisk: false,
+      customerReported: false,
     });
     expect(item?.extraction?.transactionRef).toEqual({ value: 'CHK12345', confidence: 0.9 });
   });
@@ -319,13 +321,49 @@ describe('payment review', () => {
     expect(queue.body).toEqual([]);
   });
 
-  it('rejects a payment, which sends the order back to waiting for payment', async () => {
+  it('rejects a payment, which closes the order', async () => {
     const rejected = await orderInReview(990102, 'Abel');
     const res = await post(`/shops/${shopId}/payment-reviews/${rejected}/reject`, owner);
     expect(paymentReviewResultSchema.parse(res.body).result).toBe('rejected');
     expect((await post(`/shops/${shopId}/payment-reviews/${rejected}/undo`, owner)).status).toBe(
       400,
     );
+  });
+
+  it('answers a conflict when a reported payment needs an item that sold out', async () => {
+    const orderId = await orderOf(990103, 'Liya');
+    await orders.transition(shopId, orderId, 'payment_submitted', 'customer', 'Screenshot');
+    await orders.transition(shopId, orderId, 'payment_rejected', 'system', 'Payment rejected');
+    const reported = await withShop(db, shopId, (tx) =>
+      proofs.insert(tx, {
+        shopId,
+        orderId,
+        telegramFileId: `file-${orderId}`,
+        decision: 'reject',
+        reasons: ['time'],
+        reportedAt: new Date(),
+      }),
+    );
+    const reserve = (reserved: SQL | number) =>
+      withShop(db, shopId, (tx) =>
+        tx.update(productVariants).set({ reserved }).where(eq(productVariants.id, variantId)),
+      );
+    const [before] = await withShop(db, shopId, (tx) =>
+      tx
+        .select({ reserved: productVariants.reserved })
+        .from(productVariants)
+        .where(eq(productVariants.id, variantId)),
+    );
+    await reserve(sql`${productVariants.stock}`);
+
+    const res = await post(`/shops/${shopId}/payment-reviews/${reported.id}/approve`, owner);
+    await reserve(before?.reserved ?? 0);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({
+      error: { message: 'The item sold out after the order was closed' },
+    });
+    expect((await orders.get(shopId, orderId)).status).toBe('payment_rejected');
   });
 
   it('finds no proof of another shop', async () => {

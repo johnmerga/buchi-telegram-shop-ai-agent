@@ -67,6 +67,7 @@ export class PaymentRecords {
         telegramUserId: customer.telegramUserId,
         phone: customer.phone,
       }),
+      customerReported: proof.reportedAt !== null,
     };
   }
 }

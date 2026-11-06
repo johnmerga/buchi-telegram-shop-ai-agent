@@ -14,6 +14,8 @@ export type ConfirmResult = { status: 'accepted'; instructions: string } | { sta
 
 /** Statuses of a quote that has not ended yet. */
 const open = ['estimating', 'awaiting_owner', 'offered', 'held'] as const;
+/** Order statuses in which a far order is never delivered. */
+const closedStatuses: readonly OrderStatus[] = ['cancelled', 'expired', 'payment_rejected'];
 
 /**
  * How a far quote ends: a driver holds the price, then the customer confirms, declines, or lets
@@ -112,11 +114,11 @@ export class FarQuoteOutcomes {
   }
 
   /**
-   * Releases the driver once a far order can no longer be delivered: declined, out of time, or
-   * unpaid after the customer confirmed.
+   * Releases the driver once a far order can no longer be delivered: declined, out of time,
+   * unpaid after the customer confirmed, or closed by a rejected payment.
    */
   async orderTransitioned(event: { shopId: string; orderId: string; to: OrderStatus }) {
-    if (event.to !== 'cancelled' && event.to !== 'expired') return;
+    if (!closedStatuses.includes(event.to)) return;
     await this.offers.withdraw(event.shopId, event.orderId);
   }
 

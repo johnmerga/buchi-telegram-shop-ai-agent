@@ -2,21 +2,27 @@ import { Composer } from 'grammy';
 import type { Message } from 'grammy/types';
 import type { BuchiContext } from '../../telegram/actor';
 import type { TelegramCustomerChat } from '../../telegram/customer-chat';
+import { inlineKeyboard } from '../../telegram/keyboards';
 import type { CustomersService } from '../customers/customers.service';
 import type { ImageIntake, IncomingImage } from './image-intake.service';
+import { reportNotAvailable, reportReceived } from './payment-messages.domain';
+import type { PaymentReports } from './payment-reports.service';
 import type { PaymentReview, ReviewResult } from './payment-review.service';
-import { reviewActionSchema } from './payments.schemas';
+import { reportCallbackSchema, reviewActionSchema } from './payments.schemas';
 
 interface PaymentDeps {
   intake: ImageIntake;
   review: PaymentReview;
+  reports: Pick<PaymentReports, 'report'>;
   customers: Pick<CustomersService, 'sessionOf'>;
   chat: Pick<TelegramCustomerChat, 'photoSearch'>;
 }
 
 const reviewAnswers: Record<ReviewResult, string> = {
   approved: 'Approved. The customer is told the payment is confirmed.',
-  rejected: 'Rejected. The customer is asked to check the payment.',
+  rejected: 'Rejected. The customer is told the order is closed.',
+  out_of_stock:
+    'The item sold out after the order was closed. Restock it and approve, or reject and refund the customer.',
   not_found: "Only this shop's owners can do this.",
   already_decided: 'This payment was already decided.',
 };
@@ -26,7 +32,7 @@ const reviewAnswers: Record<ReviewResult, string> = {
  * handlers, so an image in a chat that an owner has taken over goes to the owner instead.
  */
 export function createPaymentHandlers(deps: PaymentDeps): Composer<BuchiContext> {
-  const { intake, review, customers, chat } = deps;
+  const { intake, review, reports, customers, chat } = deps;
   const handlers = new Composer<BuchiContext>();
 
   handlers.on(['message:photo', 'message:document'], async (ctx, next) => {
@@ -39,8 +45,16 @@ export function createPaymentHandlers(deps: PaymentDeps): Composer<BuchiContext>
       return;
     }
     const reply = await intake.receive(session.shopId, ctx.from.id, image);
-    if (reply.kind === 'text') await ctx.reply(reply.text);
-    else await chat.photoSearch(ctx.from.id, reply.result);
+    if (reply.kind === 'photo_search') return chat.photoSearch(ctx.from.id, reply.result);
+    const markup = reply.buttons.length > 0 ? { reply_markup: inlineKeyboard(reply.buttons) } : {};
+    await ctx.reply(reply.text, markup);
+  });
+
+  handlers.callbackQuery(/^payreport:/, async (ctx) => {
+    const button = reportCallbackSchema.safeParse(ctx.callbackQuery.data);
+    const reported = button.success && (await reports.report(ctx.from.id, button.data.orderId));
+    await ctx.answerCallbackQuery({ text: reported ? reportReceived : reportNotAvailable });
+    if (reported) await ctx.editMessageReplyMarkup();
   });
 
   handlers.callbackQuery(/^payment:/, async (ctx) => {

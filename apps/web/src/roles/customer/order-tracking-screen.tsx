@@ -49,7 +49,7 @@ function Tracking({ order }: { order: TrackedOrder }) {
   const steps = stepsFor(order);
   // Review is a detour of the payment check, so it lights the same step.
   const current = steps.indexOf(order.status === 'needs_review' ? 'verifying' : order.status);
-  const closed = order.status === 'expired' || order.status === 'cancelled';
+  const closed = ['expired', 'cancelled', 'payment_rejected'].includes(order.status);
   return (
     <>
       <h1 className="text-xl font-semibold">Your order · ትዕዛዝዎ</h1>

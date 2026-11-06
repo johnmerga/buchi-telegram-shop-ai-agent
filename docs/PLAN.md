@@ -389,6 +389,12 @@ including across two shops.
   first submission cannot block the rightful order. A bank-confirmed underpayment keeps its claim
   and counts toward the next receipt. CBE Birr receipts and the newer CBE `mbreciept` receipts are
   not bank-checked, because their pages need the payer's phone or an app token.
+- **Built as (owner's rule):** a rejection, by Buchi or by the owner, is final. The order moves to
+  the new `payment_rejected` status and releases its stock; an unclear screenshot or a partial
+  payment returns it to `awaiting_payment` with a new three-minute hold. The customer's **Report a
+  problem** button (`payreport:<orderId>`) sets `payment_proofs.reported_at`, which puts the proof
+  in the same review queue and owner buttons. Approving it re-reserves and sells the items, or
+  answers that the item sold out (migration `0026_payment_reports`).
 
 ---
 

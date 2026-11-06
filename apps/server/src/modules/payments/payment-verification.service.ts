@@ -133,7 +133,7 @@ export class PaymentVerification {
     await this.act(order, proof, evaluation, received.message, payer);
     const { decision } = evaluation;
     return {
-      text: customerMessage(decision, order.id),
+      text: customerMessage(decision, order),
       buttons: decision.outcome === 'reject' ? [reportButton(order.id)] : [],
     };
   }

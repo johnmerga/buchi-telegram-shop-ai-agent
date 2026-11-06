@@ -1,8 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { orderClosed, reportButton, reportedCaption } from './payment-messages.domain';
+import {
+  orderClosed,
+  paymentConfirmed,
+  reportButton,
+  reportedCaption,
+} from './payment-messages.domain';
 import { reportCallbackSchema } from './payments.schemas';
 
 const orderId = '3f2a9c00-0000-4000-8000-000000000001';
+
+describe('paymentConfirmed', () => {
+  it('sends a pickup customer to the shop', () => {
+    expect(paymentConfirmed({ id: orderId, deliveryType: 'pickup' })).toContain(
+      'Pickup at the shop.',
+    );
+  });
+
+  it('tells a delivery customer that the order is coming', () => {
+    const text = paymentConfirmed({ id: orderId, deliveryType: 'express' });
+    expect(text).toContain('Payment received for order #3F2A9C');
+    expect(text).toContain('We will send it to you soon.');
+    expect(text).not.toContain('Pickup');
+  });
+});
 
 describe('reportButton', () => {
   it('carries the order that the report callback schema reads back', () => {

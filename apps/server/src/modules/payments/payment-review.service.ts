@@ -55,9 +55,9 @@ export class PaymentReview {
     if (!moved) return 'already_decided';
     await this.recordDecision(proof, action);
 
-    const customer = await this.customerOf(proof);
+    const { order, customer } = await this.partiesOf(proof);
     if (action === 'approve') {
-      await this.notifier.toCustomer(customer.telegramUserId, paymentConfirmed(orderId));
+      await this.notifier.toCustomer(customer.telegramUserId, paymentConfirmed(order));
       return 'approved';
     }
     if (proof.provider !== null && proof.txRef !== null) {
@@ -97,15 +97,15 @@ export class PaymentReview {
     if (proof.provider !== null && proof.txRef !== null) {
       await this.refs.claim(proof.provider, proof.txRef, orderId);
     }
-    const customer = await this.customerOf(proof);
-    await this.notifier.toCustomer(customer.telegramUserId, paymentConfirmed(orderId));
+    const { order, customer } = await this.partiesOf(proof);
+    await this.notifier.toCustomer(customer.telegramUserId, paymentConfirmed(order));
     return 'approved';
   }
 
   /** The order stays closed. Buchi already recorded the risk signal when it rejected the payment. */
   private async rejectReported(proof: PaymentProofRow): Promise<ReviewResult> {
     if (!(await this.recordDecision(proof, 'reject'))) return 'already_decided';
-    const customer = await this.customerOf(proof);
+    const { customer } = await this.partiesOf(proof);
     await this.notifier.toCustomer(customer.telegramUserId, paymentDeclinedByOwner(proof.orderId));
     return 'rejected';
   }
@@ -116,9 +116,10 @@ export class PaymentReview {
     );
   }
 
-  private async customerOf(proof: PaymentProofRow) {
+  /** The proof's order, which shapes the customer's message, and the customer who receives it. */
+  private async partiesOf(proof: PaymentProofRow) {
     const order = await this.orders.get(proof.shopId, proof.orderId);
-    return this.customers.get(proof.shopId, order.customerId);
+    return { order, customer: await this.customers.get(proof.shopId, order.customerId) };
   }
 
   /** Row-level security finds the proof only in a shop that the owner owns. */

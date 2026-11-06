@@ -32,25 +32,29 @@ export function firstNameMatches(printed: string | null, known: KnownAccount): b
 }
 
 /**
- * Compares from the last digit backwards, because receipts mask middle digits ("2519****4567")
- * and write phone numbers with or without the country code.
+ * Compares the digits shown on each side of the mask. A mask can hide any number of digits, as in
+ * "1****1199" for a 13-digit CBE account, and phone numbers come with or without the country
+ * code, so the digits before the mask match the number's start and those after it its end.
  */
 function compareNumbers(printed: string, known: string): 'match' | 'differ' | 'unknown' {
-  const shown = localForm(printed.replace(/[xX•]/g, '*').replace(/[^0-9*]/g, ''));
+  const shown = printed.replace(/[xX•]/g, '*').replace(/[^0-9*]/g, '');
   const digits = localForm(known.replace(/\D/g, ''));
-  let compared = 0;
-  for (let i = 1; i <= Math.min(shown.length, digits.length); i += 1) {
-    const char = shown[shown.length - i];
-    if (char === '*') continue;
-    if (char !== digits[digits.length - i]) return 'differ';
-    compared += 1;
-  }
-  return compared >= MIN_MATCHING_DIGITS ? 'match' : 'unknown';
+  const maskStart = shown.indexOf('*');
+  const start = maskStart < 0 ? '' : localStart(shown.slice(0, maskStart));
+  const end = maskStart < 0 ? localForm(shown) : shown.slice(shown.lastIndexOf('*') + 1);
+  if (start.length + end.length > digits.length) return 'differ';
+  if (!digits.startsWith(start) || !digits.endsWith(end)) return 'differ';
+  return start.length + end.length >= MIN_MATCHING_DIGITS ? 'match' : 'unknown';
 }
 
 /** "251911234567" and "0911234567" are the same Ethiopian phone number. */
 function localForm(number: string): string {
   return number.length === 12 && number.startsWith('251') ? `0${number.slice(3)}` : number;
+}
+
+/** The start of a masked phone number, such as "2519" in "2519****4567", as "09". */
+function localStart(start: string): string {
+  return start.startsWith('251') ? `0${start.slice(3)}` : start;
 }
 
 /**

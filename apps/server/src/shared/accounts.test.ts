@@ -9,6 +9,12 @@ describe('receiverMatches', () => {
     expect(receiverMatches({ name: null, account: '+251 911 234 567' }, telebirr)).toBe(true);
   });
 
+  it('matches a CBE account whose mask hides more digits than it shows', () => {
+    const cbe = { accountName: 'Selam Shoes', accountNumber: '1000123456789' };
+    expect(receiverMatches({ name: null, account: '1****6789' }, cbe)).toBe(true);
+    expect(receiverMatches({ name: null, account: '2****6789' }, cbe)).toBe(false);
+  });
+
   it('refuses a number whose visible digits differ', () => {
     expect(receiverMatches({ name: 'Selam Tesfaye', account: '2519****4568' }, telebirr)).toBe(
       false,

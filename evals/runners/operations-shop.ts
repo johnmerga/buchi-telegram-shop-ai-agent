@@ -115,6 +115,7 @@ export function createOperationsShop(
     timers,
     // Situations end before a delivery, so no trip leg is ever timed here.
     { recordLeg: () => Promise.resolve() },
+    { stopMap: () => Promise.resolve() },
     logger,
     now,
   );

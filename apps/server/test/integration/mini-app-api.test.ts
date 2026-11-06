@@ -155,6 +155,7 @@ const trips = new TripService(
   events,
   timers,
   { recordLeg: () => Promise.resolve() },
+  { stopMap: () => Promise.resolve() },
   logger,
   clock,
 );

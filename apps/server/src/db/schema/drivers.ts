@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  doublePrecision,
   foreignKey,
   index,
   integer,
@@ -95,6 +96,15 @@ export const deliveryJobs = pgTable(
     acceptedAt: timestamp('accepted_at', { withTimezone: true }),
     pickedUpAt: timestamp('picked_up_at', { withTimezone: true }),
     deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    /**
+     * The driver's latest Live Location point and when it came. It is kept only while the trip is
+     * on the road, so **Delivered** can use it, and cleared when the trip ends or sharing stops.
+     */
+    liveLatitude: doublePrecision('live_latitude'),
+    liveLongitude: doublePrecision('live_longitude'),
+    liveAt: timestamp('live_at', { withTimezone: true }),
+    /** When the driver's sharing ends. Empty while it is shared until stopped. */
+    liveUntil: timestamp('live_until', { withTimezone: true }),
   },
   (t) => [
     foreignKey({
@@ -136,6 +146,9 @@ export const jobStops = pgTable(
     needsReview: boolean('needs_review').notNull().default(false),
     receipt: deliveryReceipt('receipt'),
     receiptAt: timestamp('receipt_at', { withTimezone: true }),
+    /** The live map in the customer's chat that follows the driver, until this stop is delivered. */
+    liveChatId: bigint('live_chat_id', { mode: 'number' }),
+    liveMessageId: integer('live_message_id'),
   },
   (t) => [
     foreignKey({

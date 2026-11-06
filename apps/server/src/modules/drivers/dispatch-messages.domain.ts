@@ -82,6 +82,15 @@ export function deliverPrompt(stop: { position: number; customerName: string }):
   return `${String(stop.position)}. ${stop.customerName}: tap Delivered at the door / ሲያደርሱ ይጫኑ.`;
 }
 
+/** Sent once a trip starts, so customers can follow the driver on a map. */
+export const liveLocationRequest =
+  '📡 የቀጥታ ቦታዎን ያጋሩ / Please share your Live Location here: 📎 → Location → Share My Live Location. Customers will see you on a map, and Delivered will use it.';
+
+export function liveMapIntro(orderId: string): string {
+  const reference = orderReference(orderId);
+  return `🛵 ሹፌርዎ በካርታ ላይ / Your driver for order ${reference} is on the way. Follow them on this live map:`;
+}
+
 export const shareLocationPrompt = '📍 ቦታዎን ያጋሩ / Share your location to confirm the delivery.';
 
 export function deliveredReply(orderId: string, jobDone: boolean): string {

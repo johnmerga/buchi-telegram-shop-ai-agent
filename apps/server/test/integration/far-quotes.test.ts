@@ -266,6 +266,7 @@ const bot = createBot({
       dispatch,
       // The far-quote flow ends at assignment, before any trip button.
       trips: {} as never,
+      tracking: { driverMoved: () => Promise.resolve(false) },
       specialOffers,
     }),
     createFarQuoteHandlers({ quotes: farQuotes, outcomes }),

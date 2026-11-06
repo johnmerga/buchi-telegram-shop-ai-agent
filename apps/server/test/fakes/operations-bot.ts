@@ -202,6 +202,7 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
     events,
     timers,
     { recordLeg: () => Promise.resolve() },
+    { stopMap: () => Promise.resolve() },
     logger,
     now,
   );
@@ -289,6 +290,7 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
       createDispatchHandlers({
         dispatch,
         trips,
+        tracking: { driverMoved: () => Promise.resolve(false) },
         specialOffers: { hold: () => Promise.reject(new Error('unused')) },
       }),
       createApprovalHandlers(approvals),

@@ -204,6 +204,13 @@
       "when": 1794007962254,
       "tag": "0028_payment_ask_full_amount",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794008711888,
+      "tag": "0029_driver_live_location",
+      "breakpoints": true
     }
   ]
 }

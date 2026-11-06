@@ -33,6 +33,7 @@ import { DriversRepo } from '../../src/modules/drivers/drivers.repo';
 import { createDriversRouter } from '../../src/modules/drivers/drivers.routes';
 import { DriverService } from '../../src/modules/drivers/drivers.service';
 import { JobOffers, OFFER_UNANSWERED_TIMER } from '../../src/modules/drivers/job-offers.service';
+import { LiveTracking } from '../../src/modules/drivers/live-tracking.service';
 import { DeliveryOwnerAlerts } from '../../src/modules/drivers/owner-alerts.service';
 import { SaverRunService } from '../../src/modules/drivers/saver-runs.service';
 import { RECEIPT_TIMER, TripService } from '../../src/modules/drivers/trips.service';
@@ -50,6 +51,7 @@ import { ShopsRepo } from '../../src/modules/shops/shops.repo';
 import { ShopsService } from '../../src/modules/shops/shops.service';
 import { EventBus } from '../../src/shared/events';
 import { createBot } from '../../src/telegram/bot';
+import { TelegramLiveMap } from '../../src/telegram/live-map';
 import { TelegramMessenger } from '../../src/telegram/messenger';
 import { launchFields, signInitData } from '../sign-init-data';
 import { noEmbeddings } from '../fakes/no-embeddings';
@@ -89,6 +91,7 @@ interface Call {
 }
 const calls: Call[] = [];
 let nextMessageId = 7000;
+const sendsMessage = new Set(['sendMessage', 'sendLocation']);
 const fakeTelegram = (api: Api) => {
   api.config.use((_prev, method, payload) => {
     const fields: Record<string, unknown> = { ...payload };
@@ -100,7 +103,7 @@ const fakeTelegram = (api: Api) => {
     });
     return Promise.resolve({
       ok: true,
-      result: method === 'sendMessage' ? { message_id: nextMessageId++ } : true,
+      result: sendsMessage.has(method) ? { message_id: nextMessageId++ } : true,
     } as never);
   });
 };
@@ -190,6 +193,19 @@ const dispatch = new DispatchService(
   clock,
 );
 events.subscribe('order.transitioned', (event) => dispatch.orderTransitioned(event));
+/** Live maps follow their own clock, so a test can space or age Live Location updates. */
+let liveNow = new Date();
+const tracking = new LiveTracking(
+  db,
+  jobsRepo,
+  driversRepo,
+  orders,
+  customers,
+  messenger,
+  new TelegramLiveMap(messengerApi),
+  logger,
+  () => liveNow,
+);
 const trips = new TripService(
   db,
   jobsRepo,
@@ -201,6 +217,7 @@ const trips = new TripService(
   events,
   timerService,
   zoneFactors,
+  tracking,
   logger,
   clock,
 );
@@ -224,6 +241,7 @@ const bot = createBot({
     createDispatchHandlers({
       dispatch,
       trips,
+      tracking,
       specialOffers: { hold: () => Promise.reject(new Error('unused')) },
     }),
     createConversationHandlers({ conversations, customers }),
@@ -594,6 +612,80 @@ describe('a delivery far from the pin', () => {
     await bot.handleUpdate(tap(meron, `receipt:problem:${orderId}`));
     expect(reports).toEqual([{ shopId: shop.shopId, orderId }]);
     expect((await jobOf(shop.shopId, orderId))?.stop.receipt).toBe('problem');
+  });
+});
+
+describe('a trip with a Live Location', () => {
+  const live = (from: User, point: Coordinates, edit: boolean, livePeriod?: number): Update => {
+    const message = {
+      message_id: 500,
+      date: Math.floor(liveNow.getTime() / 1000),
+      chat: privateChat(from),
+      from,
+      location: livePeriod === undefined ? point : { ...point, live_period: livePeriod },
+    };
+    return edit
+      ? { update_id: updateId++, edited_message: { ...message, edit_date: message.date } }
+      : { update_id: updateId++, message };
+  };
+  const callsTo = (chatId: number, method: string) =>
+    calls.filter((call) => call.method === method && call.chatId === chatId);
+  const later = (ms: number) => {
+    liveNow = new Date(liveNow.getTime() + ms);
+  };
+
+  async function onTheRoad(customer: User): Promise<string> {
+    const orderId = await paidOrder(shop, customer, { type: 'express', pin: customerPin });
+    await bot.handleUpdate(tap(abebe, `job:accept:${offerIdFor(abebe.id)}`));
+    await bot.handleUpdate(tap(abebe, buttonsOf(lastTo(abebe.id))[0] ?? ''));
+    return orderId;
+  }
+
+  it("asks the driver to share it, and moves a live map in the customer's chat", async () => {
+    liveNow = new Date();
+    const lily = userOf(990204, 'Lily');
+    const orderId = await onTheRoad(lily);
+    expect(sentTo(abebe.id).some((call) => call.text?.includes('Live Location'))).toBe(true);
+
+    await bot.handleUpdate(live(abebe, shopPin, false, 3600));
+    expect(lastTo(lily.id)?.text).toContain('live map');
+    const [map] = callsTo(lily.id, 'sendLocation');
+    expect(map?.payload).toMatchObject({ ...shopPin, live_period: 3600 });
+
+    const moved = { latitude: 9.0, longitude: 38.77 };
+    later(15_000);
+    await bot.handleUpdate(live(abebe, moved, true, 3600));
+    later(1_000);
+    await bot.handleUpdate(live(abebe, customerPin, true, 3600));
+    const edits = callsTo(lily.id, 'editMessageLiveLocation');
+    expect(edits).toHaveLength(1);
+    expect(edits[0]?.payload).toMatchObject(moved);
+
+    await bot.handleUpdate(tap(abebe, buttonsOf(lastTo(abebe.id))[0] ?? ''));
+    expect(await statusOf(shop.shopId, orderId)).toBe('delivered');
+    expect(lastTo(abebe.id)?.text).toContain('The job is complete');
+    expect(callsTo(lily.id, 'stopMessageLiveLocation')).toHaveLength(1);
+    const { job } = (await jobOf(shop.shopId, orderId)) ?? {};
+    expect(job).toMatchObject({ liveLatitude: null, liveAt: null });
+  });
+
+  it('asks for the location when the live point is stale, and ends maps when sharing stops', async () => {
+    liveNow = new Date(Date.now() - 5 * 60_000);
+    const yared = userOf(990205, 'Yared');
+    const orderId = await onTheRoad(yared);
+    await bot.handleUpdate(live(abebe, shopPin, false, 3600));
+    const delivered = buttonsOf(lastTo(abebe.id))[0] ?? '';
+
+    await bot.handleUpdate(tap(abebe, delivered));
+    expect(lastTo(abebe.id)?.payload.reply_markup).toMatchObject({
+      keyboard: [[{ request_location: true }]],
+    });
+    expect(await statusOf(shop.shopId, orderId)).toBe('out_for_delivery');
+
+    await bot.handleUpdate(live(abebe, shopPin, true));
+    expect(callsTo(yared.id, 'stopMessageLiveLocation')).toHaveLength(1);
+    await bot.handleUpdate(location(abebe, customerPin));
+    expect(await statusOf(shop.shopId, orderId)).toBe('delivered');
   });
 });
 

@@ -1,6 +1,7 @@
 import type { MoneyString } from '@buchi/shared';
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, max, ne } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
+import type { Coordinates } from '../delivery/location.domain';
 import { deliveryJobs, jobOffers, jobStops, offerMessages } from '../../db/schema';
 import type { MessageRef } from '../owner/owner-notifier.service';
 
@@ -26,6 +27,8 @@ export interface NewJob {
   /** In the order the driver visits them. */
   stops: NewStop[];
 }
+
+const noLivePoint = { liveLatitude: null, liveLongitude: null, liveAt: null, liveUntil: null };
 
 export class DeliveryJobsRepo {
   async insertJob(tx: Transaction, job: NewJob): Promise<JobRow> {
@@ -245,7 +248,7 @@ export class DeliveryJobsRepo {
   ): Promise<void> {
     await tx
       .update(deliveryJobs)
-      .set({ status: 'delivered', ...finished })
+      .set({ status: 'delivered', ...finished, ...noLivePoint })
       .where(and(eq(deliveryJobs.id, jobId), eq(deliveryJobs.status, 'picked_up')));
   }
 
@@ -311,6 +314,46 @@ export class DeliveryJobsRepo {
       .where(and(eq(jobStops.orderId, orderId), isNull(jobStops.deliveredAt)))
       .returning();
     return row;
+  }
+
+  /** The driver's trip that is on the road, between pickup and the last delivery. */
+  async jobOnTheWay(tx: Transaction, driverId: string): Promise<JobRow | undefined> {
+    const [row] = await tx
+      .select()
+      .from(deliveryJobs)
+      .where(inArray(deliveryJobs.id, this.jobsOnTheWay(tx, driverId)))
+      .orderBy(desc(deliveryJobs.pickedUpAt))
+      .limit(1);
+    return row;
+  }
+
+  async setLivePoint(
+    tx: Transaction,
+    jobId: string,
+    live: { point: Coordinates; at: Date; until: Date | null },
+  ): Promise<void> {
+    const { point, at, until } = live;
+    await tx
+      .update(deliveryJobs)
+      .set({
+        liveLatitude: point.latitude,
+        liveLongitude: point.longitude,
+        liveAt: at,
+        liveUntil: until,
+      })
+      .where(eq(deliveryJobs.id, jobId));
+  }
+
+  async clearLivePoint(tx: Transaction, jobId: string): Promise<void> {
+    await tx.update(deliveryJobs).set(noLivePoint).where(eq(deliveryJobs.id, jobId));
+  }
+
+  /** The live map in the stop's customer chat, or none once it stopped. */
+  async setLiveMessage(tx: Transaction, stopId: string, message: MessageRef | null): Promise<void> {
+    await tx
+      .update(jobStops)
+      .set({ liveChatId: message?.chatId ?? null, liveMessageId: message?.messageId ?? null })
+      .where(eq(jobStops.id, stopId));
   }
 
   private jobsOnTheWay(tx: Transaction, driverId: string) {

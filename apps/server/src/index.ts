@@ -69,6 +69,7 @@ import { DeliveryMapRepo } from './modules/drivers/delivery-map.repo';
 import { createDeliveryMapRouter } from './modules/drivers/delivery-map.routes';
 import { DeliveryMapService } from './modules/drivers/delivery-map.service';
 import { createDispatchHandlers } from './modules/drivers/dispatch.handlers';
+import { LiveTracking } from './modules/drivers/live-tracking.service';
 import { DispatchService } from './modules/drivers/dispatch.service';
 import { createDriverHandlers } from './modules/drivers/drivers.handlers';
 import { DriversRepo } from './modules/drivers/drivers.repo';
@@ -183,6 +184,7 @@ import { createBot } from './telegram/bot';
 import { TelegramCustomerChat } from './telegram/customer-chat';
 import { TelegramFiles } from './telegram/files';
 import { TelegramPhotoUploads } from './telegram/photo-uploads';
+import { TelegramLiveMap } from './telegram/live-map';
 import { TelegramMessenger } from './telegram/messenger';
 import { TelegramIngress } from './telegram/ingress';
 import { MiniAppLinks } from './telegram/mini-app-links';
@@ -378,6 +380,17 @@ events.subscribe('order.transitioned', ({ shopId, orderId, from, to }) => {
   live.publish(shopId, { type: 'order.transitioned', orderId, from, to });
   return Promise.resolve();
 });
+const liveTracking = new LiveTracking(
+  database.db,
+  deliveryJobs,
+  driversRepo,
+  orders,
+  customers,
+  messenger,
+  new TelegramLiveMap(telegramApi),
+  logger,
+  () => new Date(),
+);
 const trips = new TripService(
   database.db,
   deliveryJobs,
@@ -389,6 +402,7 @@ const trips = new TripService(
   events,
   timers,
   zoneFactors,
+  liveTracking,
   logger,
   () => new Date(),
 );
@@ -724,7 +738,7 @@ const bot = createBot({
   driverShopIds: (telegramUserId) => drivers.shopIds(telegramUserId),
   handlers: [
     createDriverHandlers(drivers),
-    createDispatchHandlers({ dispatch, trips, specialOffers }),
+    createDispatchHandlers({ dispatch, trips, tracking: liveTracking, specialOffers }),
     createFarQuoteHandlers({ quotes: farQuotes, outcomes: farQuoteOutcomes }),
     createApprovalHandlers(approvals),
     createConversationHandlers({ conversations, customers }),

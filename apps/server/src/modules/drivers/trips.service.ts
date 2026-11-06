@@ -14,12 +14,17 @@ import type { DeliveryJobsRepo, StopRow } from './delivery-jobs.repo';
 import {
   deliveredQuestion,
   deliverPrompt,
+  liveLocationRequest,
   offPinAlert,
   onTheWay,
 } from './dispatch-messages.domain';
 import { lateAt, minutesBetween, needsReview, point, RECEIPT_WINDOW_MS } from './dispatch.domain';
+import { driverDisplayName } from './drivers.domain';
 import type { DriverRow, DriversRepo } from './drivers.repo';
 import { jobCallbackData, receiptCallbackData, type ReceiptAnswer } from './drivers.schemas';
+import { forDriver } from './for-driver';
+import { freshLivePoint } from './live-location.domain';
+import type { LiveTracking } from './live-tracking.service';
 import type { DeliveryOwnerAlerts } from './owner-alerts.service';
 
 export const RECEIPT_TIMER = 'drivers.receipt_timeout';
@@ -39,6 +44,9 @@ interface TimerScheduler {
 export type DeliveryResult =
   { status: 'delivered'; orderId: string; jobDone: boolean } | { status: 'not_found' };
 
+/** **Delivered** either delivers at the driver's live point or asks for their location. */
+export type DeliveredTap = DeliveryResult | { status: 'location_needed' };
+
 export type ReceiptResult = 'recorded' | 'already_answered' | 'not_found';
 
 /** A trip after a driver accepts it: pickup, each delivery with its location check, and receipt. */
@@ -54,11 +62,15 @@ export class TripService {
     private readonly events: Pick<EventBus, 'publish'>,
     private readonly timers: TimerScheduler,
     private readonly legs: Pick<ZoneFactorService, 'recordLeg'>,
+    private readonly live: Pick<LiveTracking, 'stopMap'>,
     private readonly logger: Logger,
     private readonly now: () => Date,
   ) {}
 
-  /** Puts every order of the job on its way, and tells each customer who brings it. */
+  /**
+   * Puts every order of the job on its way, tells each customer who brings it, and asks the driver
+   * for their Live Location.
+   */
   async pickedUp(telegramUserId: number, jobId: string): Promise<boolean> {
     const found = await this.forDriver(telegramUserId, async (tx, driver) => {
       const pickedUpAt = this.now();
@@ -71,6 +83,8 @@ export class TripService {
     if (!found) return false;
     const { shopId, result } = found;
     const { driver, stops } = result;
+    const name = driverDisplayName(driver);
+    await this.tell(telegramUserId, liveLocationRequest);
 
     for (const stop of stops) {
       await this.orders.transition(shopId, stop.orderId, 'picked_up', 'driver', 'Picked up');
@@ -78,7 +92,6 @@ export class TripService {
     for (const stop of stops) {
       const order = await this.orders.get(shopId, stop.orderId);
       const customer = await this.customers.get(shopId, order.customerId);
-      const name = driver.name ?? driver.username;
       await this.tell(customer.telegramUserId, onTheWay(order.id, { name, phone: driver.phone }));
       await this.tell(
         telegramUserId,
@@ -92,14 +105,23 @@ export class TripService {
     return true;
   }
 
-  /** In the chat, **Delivered** first asks for the location. Returns false for another's stop. */
-  async requestLocation(telegramUserId: number, stopId: string): Promise<boolean> {
-    const found = await this.forDriver(
-      telegramUserId,
-      async (tx, driver) =>
-        (await this.jobs.requestLocation(tx, stopId, driver.id, this.now())) || undefined,
-    );
-    return found !== undefined;
+  /**
+   * **Delivered** in the chat delivers at the driver's Live Location point when it is fresh, and
+   * otherwise asks for the location first.
+   */
+  async delivered(telegramUserId: number, stopId: string): Promise<DeliveredTap> {
+    const found = await this.forDriver(telegramUserId, async (tx, driver) => {
+      const job = await this.jobs.jobOnTheWay(tx, driver.id);
+      const live = job && freshLivePoint(job, this.now());
+      if (live) return { live };
+      const requested = await this.jobs.requestLocation(tx, stopId, driver.id, this.now());
+      return requested ? { live: null } : undefined;
+    });
+    if (!found) return { status: 'not_found' };
+    const { live } = found.result;
+    return live
+      ? this.confirmDelivery(telegramUserId, stopId, live)
+      : { status: 'location_needed' };
   }
 
   /** A location from the driver confirms the stop they last tapped **Delivered** for. */
@@ -143,14 +165,15 @@ export class TripService {
       await this.timers.schedule(tx, RECEIPT_TIMER, stop.orderId, shopId, receiptDue);
       const legStart = await this.jobs.legStart(tx, done);
       if ((await this.jobs.undeliveredStops(tx, stop.jobId)) > 0) {
-        return { jobDone: false, legStart };
+        return { jobDone: false, legStart, stop: done };
       }
       const job = await this.jobs.findJob(tx, stop.jobId);
       const actualMinutes = minutesBetween(job?.pickedUpAt ?? now, now);
       await this.jobs.finish(tx, stop.jobId, { deliveredAt: now, actualMinutes });
-      return { jobDone: true, legStart };
+      return { jobDone: true, legStart, stop: done };
     });
     if (!delivered) return { status: 'not_found' };
+    await this.live.stopMap(delivered.stop);
     await this.recordLeg(stop, pin, delivered.legStart);
 
     const reason = review ? `Delivered ${String(metersFromPin)} m from the pin` : 'Delivered';
@@ -220,34 +243,31 @@ export class TripService {
    * Returns the driver's chat, or `undefined` when the order was not on the way.
    */
   async dropStop(shopId: string, orderId: string): Promise<{ driverChatId: number } | undefined> {
-    return withShop(this.db, shopId, async (tx) => {
+    const dropped = await withShop(this.db, shopId, async (tx) => {
       const stop = await this.jobs.removeStop(tx, orderId);
-      const job = stop && (await this.jobs.findJob(tx, stop.jobId));
-      if (!job?.driverId) return undefined;
+      if (!stop) return undefined;
+      const job = await this.jobs.findJob(tx, stop.jobId);
+      if (!job?.driverId) return { stop, driverChatId: null };
       if ((await this.jobs.undeliveredStops(tx, job.id)) === 0) {
         const now = this.now();
         const actualMinutes = minutesBetween(job.pickedUpAt ?? now, now);
         await this.jobs.finish(tx, job.id, { deliveredAt: now, actualMinutes });
       }
       const driver = await this.drivers.find(tx, job.driverId);
-      const chatId = driver?.telegramUserId ?? null;
-      return chatId === null ? undefined : { driverChatId: chatId };
+      return { stop, driverChatId: driver?.telegramUserId ?? null };
     });
+    if (!dropped) return undefined;
+    await this.live.stopMap(dropped.stop);
+    const { driverChatId } = dropped;
+    return driverChatId === null ? undefined : { driverChatId };
   }
 
   /** Runs `work` in each shop the user drives for, until one returns a result. */
-  private async forDriver<T>(
+  private forDriver<T>(
     telegramUserId: number,
     work: (tx: Transaction, driver: DriverRow) => Promise<T | undefined>,
   ): Promise<{ shopId: string; result: T } | undefined> {
-    for (const shopId of await this.drivers.shopIdsOf(this.db, telegramUserId)) {
-      const result = await withShop(this.db, shopId, async (tx) => {
-        const driver = await this.drivers.byTelegramUser(tx, telegramUserId);
-        return driver && work(tx, driver);
-      });
-      if (result !== undefined) return { shopId, result };
-    }
-    return undefined;
+    return forDriver(this.db, this.drivers, telegramUserId, work);
   }
 
   /** A customer or driver who blocked the bot does not stop the trip. */

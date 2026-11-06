@@ -10,12 +10,15 @@ import {
 } from './dispatch-messages.domain';
 import type { AcceptResult, DispatchService } from './dispatch.service';
 import { jobCallbackSchema, receiptCallbackSchema } from './drivers.schemas';
+import { liveShareOf } from './live-location.domain';
+import type { LiveTracking } from './live-tracking.service';
 import type { HoldResult, SpecialOffers } from './special-offers.service';
 import type { TripService } from './trips.service';
 
 interface DispatchDeps {
   dispatch: Pick<DispatchService, 'accept'>;
   trips: TripService;
+  tracking: Pick<LiveTracking, 'driverMoved'>;
   specialOffers: Pick<SpecialOffers, 'hold'>;
 }
 
@@ -33,12 +36,13 @@ const holdAnswers: Record<HoldResult, string> = {
 
 /**
  * Job buttons for drivers (**Accept** on an offer or a special offer, **Picked up**, **Delivered**
- * and the location that confirms it, and **Problem**), and the customer's answer after a delivery.
+ * and the location that confirms it, and **Problem**), the driver's Live Location that customers
+ * follow, and the customer's answer after a delivery.
  * Buttons on these messages act on an order, so they run before the takeover guard that relays
  * customer chats.
  */
 export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContext> {
-  const { dispatch, trips, specialOffers } = deps;
+  const { dispatch, trips, tracking, specialOffers } = deps;
   const handlers = new Composer<BuchiContext>();
 
   handlers.callbackQuery(/^job:/, async (ctx) => {
@@ -73,11 +77,16 @@ export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContex
         return;
       }
       case 'delivered': {
-        const requested = await trips.requestLocation(telegramUserId, id);
-        await ctx.answerCallbackQuery(
-          requested ? undefined : { text: 'This stop is not on your way.' },
-        );
-        if (!requested) return;
+        const result = await trips.delivered(telegramUserId, id);
+        if (result.status === 'not_found') {
+          await ctx.answerCallbackQuery({ text: 'This stop is not on your way.' });
+          return;
+        }
+        await ctx.answerCallbackQuery();
+        if (result.status === 'delivered') {
+          await ctx.reply(deliveredReply(result.orderId, result.jobDone));
+          return;
+        }
         await ctx.reply(shareLocationPrompt, {
           reply_markup: new Keyboard()
             .requestLocation('📍 ቦታ አጋራ / Share location')
@@ -95,14 +104,25 @@ export function createDispatchHandlers(deps: DispatchDeps): Composer<BuchiContex
     }
   });
 
+  // A location after **Delivered** confirms that stop. A Live Location also starts customers' maps.
   handlers.on('message:location', async (ctx, next) => {
     if (ctx.actor.driverShopIds.length === 0) return next();
-    const { latitude, longitude } = ctx.msg.location;
+    const { latitude, longitude, live_period: livePeriod } = ctx.msg.location;
     const result = await trips.deliverPending(ctx.from.id, { latitude, longitude });
-    if (result.status === 'not_found') return next();
-    await ctx.reply(deliveredReply(result.orderId, result.jobDone), {
-      reply_markup: { remove_keyboard: true },
-    });
+    if (result.status === 'delivered') {
+      await ctx.reply(deliveredReply(result.orderId, result.jobDone), {
+        reply_markup: { remove_keyboard: true },
+      });
+    }
+    const followed =
+      livePeriod !== undefined && (await tracking.driverMoved(ctx.from.id, liveShareOf(ctx.msg)));
+    if (result.status === 'not_found' && !followed) return next();
+  });
+
+  // Telegram sends each move of a Live Location, and its end, as an edit of the first message.
+  handlers.on('edited_message:location', async (ctx, next) => {
+    if (ctx.actor.driverShopIds.length === 0) return next();
+    if (!(await tracking.driverMoved(ctx.from.id, liveShareOf(ctx.editedMessage)))) return next();
   });
 
   handlers.callbackQuery(/^receipt:/, async (ctx) => {

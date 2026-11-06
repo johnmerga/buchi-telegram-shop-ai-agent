@@ -612,6 +612,11 @@ loading, empty, and error states.
   buttons, and the server build bundles `@buchi/shared`. Price labels say who sees each price:
   the asking price is said in chat, not on the post, and the lowest price is never shown to
   customers.
+- **Product photos:** **Add photo** in the editor posts the raw image (JPEG, PNG, or WebP, at
+  most 10 MB) to `POST /shops/:shopId/products/:productId/photos`. The server sends it silently
+  to the owner's chat with the bot to get a Telegram file ID, deletes that message, and attaches
+  the photo, so photos stay on Telegram. Thumbnails stream from Telegram through
+  `GET /shops/:shopId/products/:productId/photos/:index`, like payment screenshots.
 - **Place search:** the shop location step searches places anywhere in Ethiopia through the
   signed-in `GET /places?q=` (Nominatim, up to 5 results, cached and sharing the landmark search's
   one request a second), and warns when "Use my location" is worse than 1 km.

@@ -166,6 +166,25 @@ export function useSaveProduct(shopId: string, productId: string | undefined) {
   }, ownerKeys.products(shopId));
 }
 
+export function useAddPhoto(shopId: string, productId: string) {
+  const api = useApi();
+  return useOwnerMutation(
+    (photo: File) =>
+      api.upload(`/shops/${shopId}/products/${productId}/photos`, photo, productSchema),
+    ownerKeys.products(shopId),
+  );
+}
+
+/** A photo's index is its place in the product's list, which only ever grows. */
+export function useProductPhoto(shopId: string, productId: string, index: number) {
+  const api = useApi();
+  return useQuery({
+    queryKey: [...ownerKeys.products(shopId), productId, 'photos', index],
+    queryFn: () => api.blob(`/shops/${shopId}/products/${productId}/photos/${String(index)}`),
+    staleTime: Infinity,
+  });
+}
+
 export function usePostToChannel(shopId: string) {
   const api = useApi();
   return useMutation({

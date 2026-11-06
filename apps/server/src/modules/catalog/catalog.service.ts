@@ -197,6 +197,14 @@ export class CatalogService {
     throw productNotFound();
   }
 
+  /** A product photo's Telegram file ID, looked up in the shop so no other file can be read. */
+  async photoFileId(shopId: string, productId: string, index: number): Promise<string> {
+    const product = await withShop(this.db, shopId, (tx) => this.repo.findProduct(tx, productId));
+    const fileId = product?.photoFileIds[index];
+    if (fileId === undefined) throw new AppError('NOT_FOUND', 'No such product photo');
+    return fileId;
+  }
+
   private async withVariants(
     tx: Transaction,
     rows: (ProductRow | undefined)[],

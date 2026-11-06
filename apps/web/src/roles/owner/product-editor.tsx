@@ -14,6 +14,7 @@ import { Card } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/form';
 import { useProducts, useSaveProduct } from './owner-api';
+import { ProductPhotos } from './product-photos';
 import { useShopId } from './use-shop-id';
 import { VariantsEditor, type VariantDraft } from './variants-editor';
 
@@ -148,6 +149,13 @@ function ProductForm({
               setLowestPrice(e.target.value);
             }}
             error={errors.lowestPrice}
+          />
+        )}
+        {product && (
+          <ProductPhotos
+            shopId={shopId}
+            productId={product.id}
+            count={product.photoFileIds.length}
           />
         )}
         <VariantsEditor

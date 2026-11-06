@@ -1,4 +1,4 @@
-import { driverInviteSchema, type DriverListItem } from '@buchi/shared';
+import { driverInviteSchema, type DriverListItem, type DriverWork } from '@buchi/shared';
 import { useState, type SubmitEvent } from 'react';
 import { QueryView } from '../../components/query-view';
 import { EmptyState } from '../../components/screen-state';
@@ -20,6 +20,10 @@ export default function DriversScreen() {
     <div className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold">Drivers · ሹፌሮች</h2>
       <InviteForm shopId={shopId} />
+      <p className="text-xs text-muted-foreground">
+        On duty means the driver switched themselves on for work in their chat. The line under each
+        name shows the job they have now.
+      </p>
       <QueryView query={drivers}>
         {(list) =>
           list.length === 0 ? (
@@ -39,6 +43,16 @@ export default function DriversScreen() {
   );
 }
 
+const stages: Record<DriverWork['stage'], string> = {
+  to_pickup: 'Heading to the shop for',
+  delivering: 'Delivering',
+};
+
+/** What a linked driver is doing now, or that they are free for a job. */
+function workLabel(work: DriverWork | null): string {
+  return work === null ? 'Free · ነጻ' : `${stages[work.stage]} ${work.orderReference}`;
+}
+
 function DriverRow({ driver }: { driver: DriverListItem }) {
   return (
     <li className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card p-3">
@@ -50,6 +64,7 @@ function DriverRow({ driver }: { driver: DriverListItem }) {
             driver.inviteExpiresAt &&
             ` · invite valid until ${formatTime(driver.inviteExpiresAt)}`}
         </p>
+        {driver.linked && <p className="text-sm">{workLabel(driver.work)}</p>}
       </div>
       {driver.linked ? (
         <Badge tone={driver.available ? 'primary' : 'neutral'}>

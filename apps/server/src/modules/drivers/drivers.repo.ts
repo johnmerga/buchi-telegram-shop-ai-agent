@@ -1,6 +1,7 @@
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { Database, Transaction } from '../../db/client';
-import { drivers } from '../../db/schema';
+import { deliveryJobs, drivers, jobStops } from '../../db/schema';
+import type { OpenStop } from './drivers.domain';
 
 export type DriverRow = typeof drivers.$inferSelect;
 
@@ -78,6 +79,28 @@ export class DriversRepo {
 
   list(tx: Transaction): Promise<DriverRow[]> {
     return tx.select().from(drivers).orderBy(drivers.createdAt);
+  }
+
+  /** Undelivered stops of accepted jobs, each driver's earliest job and next stop first. */
+  async openStops(tx: Transaction): Promise<OpenStop[]> {
+    const rows = await tx
+      .select({
+        driverId: deliveryJobs.driverId,
+        jobStatus: deliveryJobs.status,
+        orderId: jobStops.orderId,
+      })
+      .from(deliveryJobs)
+      .innerJoin(jobStops, eq(jobStops.jobId, deliveryJobs.id))
+      .where(
+        and(inArray(deliveryJobs.status, ['assigned', 'picked_up']), isNull(jobStops.deliveredAt)),
+      )
+      .orderBy(asc(deliveryJobs.acceptedAt), asc(jobStops.position));
+    // The filter above leaves only these statuses, and an accepted job always has a driver.
+    return rows.flatMap(({ driverId, jobStatus, orderId }) =>
+      driverId !== null && (jobStatus === 'assigned' || jobStatus === 'picked_up')
+        ? [{ driverId, jobStatus, orderId }]
+        : [],
+    );
   }
 
   async byTelegramUser(tx: Transaction, telegramUserId: number): Promise<DriverRow | undefined> {

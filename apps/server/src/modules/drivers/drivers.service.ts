@@ -5,7 +5,13 @@ import { isUniqueViolation } from '../../db/errors';
 import { withShop } from '../../db/with-shop';
 import { AppError } from '../../shared/errors';
 import type { ShopsService } from '../shops/shops.service';
-import { checkInvite, hashInviteToken, INVITE_TTL_MS, type InviteProblem } from './drivers.domain';
+import {
+  checkInvite,
+  currentWork,
+  hashInviteToken,
+  INVITE_TTL_MS,
+  type InviteProblem,
+} from './drivers.domain';
 import type { DriversRepo } from './drivers.repo';
 import { inviteStartPayload } from './drivers.schemas';
 
@@ -50,9 +56,15 @@ export class DriverService {
     return { driverId: driver.id, link, expiresAt };
   }
 
-  /** The shop's drivers for the owner. Phone numbers stay out until a driver takes a job. */
+  /**
+   * The shop's drivers for the owner, with what each is doing now. Phone numbers stay out until a
+   * driver takes a job.
+   */
   async list(shopId: string): Promise<DriverListItem[]> {
-    const rows = await withShop(this.db, shopId, (tx) => this.repo.list(tx));
+    const { rows, work } = await withShop(this.db, shopId, async (tx) => ({
+      rows: await this.repo.list(tx),
+      work: currentWork(await this.repo.openStops(tx)),
+    }));
     return rows.map((row) => ({
       id: row.id,
       username: row.username,
@@ -60,6 +72,7 @@ export class DriverService {
       linked: row.telegramUserId !== null,
       available: row.available,
       inviteExpiresAt: row.inviteExpiresAt?.toISOString() ?? null,
+      work: work.get(row.id) ?? null,
     }));
   }
 

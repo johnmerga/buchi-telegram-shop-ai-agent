@@ -40,6 +40,7 @@ import { createJobsRouter } from '../../src/modules/jobs/jobs.routes';
 import { JobService } from '../../src/modules/jobs/jobs.service';
 import { TimersRepo } from '../../src/modules/jobs/timers.repo';
 import { TimerService } from '../../src/modules/jobs/timers.service';
+import { orderReference } from '../../src/modules/orders/orders.domain';
 import { OrdersRepo } from '../../src/modules/orders/orders.repo';
 import { OrderService } from '../../src/modules/orders/orders.service';
 import { createConversationHandlers } from '../../src/modules/owner/conversations.handlers';
@@ -673,5 +674,26 @@ describe('the Saver run', () => {
 
     const again = await request(app).post('/jobs/saver-run').set('x-job-secret', jobSecret);
     expect(again.body).toEqual({ shops: 0, routes: 0, orders: 0, failed: 0 });
+  });
+});
+
+describe("the owner's driver list", () => {
+  it('shows what each driver is doing, from heading to the shop to carrying the order', async () => {
+    const listShop = await setUpShop(990006);
+    const rider = userOf(990701, 'Tsion', 'tsion_rides');
+    await addDriver(listShop.shopId, rider);
+    const workOf = async () => (await drivers.list(listShop.shopId))[0]?.work;
+    expect(await workOf()).toBeNull();
+
+    const orderId = await paidOrder(listShop, userOf(990702, 'Meron'), {
+      type: 'express',
+      pin: customerPin,
+    });
+    await bot.handleUpdate(tap(rider, `job:accept:${offerIdFor(rider.id)}`));
+    const reference = orderReference(orderId);
+    expect(await workOf()).toEqual({ stage: 'to_pickup', orderReference: reference });
+
+    await bot.handleUpdate(tap(rider, buttonsOf(lastTo(rider.id))[0] ?? ''));
+    expect(await workOf()).toEqual({ stage: 'delivering', orderReference: reference });
   });
 });

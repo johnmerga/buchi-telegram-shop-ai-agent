@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkInvite, hashInviteToken } from './drivers.domain';
+import { checkInvite, currentWork, hashInviteToken } from './drivers.domain';
 
 const now = new Date('2026-11-05T09:00:00Z');
 const invite = { username: 'abebe_rides', expiresAt: new Date('2026-11-06T09:00:00Z') };
@@ -28,5 +28,24 @@ describe('hashInviteToken', () => {
     expect(hash).toMatch(/^[0-9a-f]{64}$/);
     expect(hash).not.toContain('secret-token');
     expect(hashInviteToken('secret-token')).toBe(hash);
+  });
+});
+
+describe('currentWork', () => {
+  const firstOrder = '3f2a9c00-0000-4000-8000-000000000001';
+  const secondOrder = '7b1d4e00-0000-4000-8000-000000000002';
+
+  it("names each driver's first open stop and whether they picked it up", () => {
+    const work = currentWork([
+      { driverId: 'abebe', jobStatus: 'picked_up', orderId: firstOrder },
+      { driverId: 'abebe', jobStatus: 'picked_up', orderId: secondOrder },
+      { driverId: 'kebede', jobStatus: 'assigned', orderId: secondOrder },
+    ]);
+    expect(work.get('abebe')).toEqual({ stage: 'delivering', orderReference: '#3F2A9C' });
+    expect(work.get('kebede')).toEqual({ stage: 'to_pickup', orderReference: '#7B1D4E' });
+  });
+
+  it('leaves a driver without open stops out', () => {
+    expect(currentWork([]).size).toBe(0);
   });
 });

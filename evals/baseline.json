@@ -27,5 +27,11 @@
   },
   "owner-questions": {
     "sameRows": 1
+  },
+  "receipts": {
+    "layoutMatch": 1,
+    "fieldAccuracy": 1,
+    "decisionMatch": 1,
+    "wrongApproval": 0
   }
 }

@@ -6,7 +6,8 @@
     "typecheck": "tsc -p .",
     "evals": "tsx cli.ts replay",
     "evals:record": "tsx --env-file-if-exists=../.env cli.ts record",
-    "evals:live": "tsx --env-file-if-exists=../.env cli.ts live"
+    "evals:live": "tsx --env-file-if-exists=../.env cli.ts live",
+    "receipts:generate": "tsx scripts/receipt-images.ts"
   },
   "dependencies": {
     "@buchi/server": "workspace:*",
@@ -17,6 +18,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^0.1.80",
     "tsx": "^4.23.15"
   }
 }

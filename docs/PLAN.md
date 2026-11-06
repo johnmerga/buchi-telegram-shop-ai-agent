@@ -673,6 +673,8 @@ loading, empty, and error states.
 - **Built as:** screenshots stream from Telegram through an owner-only proxy and are never stored.
   Dashboard decisions call the same services as the chat buttons. Run now runs one shop's daily
   report without the job secret. First reply time is measured from `reply_times` (Task 10.2). A far-area price above the cap is still answered in the chat.
+  Payment review lists the last 20 settled payments under the queue, with who decided: Buchi or
+  the owner. Drivers shows each linked driver's current job beside their own On duty switch.
 
 ### 9.2 Google Sheets ledger
 

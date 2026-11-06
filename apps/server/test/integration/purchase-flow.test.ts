@@ -244,7 +244,7 @@ describe('purchase flow with buttons only', () => {
     const instructions = sent.at(-1) ?? '';
     expect(instructions).toContain('4,500.00 ብር');
     expect(instructions).toContain('Telebirr: 0911234567');
-    expect(instructions).toContain('5 Nov, 18:00');
+    expect(instructions).toContain('pay before 5 Nov, 15:03');
   });
 
   it('tells the next customer that the last unit is gone', async () => {

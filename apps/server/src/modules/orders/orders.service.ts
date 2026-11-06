@@ -9,7 +9,7 @@ import type { TimerService } from '../jobs/timers.service';
 import type { PromotionParameters } from '../rules/rules.schemas';
 import type { StockHoldsRepo } from './stock-holds.repo';
 import { zoneOf } from '../delivery/zones.domain';
-import { orderTimerKinds, paymentTimers } from './orders.deadlines.domain';
+import { orderTimerKinds } from './orders.deadlines.domain';
 import {
   nextState,
   paidStatuses,
@@ -94,7 +94,7 @@ export class OrderService {
   async acceptQuote(
     shopId: string,
     orderId: string,
-    quote: { fee: Money; acceptedAt: Date; paymentDeadline: Date },
+    quote: { fee: Money; paymentDeadline: Date },
   ): Promise<OrderRow> {
     const { order, change } = await withShop(this.db, shopId, async (tx) => {
       const locked = await this.lock(tx, orderId);
@@ -111,8 +111,13 @@ export class OrderService {
         'customer',
         'Accepted the delivery price',
       );
-      const timers = paymentTimers(quote.acceptedAt, quote.paymentDeadline);
-      await this.scheduleAll(tx, shopId, orderId, timers);
+      await this.timers.schedule(
+        tx,
+        orderTimerKinds.expire,
+        orderId,
+        shopId,
+        quote.paymentDeadline,
+      );
       return { order: await this.lock(tx, orderId), change: applied };
     });
     await this.events.publish('order.transitioned', { shopId, orderId, ...change });
@@ -226,7 +231,10 @@ export class OrderService {
     return true;
   }
 
-  /** Expires an unpaid order only once its deadline has passed, which an extension may have moved. */
+  /**
+   * Expires an order only while it still waits for payment and its deadline has passed. An order
+   * whose screenshot is being checked or reviewed keeps its stock.
+   */
   async expireIfOverdue(shopId: string, orderId: string, now: Date): Promise<boolean> {
     const change = await withShop(this.db, shopId, async (tx) => {
       const order = await this.lock(tx, orderId);
@@ -238,23 +246,6 @@ export class OrderService {
 
     await this.events.publish('order.transitioned', { shopId, orderId, ...change });
     return true;
-  }
-
-  /**
-   * Moves an unpaid order's deadline and schedules its expiry at the new time. The expiry timer of
-   * the old deadline finds the order not yet overdue and leaves it alone.
-   */
-  extendDeadline(shopId: string, orderId: string, minutes: number): Promise<Date> {
-    return withShop(this.db, shopId, async (tx) => {
-      const order = await this.lock(tx, orderId);
-      if (order.status !== 'awaiting_payment' || order.paymentDeadline === null) {
-        throw new AppError('CONFLICT', 'Only an order that waits for payment has a deadline');
-      }
-      const deadline = new Date(order.paymentDeadline.getTime() + minutes * 60_000);
-      await this.repo.extendDeadline(tx, orderId, deadline);
-      await this.timers.schedule(tx, orderTimerKinds.expire, orderId, shopId, deadline);
-      return deadline;
-    });
   }
 
   /** Takes an order off its trip, to wait for the next Saver run with the other paid orders. */
@@ -451,27 +442,16 @@ export class OrderService {
         actor,
         reason: 'Order created',
       });
-      const timers =
+      const timer =
         start.status === 'quoting'
-          ? [{ kind: orderTimerKinds.quoteExpire, dueAt: start.holdUntil }]
-          : paymentTimers(row.createdAt, start.paymentDeadline);
-      await this.scheduleAll(tx, shopId, row.id, timers);
+          ? { kind: orderTimerKinds.quoteExpire, dueAt: start.holdUntil }
+          : { kind: orderTimerKinds.expire, dueAt: start.paymentDeadline };
+      await this.timers.schedule(tx, timer.kind, row.id, shopId, timer.dueAt);
       return row;
     });
 
     await this.events.publish('order.created', { shopId, orderId: created.id });
     return created;
-  }
-
-  private async scheduleAll(
-    tx: Transaction,
-    shopId: string,
-    orderId: string,
-    timers: { kind: string; dueAt: Date }[],
-  ): Promise<void> {
-    for (const timer of timers) {
-      await this.timers.schedule(tx, timer.kind, orderId, shopId, timer.dueAt);
-    }
   }
 
   private async lock(tx: Transaction, orderId: string): Promise<OrderRow> {

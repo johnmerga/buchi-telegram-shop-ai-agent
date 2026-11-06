@@ -88,7 +88,8 @@ describe('paymentInstructions', () => {
     expect(text).toContain('CBE (Commercial Bank of Ethiopia): 1000123456789');
   });
 
-  it('shows the deadline in Addis Ababa time', () => {
+  it('says the item is held for three minutes, until the deadline in Addis Ababa time', () => {
+    expect(text).toContain('We hold it for you for 3 minutes only');
     expect(text).toContain('5 Nov, 18:30');
   });
 

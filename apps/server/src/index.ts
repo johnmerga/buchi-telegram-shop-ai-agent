@@ -305,7 +305,6 @@ const deadlines = new PaymentDeadlineService(
   new TelegramOrderNotifier(telegramApi),
   () => new Date(),
 );
-timers.register(orderTimerKinds.paymentReminder, (timer) => deadlines.remind(timer));
 timers.register(orderTimerKinds.expire, (timer) => deadlines.expire(timer));
 
 const messenger = new TelegramMessenger(telegramApi);
@@ -648,7 +647,7 @@ const jobs = new JobService(
 const approvals = new OwnerApprovals(
   database.db,
   decisions,
-  [...operationsApprovals(opsTools, operationsToolDeps), ...ownerTools.approvals],
+  [...operationsApprovals(opsTools), ...ownerTools.approvals],
   ownerAlerts,
   logger,
   () => new Date(),
@@ -695,7 +694,6 @@ const operations = new OperationsTriggers(
   orders,
   tripDetails,
   conversations,
-  () => new Date(),
 );
 const problems = new CustomerProblems(
   database.db,

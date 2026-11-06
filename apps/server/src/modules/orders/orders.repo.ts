@@ -269,18 +269,6 @@ export class OrdersRepo {
       .where(eq(orders.id, orderId));
   }
 
-  /** Moves the deadline and counts the extension, which the policy guard limits. */
-  async extendDeadline(tx: Transaction, orderId: string, deadline: Date): Promise<void> {
-    await tx
-      .update(orders)
-      .set({
-        paymentDeadline: deadline,
-        deadlineExtensions: sql`${orders.deadlineExtensions} + 1`,
-        updatedAt: sql`now()`,
-      })
-      .where(eq(orders.id, orderId));
-  }
-
   events(tx: Transaction, orderId: string): Promise<OrderEventRow[]> {
     return tx
       .select()

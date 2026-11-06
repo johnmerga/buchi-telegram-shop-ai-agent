@@ -272,10 +272,14 @@ unpaid order expires and releases its stock.
 ### 1.5 Payment deadlines
 
 - **Doc:** Scheduled jobs (tick).
-- **Deliverables:** timers for the reminder one hour after the order and for expiry at the deadline;
-  expiry releases stock and offers a one-tap reorder.
+- **Deliverables:** a timer for expiry at the deadline; expiry releases stock and offers a one-tap
+  reorder.
 - **Acceptance:** an expired order's stock is available again, and the reorder button recreates the
   cart.
+- **Built as:** the owner's rule holds stock for three minutes (`PAYMENT_HOLD_MS` in
+  `orders.deadlines.domain.ts`), so there is no payment reminder and no extension. Only an order
+  still in `awaiting_payment` expires; one with a screenshot in `verifying` or `needs_review` keeps
+  its stock.
 
 ### 1.6 Owner alerts and takeover
 
@@ -315,8 +319,8 @@ trace is stored, and the evaluation runner replays a recorded conversation.
 ### 2.3 Policy guard
 
 - **Doc:** Autonomy levels, Bounded decisions.
-- **Deliverables:** `ai/guard/` with one checker per bounded decision (negotiated price, delivery
-  price, deadline extension); owner-confirmation requests for the "Owner confirms" level; code-
+- **Deliverables:** `ai/guard/` with one checker per bounded decision (negotiated price and
+  delivery price); owner-confirmation requests for the "Owner confirms" level; code-
   computed counteroffers on rejection; escalation after two rejections; `agent_decisions` records.
 - **Acceptance:** unit tests show that no input returns an accepted price outside the limits.
   Checkers never return the lowest price to the caller.
@@ -507,7 +511,7 @@ action in the evaluation set.
 
 ### 6.1 Triggers and situation summaries
 
-- **Deliverables:** subscriptions to domain events (customer reply near the deadline, driver
+- **Deliverables:** subscriptions to domain events (customer reply while an order waits for payment, driver
   problem, late delivery, no driver accepted, waitlist threshold, **Problem** button); a situation
   builder that collects the order, timeline, messages, and limits.
 - **Acceptance:** the agent runs only on these events, never on a schedule.
@@ -515,14 +519,17 @@ action in the evaluation set.
 ### 6.2 Operations tools
 
 - **Deliverables:** `message_customer`, `message_driver`, `update_eta`, `reschedule_delivery`,
-  `extend_deadline`, `start_exchange`, `propose_refund`, `propose_restock`, `escalate`, with the
-  autonomy levels from the design doc. Driver reports become `area_notes`.
-- **Acceptance:** a second deadline extension on the same order goes to the owner.
+  `start_exchange`, `propose_refund`, `propose_restock`, `escalate`, with the autonomy levels from
+  the design doc. Driver reports become `area_notes`.
+- **Acceptance:** a customer who asks for more time to pay is told that the hold is short, and no
+  tool can extend it.
 - **Built as:** `ai/agents/operations/`, `ai/approvals/`, and `modules/operations/`. A run is scoped
   to its situation's record IDs, so a message cannot point the agent at another order. Owner-confirms
   requests reach owners as Approve and Decline buttons; approval claims the row before running, so
   it runs once. Extra tools: `propose_bonus` (owner confirms; replaces the code-computed bonus) and
-  `save_area_note` (automatic). New transition `rescheduled` (`out_for_delivery → paid`).
+  `save_area_note` (automatic). New transition `rescheduled` (`out_for_delivery → paid`). The
+  `extend_deadline` tool and its guard were removed with the three-minute hold (migration
+  `0025_payment_hold`).
 - **Follow-ups:** finish exchanges (sell the new unit, return the old one to stock), and merge
   `DeliveryOwnerAlerts` into `OwnerAlerts`.
 
@@ -645,7 +652,7 @@ loading, empty, and error states.
   replay mode, and target thresholds in CI. The live nightly run samples cases, because about 400
   cases at 10 requests a minute exceed the free tier's daily quota.
 - **Built as:** recorded against Gemini 3.5 Flash-Lite: 40 sales conversations (English, Amharic,
-  code-switched, and adversarial), 31 operations situations, 21 owner commands, 21 owner
+  code-switched, and adversarial), 24 operations situations, 21 owner commands, 21 owner
   questions (5 refusals), 12 far-price agent trips, and 3 × 200 synthetic trips. Goals stay at
   0.85 (sales outcome, owner rows), 0.8/0.9 (operations action/autonomy), and 0.9 (owner rules);
   prices outside the range, fixed-price discounts, rules saved without Confirm, and far prices

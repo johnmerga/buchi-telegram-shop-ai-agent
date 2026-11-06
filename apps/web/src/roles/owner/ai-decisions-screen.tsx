@@ -32,7 +32,7 @@ export default function AiDecisionsScreen() {
         {(items) =>
           items.length === 0 ? (
             <EmptyState title="No decisions yet · ገና ውሳኔ የለም">
-              Prices, deadline changes, and other actions that Buchi’s agents propose appear here.
+              Prices, refunds, and other actions that Buchi’s agents propose appear here.
             </EmptyState>
           ) : (
             items.map((item) => <DecisionCard key={item.id} shopId={shopId} decision={item} />)

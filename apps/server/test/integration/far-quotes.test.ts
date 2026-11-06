@@ -521,7 +521,8 @@ describe('a far-area quote', () => {
       deliveryFee: '480.00',
       total: '3980.00',
     });
-    expect(order.paymentDeadline?.getTime()).toBeGreaterThan(Date.now() + 2.9 * 60 * 60_000);
+    expect(order.paymentDeadline?.getTime()).toBeGreaterThan(Date.now() + 2.9 * 60_000);
+    expect(order.paymentDeadline?.getTime()).toBeLessThanOrEqual(Date.now() + 3 * 60_000);
     expect(lastTo(customer.id)?.text).toContain('Total: 3,980.00 ብር');
     expect(await quoteOf(orderId)).toMatchObject({ status: 'accepted' });
     expect(await timerFor(orderTimerKinds.expire, orderId)).toBeDefined();

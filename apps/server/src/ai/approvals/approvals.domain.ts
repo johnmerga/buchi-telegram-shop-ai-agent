@@ -9,10 +9,6 @@ interface RequestFormat {
 }
 
 const formats: Record<string, RequestFormat> = {
-  extend_deadline: {
-    title: '⏰ Extend the payment deadline again?',
-    fields: { value: 'Minutes' },
-  },
   propose_refund: { title: '💸 Refund the customer?', fields: { amount: 'Amount (birr)' } },
   propose_restock: { title: '📦 Restock?', fields: { quantity: 'Quantity' } },
   propose_bonus: { title: '🛵 Add a driver bonus?', fields: { bonus: 'Bonus (birr)' } },

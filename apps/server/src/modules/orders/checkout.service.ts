@@ -5,7 +5,7 @@ import type { DeliveryService } from '../delivery/delivery.service';
 import type { DeliveryQuote, PricedDeliveryType } from '../delivery/fees.domain';
 import type { Coordinates } from '../delivery/location.domain';
 import type { ShopsService } from '../shops/shops.service';
-import { PAYMENT_WINDOW_MS, QUOTE_HOLD_MS } from './orders.deadlines.domain';
+import { PAYMENT_HOLD_MS, QUOTE_HOLD_MS } from './orders.deadlines.domain';
 import { paymentInstructions } from './orders.domain';
 import type { OrderRow } from './orders.repo';
 import type { NewOrder, OrderDelivery, OrderService } from './orders.service';
@@ -124,11 +124,9 @@ export class CheckoutService {
    * instructions. The pin now lives on the order, so the customer's copy is cleared.
    */
   async acceptFarQuote(shopId: string, orderId: string, fee: Money): Promise<string> {
-    const acceptedAt = this.now();
-    const deadline = new Date(acceptedAt.getTime() + PAYMENT_WINDOW_MS);
+    const deadline = new Date(this.now().getTime() + PAYMENT_HOLD_MS);
     const order = await this.orders.acceptQuote(shopId, orderId, {
       fee,
-      acceptedAt,
       paymentDeadline: deadline,
     });
     const customer = await this.customers.get(shopId, order.customerId);
@@ -190,12 +188,12 @@ export class CheckoutService {
     return { status: 'placed', ...placed };
   }
 
-  /** Creates the order with the standard payment window and returns its payment instructions. */
+  /** Creates the order with the payment hold and returns its payment instructions. */
   private async reserve(
     shopId: string,
     order: Omit<NewOrder, 'paymentDeadline'>,
   ): Promise<{ orderId: string; instructions: string }> {
-    const deadline = new Date(this.now().getTime() + PAYMENT_WINDOW_MS);
+    const deadline = new Date(this.now().getTime() + PAYMENT_HOLD_MS);
     const created = await this.orders.create(
       shopId,
       { ...order, paymentDeadline: deadline },

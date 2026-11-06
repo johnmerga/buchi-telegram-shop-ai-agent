@@ -252,21 +252,14 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
   const approvals = new OwnerApprovals(
     db,
     decisions,
-    operationsApprovals(tools, toolDeps),
+    operationsApprovals(tools),
     ownerAlerts,
     logger,
     now,
   );
   const agent = new OperationsAgent(runtime, approvals, ownerAlerts, logger, now);
   const situations = new SituationBuilder(orders, catalog, conversations, areaNotes, now);
-  const triggers = new OperationsTriggers(
-    agent,
-    situations,
-    orders,
-    tripDetails,
-    conversations,
-    now,
-  );
+  const triggers = new OperationsTriggers(agent, situations, orders, tripDetails, conversations);
   const problems = new CustomerProblems(
     db,
     new DeliveryProblemsRepo(),

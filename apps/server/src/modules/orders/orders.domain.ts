@@ -9,6 +9,7 @@ import {
   type PricingMode,
 } from '@buchi/shared';
 import { promotedPrice } from '../rules/rules.domain';
+import { PAYMENT_HOLD_MS } from './orders.deadlines.domain';
 import type { PromotionParameters } from '../rules/rules.schemas';
 
 export type OrderEvent =
@@ -155,6 +156,8 @@ function amountLines(input: {
   ].join('\n');
 }
 
+const holdMinutes = String(PAYMENT_HOLD_MS / 60_000);
+
 /**
  * Payment instructions come from this template, never from the model, so account numbers and
  * amounts are always exactly what the shop configured.
@@ -175,6 +178,6 @@ export function paymentInstructions(input: {
     `✅ ትዕዛዝ ${orderReference(input.orderId)} ተይዞልዎታል / Order ${orderReference(input.orderId)} is reserved for you.`,
     amountLines(input),
     ['ከእነዚህ በአንዱ ይክፈሉ / Pay to one of these accounts:', ...accounts].join('\n'),
-    `Pay before ${addisTime.format(input.deadline)} (Addis Ababa time), then send the payment screenshot here.`,
+    `⏳ ለ${holdMinutes} ደቂቃ ብቻ ተይዞልዎታል / We hold it for you for ${holdMinutes} minutes only: pay before ${addisTime.format(input.deadline)} (Addis Ababa time), then send the payment screenshot here.`,
   ].join('\n\n');
 }

@@ -24,12 +24,12 @@ describe('approvalRequest', () => {
 
   it("uses the guard's reason when the input has none, and hides IDs other than orders", () => {
     const text = approvalRequest({
-      tool: 'extend_deadline',
-      proposed: { orderId, value: 30 },
-      agentReason: 'Pays after work',
+      tool: 'propose_bonus',
+      proposed: { orderId, bonus: 40 },
+      agentReason: 'Nobody took the job',
     });
-    expect(text).toContain('Minutes: 30');
-    expect(text).toContain('Why: Pays after work');
+    expect(text).toContain('Bonus (birr): 40');
+    expect(text).toContain('Why: Nobody took the job');
 
     const restock = approvalRequest({
       tool: 'propose_restock',

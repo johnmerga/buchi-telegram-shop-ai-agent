@@ -1,14 +1,8 @@
-import type { MoneyString } from '@buchi/shared';
 import type { CustomersService } from '../customers/customers.service';
-import { minutesLeft } from './orders.deadlines.domain';
 import type { OrderService } from './orders.service';
 
-/** Tells a customer, in their private chat with the bot, what happened to their unpaid order. */
+/** Tells a customer, in their private chat with the bot, that their unpaid order expired. */
 export interface OrderNotifier {
-  paymentReminder(
-    chatId: number,
-    reminder: { orderId: string; total: MoneyString; minutesLeft: number },
-  ): Promise<void>;
   orderExpired(chatId: number, orderId: string): Promise<void>;
 }
 
@@ -18,7 +12,7 @@ interface OrderTimer {
   shopId: string | null;
 }
 
-/** Reminds customers about unpaid orders, and expires the orders at their deadline. */
+/** Expires unpaid orders at their deadline, which returns their stock to sale. */
 export class PaymentDeadlineService {
   constructor(
     private readonly orders: OrderService,
@@ -26,18 +20,6 @@ export class PaymentDeadlineService {
     private readonly notifier: OrderNotifier,
     private readonly now: () => Date,
   ) {}
-
-  async remind(timer: OrderTimer): Promise<void> {
-    const shopId = shopOf(timer);
-    const order = await this.orders.get(shopId, timer.targetId);
-    if (order.status !== 'awaiting_payment' || order.paymentDeadline === null) return;
-    const chatId = await this.customers.telegramUserId(shopId, order.customerId);
-    await this.notifier.paymentReminder(chatId, {
-      orderId: order.id,
-      total: order.total,
-      minutesLeft: minutesLeft(order.paymentDeadline, this.now()),
-    });
-  }
 
   async expire(timer: OrderTimer): Promise<void> {
     const shopId = shopOf(timer);

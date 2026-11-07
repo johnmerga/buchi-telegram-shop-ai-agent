@@ -1,4 +1,5 @@
 import { Money, type DeliverySettings } from '@buchi/shared';
+import { seededRandom, seededUuid } from '../../shared/seeded-random';
 import { timeBand, type SyntheticLeg } from '../delivery/factors.domain';
 import { tripCost } from '../delivery/fees.domain';
 import type { Coordinates } from '../delivery/location.domain';
@@ -75,7 +76,7 @@ function synthesize(
     destination,
     leg: { zone, startedAt, routingSeconds, actualSeconds },
     far: {
-      id: uuidFrom(random),
+      id: seededUuid(random),
       zone,
       routeMeters,
       routingSeconds,
@@ -117,21 +118,4 @@ function localHour(day: Date, hour: number): Date {
 function noise(random: () => number, sigma: number): number {
   const gaussian = Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random());
   return Math.exp(sigma * gaussian);
-}
-
-/** Mulberry32: a small, fast generator that repeats exactly for a seed. */
-function seededRandom(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
-  };
-}
-
-function uuidFrom(random: () => number): string {
-  const hex = Array.from({ length: 32 }, () => Math.floor(random() * 16).toString(16)).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }

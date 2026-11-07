@@ -538,7 +538,9 @@ Exit criteria: Express, Saver, and far-area deliveries run end to end with drive
 - **Built as:** `modules/far-quotes/` and `ai/agents/far-price/` (smart tier, operations priority,
   one tool bound to the quote). Statistical prices also pass the policy guard. Far jobs are
   `delivery_jobs.special`: a driver *holds* them with `job:hold`, and normal accept and bonuses
-  refuse them. Drivers hold far offers in the chat or on the driver board.
+  refuse them. Drivers hold far offers in the chat or on the driver board. Similar past trips
+  reach the agent as multiples of their own formula payout, so a change of delivery settings
+  does not leave it anchored on old prices in birr.
 
 ---
 

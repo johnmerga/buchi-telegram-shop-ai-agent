@@ -276,11 +276,13 @@ cap limits it. The owner sets the cap once, for example 1,000 birr. Buchi runs t
 
 1. Buchi creates the order in `Quoting` and holds the stock for 20 minutes.
 2. Code collects the evidence: the road distance and time, the formula payout, the zone's learned
-   time and acceptance factors, the five most similar past trips with the prices drivers accepted,
-   and recent notes about the area, such as a driver's report of a closed road.
+   time and acceptance factors, the shop's cap, the five most similar past trips with what drivers
+   accepted as a multiple of each trip's own formula payout, and recent notes about the area, such
+   as a driver's report of a closed road. Past trips show multiples, not birr, because the owner
+   can change the delivery settings: a price from before a change says nothing about today's.
 3. The agent calls `propose_delivery_price` with a price, a one-sentence reason, and the evidence
-   IDs. For example: "Six trips to Kality last month were accepted at 380 to 450 birr, and a driver
-   reported roadworks yesterday, so I estimate 480 birr."
+   IDs. For example: "Six trips to Kality last month were accepted at 1.3 to 1.5 times their
+   formula payout, and a driver reported roadworks yesterday, so I estimate 480 birr."
 4. The policy guard accepts the price only if it is at least the formula payout and at most the cap.
    If the agent's estimate is above the cap, the owner receives **Approve once** and **Offer pickup**
    buttons. Nothing above the cap reaches a driver without the owner.

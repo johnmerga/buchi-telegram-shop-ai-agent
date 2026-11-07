@@ -24,6 +24,8 @@ const reviewReasons: Record<ReviewReason, string> = {
   not_completed: 'The receipt does not show a completed transaction.',
   receiver_unconfirmed:
     "The receipt shows only the receiver's first name, and the bank's page was unavailable.",
+  reference_unconfirmed:
+    "The customer typed the transaction reference, and the bank's page was unavailable to confirm it.",
   overpaid: 'The customer paid more than the total.',
   bank_not_found: "The bank's receipt page does not show this transaction.",
   over_limit: "The bank's page was unavailable, and the amount is above the automatic limit.",

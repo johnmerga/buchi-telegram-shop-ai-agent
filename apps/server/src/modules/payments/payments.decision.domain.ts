@@ -38,6 +38,8 @@ export type DecisionInput =
       payerHighRisk: boolean;
       /** R4 saw only the receiver's first name, so only the bank's page can confirm the receiver. */
       receiverFirstNameOnly: boolean;
+      /** The customer typed the reference, so only the bank's page ties it to the screenshot. */
+      referenceTyped: boolean;
     };
 
 export type RejectReason = 'receiver' | 'time' | 'reused' | 'bank_mismatch';
@@ -48,6 +50,7 @@ export type ReviewReason =
   | 'unreadable'
   | 'unknown_layout'
   | 'receiver_unconfirmed'
+  | 'reference_unconfirmed'
   | 'overpaid'
   | 'bank_not_found'
   | 'over_limit'
@@ -83,7 +86,7 @@ export function decide(input: DecisionInput): Decision {
 }
 
 function decideChecked(input: Extract<DecisionInput, { stage: 'checked' }>): Decision {
-  const { rules, bank, paid, due, payerHighRisk, receiverFirstNameOnly } = input;
+  const { rules, bank, paid, due, payerHighRisk, receiverFirstNameOnly, referenceTyped } = input;
   const rejected: RejectReason[] = [];
   if (rules.r4 === 'fail') rejected.push('receiver');
   if (rules.r5 === 'fail') rejected.push('time');
@@ -101,6 +104,7 @@ function decideChecked(input: Extract<DecisionInput, { stage: 'checked' }>): Dec
   // The Telebirr app's payment screen includes the charges in its amount, so without the bank's
   // page its receiver, not the higher amount, is what the owner must check.
   if (bank === 'UNAVAILABLE' && receiverFirstNameOnly) return review('receiver_unconfirmed');
+  if (bank === 'UNAVAILABLE' && referenceTyped) return review('reference_unconfirmed');
   if (rules.r3 === 'overpaid') return review('overpaid');
 
   switch (bank) {

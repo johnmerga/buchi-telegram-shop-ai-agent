@@ -211,7 +211,15 @@ export class PaymentVerification {
     );
     const { reading, bank } = await this.withBank(order, received, read.reading);
     if (reading.status === 'read') {
-      const checked = await this.checkRules(order, reading.receipt, earlier, bank, payer);
+      const referenceTyped = received.kind === 'typed_reference';
+      const checked = await this.checkRules(
+        order,
+        reading.receipt,
+        earlier,
+        bank,
+        payer,
+        referenceTyped,
+      );
       return { extraction, ...checked };
     }
     const asks = (decision: PaymentProofRow['decision']) =>
@@ -264,6 +272,7 @@ export class PaymentVerification {
     earlier: PaymentProofRow[],
     bank: BankCheck | null,
     payer: Payer,
+    referenceTyped: boolean,
   ): Promise<Omit<Evaluation, 'extraction'>> {
     const { paymentAccounts } = await this.shops.get(order.shopId);
     const account = matchingAccount(receipt, paymentAccounts);
@@ -286,6 +295,7 @@ export class PaymentVerification {
       due,
       payerHighRisk: await this.risk.isHighRisk(payer),
       receiverFirstNameOnly: receipt.receiverFirstNameOnly,
+      referenceTyped,
     });
     const claimed = rules.r6 === 'pass' ? receipt : undefined;
     return { decision, rules, receipt, bank, claimed };

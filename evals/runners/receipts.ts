@@ -147,6 +147,7 @@ function decisionOf(reading: Reading, testCase: z.output<typeof input>): Decisio
     due,
     payerHighRisk: false,
     receiverFirstNameOnly: receipt.receiverFirstNameOnly,
+    referenceTyped: false,
   });
 }
 

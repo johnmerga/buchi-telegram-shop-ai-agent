@@ -21,6 +21,7 @@ function checked(overrides: Partial<Extract<DecisionInput, { stage: 'checked' }>
     due: Money.of('900'),
     payerHighRisk: false,
     receiverFirstNameOnly: false,
+    referenceTyped: false,
     ...overrides,
   });
 }
@@ -136,6 +137,14 @@ describe('the decision matrix', () => {
       outcome: 'review',
       reason: 'reference_date',
     });
+  });
+
+  it('approves a typed reference only when the bank page confirms it', () => {
+    expect(checked({ bank: 'UNAVAILABLE', referenceTyped: true })).toEqual({
+      outcome: 'review',
+      reason: 'reference_unconfirmed',
+    });
+    expect(checked({ referenceTyped: true })).toEqual({ outcome: 'approve', bankVerified: true });
   });
 
   it("sends a receipt with only the receiver's first name to the owner without the bank page", () => {

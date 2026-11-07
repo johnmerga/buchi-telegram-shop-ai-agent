@@ -21,7 +21,36 @@ export const paymentAccountSchema = z.object({
 });
 export type PaymentAccount = z.infer<typeof paymentAccountSchema>;
 
-export const paymentAccountsSchema = z.array(paymentAccountSchema).min(1).max(5);
+/** The wallets take an Ethiopian mobile number, with or without the country code. */
+const walletNumber = /^(?:0|251)[79][0-9]{8}$/;
+
+/** What each provider's account number looks like, so a CBE account is not saved as CBE Birr. */
+const accountNumberFormats: Record<PaymentProvider, { pattern: RegExp; message: string }> = {
+  telebirr: {
+    pattern: walletNumber,
+    message: 'Use the Telebirr phone number, such as 0911234567.',
+  },
+  cbe_birr: {
+    pattern: walletNumber,
+    message:
+      'Use the CBE Birr phone number, such as 0911234567. A 13-digit number is a CBE bank account.',
+  },
+  cbe_bank: {
+    pattern: /^[0-9]{13}$/,
+    message:
+      'A CBE bank account number has 13 digits, such as 1000123456789. A phone number is CBE Birr.',
+  },
+};
+
+/** An account as the owner enters it: its number must fit the provider. */
+export const paymentAccountInputSchema = paymentAccountSchema.superRefine((account, ctx) => {
+  const format = accountNumberFormats[account.provider];
+  if (!format.pattern.test(account.accountNumber)) {
+    ctx.addIssue({ code: 'custom', path: ['accountNumber'], message: format.message });
+  }
+});
+
+export const paymentAccountsSchema = z.array(paymentAccountInputSchema).min(1).max(5);
 
 /** A public channel username such as "@selamshoes", or a numeric chat ID such as "-1001234567890". */
 export const connectChannelSchema = z.object({

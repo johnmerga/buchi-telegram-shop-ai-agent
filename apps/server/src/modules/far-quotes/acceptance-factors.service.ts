@@ -2,7 +2,12 @@ import { Money } from '@buchi/shared';
 import type { Database } from '../../db/client';
 import { withShop } from '../../db/with-shop';
 import { learnFactors, lookupFactor, type FactorLookup } from '../delivery/factors.domain';
-import { acceptanceFactorZones, type PastTrip, type SyntheticFarTrip } from './far-quotes.domain';
+import {
+  acceptanceFactorZones,
+  acceptedMultiple,
+  type PastTrip,
+  type SyntheticFarTrip,
+} from './far-quotes.domain';
 import type { FarQuoteRow, FarQuotesRepo } from './far-quotes.repo';
 
 /** Older trips weigh less than 1/4000 of a new one, so they no longer change a factor. */
@@ -74,11 +79,12 @@ export class AcceptanceFactorService {
     const now = this.now();
     return withShop(this.db, shopId, async (tx) => {
       const learned = learnFactors(
-        heldTrips(await this.repo.held(tx, this.since())).map((trip) => ({
-          ratio: Number(trip.heldPrice.toString()) / Number(trip.formulaPayout.toString()),
-          at: trip.at,
-          zones: acceptanceFactorZones(trip.zone).reverse(),
-        })),
+        heldTrips(await this.repo.held(tx, this.since())).flatMap((trip) => {
+          const ratio = acceptedMultiple(trip);
+          return ratio === null
+            ? []
+            : [{ ratio, at: trip.at, zones: acceptanceFactorZones(trip.zone).reverse() }];
+        }),
         now,
       );
       await this.repo.saveFactors(tx, shopId, learned);

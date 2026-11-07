@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parentZone, zoneOf } from '../delivery/zones.domain';
 import {
   acceptanceFactorZones,
+  acceptedMultiple,
   assertOfferable,
   raisedPrice,
   scaled,
@@ -15,6 +16,20 @@ describe('acceptanceFactorZones', () => {
   it("looks for an acceptance factor in the trip's larger zone, then the whole shop", () => {
     const zone = zoneOf({ latitude: 8.9, longitude: 38.77 });
     expect(acceptanceFactorZones(zone)).toEqual([parentZone(zone), 'shop']);
+  });
+});
+
+describe('acceptedMultiple', () => {
+  it("is the accepted price over the trip's own formula payout", () => {
+    expect(acceptedMultiple({ formulaPayout: Money.of('200'), heldPrice: Money.of('260') })).toBe(
+      1.3,
+    );
+  });
+
+  it('is null when that formula paid nothing', () => {
+    expect(
+      acceptedMultiple({ formulaPayout: Money.of('0'), heldPrice: Money.of('50') }),
+    ).toBeNull();
   });
 });
 

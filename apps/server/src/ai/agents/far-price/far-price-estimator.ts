@@ -77,7 +77,7 @@ export class FarPriceEstimator {
       const result = await this.runtimeFor([tool]).run(farPriceAgent, {
         shopId,
         actor: system,
-        history: [{ role: 'user', parts: [{ text: evidenceText(evidence) }] }],
+        history: [{ role: 'user', parts: [{ text: evidenceText(evidence, cap) }] }],
       });
       if (!proposal) {
         this.logger.warn({ shopId, runId: result.runId }, 'far-price agent proposed no price');

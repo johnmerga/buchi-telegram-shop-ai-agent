@@ -66,6 +66,15 @@ export interface PastTrip {
 }
 
 /**
+ * How many times its own formula payout a driver accepted on a past trip, or null when that
+ * formula paid nothing. Settings change, so this multiple outlives the trip's price in birr.
+ */
+export function acceptedMultiple(trip: { formulaPayout: Money; heldPrice: Money }): number | null {
+  const formula = Number(trip.formulaPayout.toString());
+  return formula > 0 ? Number(trip.heldPrice.toString()) / formula : null;
+}
+
+/**
  * The past trips most like this one: the closest destinations with the most similar road
  * distance, newest first on a tie. Both differences are in meters, so they add up directly.
  */

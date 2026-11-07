@@ -37,6 +37,7 @@ export const paymentOutcomeLabels: Record<PaymentOutcome, string> = {
   asked_rest: 'Asked for the rest · ቀሪውን ጠይቋል',
   asked_full_amount: 'Asked for the full amount · ሙሉውን ጠይቋል',
   asked_clearer: 'Asked for a clearer screenshot · ግልጽ ምስል ጠይቋል',
+  asked_reference: 'Asked to type the transaction ID · የግብይት ቁጥር ጠይቋል',
 };
 
 const timeFormat = new Intl.DateTimeFormat('en-GB', {

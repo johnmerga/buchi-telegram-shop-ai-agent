@@ -114,6 +114,16 @@ describe('the decision matrix', () => {
     });
   });
 
+  it('asks the customer to type a misread reference twice, then sends it to the owner', () => {
+    const misread = { stage: 'bad_reference', problem: 'unparseable' } as const;
+    expect(decide({ ...misread, earlierAsks: 0 })).toEqual({ outcome: 'ask_reference' });
+    expect(decide({ ...misread, earlierAsks: 1 })).toEqual({ outcome: 'ask_reference' });
+    expect(decide({ ...misread, earlierAsks: 2 })).toEqual({
+      outcome: 'review',
+      reason: 'unparseable',
+    });
+  });
+
   it('sends a receipt layout that Buchi does not know to the owner', () => {
     expect(decide({ stage: 'unknown_layout' })).toEqual({
       outcome: 'review',

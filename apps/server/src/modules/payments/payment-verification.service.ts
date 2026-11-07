@@ -33,16 +33,22 @@ import {
   checkTime,
   matchingAccount,
 } from './payments.domain';
-import { reviewCallbackData, type ReceiptExtraction } from './payments.schemas';
+import {
+  receiptExtractionSchema,
+  reviewCallbackData,
+  type ReceiptExtraction,
+} from './payments.schemas';
 import type { Image, ReceiptReader } from './receipt-reader.service';
 import type { ReceiptProvider } from './receipt-layouts.domain';
 import {
   decideUnread,
   interpretReceipt,
   readBankPage,
+  withReference,
   type ReadReceipt,
   type Reading,
 } from './receipt-reading.domain';
+import { readScreenshot } from './screenshot-reading';
 import type { Payer } from './risk.domain';
 import type { RiskService } from './risk.service';
 
@@ -50,9 +56,10 @@ import type { RiskService } from './risk.service';
 type OrderRow = NonNullable<Awaited<ReturnType<OrderService['latestUnpaid']>>>;
 
 /**
- * A payment proof as it arrived: a screenshot with Telegram's file ID and the image itself, or
- * the bank's own page that a customer's link or reference pointed to. `message` is the chat
- * message that owners see in a review.
+ * A payment proof as it arrived: a screenshot with Telegram's file ID and the image itself, the
+ * bank's own page that a customer's link or reference pointed to, or a screenshot read earlier
+ * with the reference that the customer typed. `message` is the chat message that owners see in a
+ * review.
  */
 export type ReceivedProof =
   | {
@@ -63,7 +70,19 @@ export type ReceivedProof =
       /** The classifier's confidence that this is a receipt, or `null` when it was unavailable. */
       classificationConfidence: number | null;
     }
-  | { kind: 'bank_page'; message: MessageRef; provider: ReceiptProvider; page: BankReceipt };
+  | { kind: 'bank_page'; message: MessageRef; provider: ReceiptProvider; page: BankReceipt }
+  | {
+      kind: 'typed_reference';
+      message: MessageRef;
+      fileId: string | null;
+      extraction: ReceiptExtraction;
+    };
+
+const submittedReasons: Record<ReceivedProof['kind'], string> = {
+  screenshot: 'Payment screenshot received',
+  bank_page: 'Payment receipt link received',
+  typed_reference: 'Transaction reference typed',
+};
 
 interface Evaluation {
   decision: Decision;
@@ -90,7 +109,7 @@ export class PaymentVerification {
     private readonly db: Database,
     private readonly proofs: PaymentProofsRepo,
     private readonly refs: PaymentRefsRepo,
-    private readonly reader: Pick<ReceiptReader, 'extract'>,
+    private readonly reader: Pick<ReceiptReader, 'extract' | 'readReference'>,
     private readonly bank: Pick<BankReceipts, 'read'>,
     private readonly risk: RiskService,
     private readonly orders: OrderService,
@@ -107,9 +126,7 @@ export class PaymentVerification {
       order.id,
       'payment_submitted',
       'customer',
-      received.kind === 'screenshot'
-        ? 'Payment screenshot received'
-        : 'Payment receipt link received',
+      submittedReasons[received.kind],
     );
     const customer = await this.customers.get(shopId, order.customerId);
     const payer: Payer = { telegramUserId: customer.telegramUserId, phone: customer.phone };
@@ -119,7 +136,7 @@ export class PaymentVerification {
       this.proofs.insert(tx, {
         shopId,
         orderId: order.id,
-        telegramFileId: received.kind === 'screenshot' ? received.fileId : null,
+        telegramFileId: received.kind === 'bank_page' ? null : received.fileId,
         extraction: evaluation.extraction ?? null,
         provider: receipt?.provider ?? null,
         txRef: receipt?.txRef ?? null,
@@ -138,16 +155,46 @@ export class PaymentVerification {
     };
   }
 
+  /**
+   * A reference that the customer typed after Buchi asked for it. It stands in for the misread one
+   * in the screenshot that the order's latest proof read. Returns `undefined` when the order is not
+   * waiting for a reference.
+   */
+  async verifyTypedReference(
+    order: OrderRow,
+    reference: string,
+    message: MessageRef,
+  ): Promise<CustomerReply | undefined> {
+    const proofs = await withShop(this.db, order.shopId, (tx) =>
+      this.proofs.forOrder(tx, order.id),
+    );
+    const latest = proofs.toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+    if (latest?.decision !== 'ask_reference') return undefined;
+    const stored = receiptExtractionSchema.safeParse(latest.extraction);
+    if (!stored.success) return undefined;
+    return this.verify(order, {
+      kind: 'typed_reference',
+      message,
+      fileId: latest.telegramFileId,
+      extraction: withReference(stored.data, reference),
+    });
+  }
+
   /** The model only copies a screenshot's text, and code reads it. A bank page needs no model. */
   private async read(
     received: ReceivedProof,
   ): Promise<{ extraction?: ReceiptExtraction; reading: Reading } | undefined> {
-    if (received.kind === 'bank_page') {
-      return { reading: readBankPage(received.provider, received.page) };
+    switch (received.kind) {
+      case 'bank_page':
+        return { reading: readBankPage(received.provider, received.page) };
+      case 'typed_reference':
+        return {
+          extraction: received.extraction,
+          reading: interpretReceipt(received.extraction, null),
+        };
+      case 'screenshot':
+        return readScreenshot(this.reader, received.image, received.classificationConfidence);
     }
-    const extraction = await this.reader.extract(received.image);
-    if (!extraction) return undefined;
-    return { extraction, reading: interpretReceipt(extraction, received.classificationConfidence) };
   }
 
   private async evaluate(
@@ -167,8 +214,10 @@ export class PaymentVerification {
       const checked = await this.checkRules(order, reading.receipt, earlier, bank, payer);
       return { extraction, ...checked };
     }
-    const earlierUnreadable = earlier.filter((p) => p.decision === 'ask_clearer').length;
-    return { ...none, extraction, ...decideUnread(reading, earlierUnreadable) };
+    const asks = (decision: PaymentProofRow['decision']) =>
+      earlier.filter((p) => p.decision === decision).length;
+    const earlierAsks = { unreadable: asks('ask_clearer'), reference: asks('ask_reference') };
+    return { ...none, extraction, ...decideUnread(reading, earlierAsks) };
   }
 
   /**
@@ -322,12 +371,20 @@ export class PaymentVerification {
           this.holdUntil(),
         );
         return;
+      case 'ask_reference':
+        await this.orders.awaitPaymentAgain(
+          shopId,
+          orderId,
+          'Unreadable transaction reference',
+          this.holdUntil(),
+        );
+        return;
     }
   }
 
   /**
    * A new hold from now, because the check may have outlasted the first one and the customer still
-   * needs time to send the rest or a clearer screenshot.
+   * needs time to send the rest, a clearer screenshot, or the reference.
    */
   private holdUntil(): Date {
     return new Date(this.now().getTime() + PAYMENT_HOLD_MS);

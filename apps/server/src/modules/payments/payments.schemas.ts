@@ -50,6 +50,10 @@ export const receiptExtractionSchema = z.object({
   status: printed,
 });
 export type ReceiptExtraction = z.infer<typeof receiptExtractionSchema>;
+
+/** The transaction reference alone, copied again. */
+export const receiptReferenceSchema = z.object({ transactionRef: printed });
+export type ReceiptReference = z.infer<typeof receiptReferenceSchema>;
 export type PrintedField = ReceiptExtraction['amount'];
 
 const REVIEW_PREFIX = 'payment';

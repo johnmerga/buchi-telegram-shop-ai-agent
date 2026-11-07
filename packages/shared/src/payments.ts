@@ -58,6 +58,7 @@ export const paymentOutcomes = [
   'asked_rest',
   'asked_full_amount',
   'asked_clearer',
+  'asked_reference',
 ] as const;
 export type PaymentOutcome = (typeof paymentOutcomes)[number];
 

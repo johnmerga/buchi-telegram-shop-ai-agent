@@ -9,7 +9,7 @@ import { reportNotAvailable, reportReceived } from './payment-messages.domain';
 import type { PaymentReports } from './payment-reports.service';
 import type { PaymentReview, ReviewResult } from './payment-review.service';
 import { reportCallbackSchema, reviewActionSchema } from './payments.schemas';
-import { receiptLinkIn } from './receipt-links.domain';
+import { receiptLinkIn, typedReferenceIn } from './receipt-links.domain';
 import type { ReceiptLinks } from './receipt-links.service';
 
 interface PaymentDeps {
@@ -62,12 +62,16 @@ export function createPaymentHandlers(deps: PaymentDeps): Composer<BuchiContext>
 
   handlers.on('message:text', async (ctx, next) => {
     const link = receiptLinkIn(ctx.msg.text);
-    if (!link) return next();
+    const typed = link ? undefined : typedReferenceIn(ctx.msg.text);
+    if (!link && typed === undefined) return next();
     const session = await customers.sessionOf(ctx.from.id);
     const ownShop = ctx.actor.role === 'owner' && ctx.actor.shopIds.includes(session?.shopId ?? '');
     if (!session || ownShop) return next();
     const message = { chatId: ctx.msg.chat.id, messageId: ctx.msg.message_id };
-    const reply = await links.receive(session.shopId, ctx.from.id, link, message);
+    const reply = link
+      ? await links.receive(session.shopId, ctx.from.id, link, message)
+      : await links.receiveTyped(session.shopId, ctx.from.id, typed ?? '', message);
+    if (!reply) return next();
     const markup = reply.buttons.length > 0 ? { reply_markup: inlineKeyboard(reply.buttons) } : {};
     await ctx.reply(reply.text, markup);
   });

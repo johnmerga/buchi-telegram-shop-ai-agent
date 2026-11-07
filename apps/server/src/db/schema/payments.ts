@@ -25,6 +25,7 @@ export const paymentDecision = pgEnum('payment_decision', [
   'ask_difference',
   'ask_full_amount',
   'ask_clearer',
+  'ask_reference',
 ]);
 
 export const ownerPaymentDecision = pgEnum('owner_payment_decision', ['approved', 'rejected']);

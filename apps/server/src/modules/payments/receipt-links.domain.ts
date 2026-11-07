@@ -31,6 +31,18 @@ export function receiptLinkIn(text: string): ReceiptLink | undefined {
   return reference === undefined ? undefined : cbe(reference, null);
 }
 
+/**
+ * What looks like a reference that a customer typed, such as "FT26311900GR" or "DK73SSK4JJ": a
+ * word of 8 to 14 letters and digits with both in it. Code checks its format later, against the
+ * receipt that Buchi asked about.
+ */
+const TYPED_REFERENCE =
+  /(?<![A-Za-z0-9])(?=[A-Za-z0-9]*\d)(?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]{8,14}(?![A-Za-z0-9])/;
+
+export function typedReferenceIn(text: string): string | undefined {
+  return TYPED_REFERENCE.exec(text)?.[0].toUpperCase();
+}
+
 function cbe(reference: string | undefined, accountDigits: string | null): ReceiptLink | undefined {
   const txRef = parseReference('cbe_bank', reference ?? '');
   return txRef === undefined ? undefined : { kind: 'cbe', txRef, accountDigits };

@@ -15,6 +15,7 @@ const buchiOutcomes: Record<BuchiDecision, PaymentOutcome> = {
   ask_difference: 'asked_rest',
   ask_full_amount: 'asked_full_amount',
   ask_clearer: 'asked_clearer',
+  ask_reference: 'asked_reference',
 };
 
 /**

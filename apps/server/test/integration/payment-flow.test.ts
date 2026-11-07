@@ -42,6 +42,7 @@ import { ScriptedModel, type ScriptedTurn } from '../fakes/scripted-model';
 import { pickupOnlyDelivery } from '../fakes/pickup-only-delivery';
 import { AppError } from '../../src/shared/errors';
 import { testDatabaseUrl } from './test-database';
+import { orderReference } from '../../src/modules/orders/orders.domain';
 import { noEmbeddings } from '../fakes/no-embeddings';
 import { NegotiationService } from '../../src/modules/sales/negotiation.service';
 import { NegotiationsRepo } from '../../src/modules/sales/negotiations.repo';
@@ -382,24 +383,38 @@ function paymentScreenScript(fields: { ref: string; total: string; firstName: st
   );
 }
 
+/** Today's CBE reference in Addis Ababa, as the summary below prints it, ending in `suffix`. */
+function cbeReference(suffix = 'CB12E'): string {
+  const now = new Date(Date.now() + 60_000 + 3 * 60 * 60_000);
+  const day = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86_400_000) + 1;
+  return `FT${String(now.getUTCFullYear()).slice(2)}${String(day).padStart(3, '0')}${suffix}`;
+}
+
 /**
  * The CBE app's summary right after a transfer, one sentence with the masked accounts. The bank's
- * PDF page shows the same transfer, with its time as month/day/year.
+ * PDF page shows the same transfer, with its time as month/day/year. The model may first copy the
+ * reference as `misread`, and then as `reread` when Buchi asks again. Returns the real reference.
  */
-function cbeSummaryScript(fields: { amount: string; receiver: string; account: string }) {
+function cbeSummaryScript(fields: {
+  amount: string;
+  receiver: string;
+  account: string;
+  suffix?: string;
+  misread?: string;
+  reread?: string;
+}): string {
   const now = new Date(Date.now() + 60_000 + 3 * 60 * 60_000);
   const month = now.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
   const hour = now.getUTCHours() % 12 || 12;
   const minute = String(now.getUTCMinutes()).padStart(2, '0');
   const half = now.getUTCHours() < 12 ? 'AM' : 'PM';
-  const day = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86_400_000) + 1;
-  const ref = `FT${String(now.getUTCFullYear()).slice(2)}${String(day).padStart(3, '0')}CB12E`;
+  const ref = cbeReference(fields.suffix);
   script.push(
     { text: JSON.stringify({ kind: 'receipt', confidence: 0.97 }) },
     {
       text: JSON.stringify({
         layout: sure('cbe_app_success'),
-        transactionRef: sure(ref),
+        transactionRef: sure(fields.misread ?? ref),
         amount: sure(`ETB ${fields.amount}`),
         serviceCharge: sure('ETB0.50'),
         vat: sure('ETB0.08'),
@@ -423,6 +438,10 @@ function cbeSummaryScript(fields: { amount: string; receiver: string; account: s
     completed: true,
     paidAt: `${String(now.getUTCMonth() + 1)}/${String(now.getUTCDate())}/${String(now.getUTCFullYear())}, ${String(hour)}:${minute}:00 ${half}`,
   });
+  if (fields.reread !== undefined) {
+    script.push({ text: JSON.stringify({ transactionRef: sure(fields.reread) }) });
+  }
+  return ref;
 }
 
 const toShopA = { receiver: 'SELAM TESFAYE', account: '2519****4567' };
@@ -567,6 +586,67 @@ describe('a payment screenshot', () => {
 
     expect(await statusOf(shopA.id, orderId)).toBe('paid');
     expect(lastTo(ownerA)?.text).toContain('bank-verified');
+  });
+
+  it('reads a misread reference again, and pays from the corrected one', async () => {
+    const yared = userOf(424341, 'Yared');
+    const orderId = await order(yared, shopA.id, shopA.smallVariant);
+    cbeSummaryScript({
+      amount: '800.00',
+      receiver: 'Selam Tesfaye',
+      account: 'ETB-6038',
+      suffix: 'RR00E',
+      misread: 'FT2631190GR',
+      reread: cbeReference('RR00E'),
+    });
+
+    await bot.handleUpdate(photo(yared));
+
+    expect(await statusOf(shopA.id, orderId)).toBe('paid');
+  });
+
+  it('asks the customer to type a reference it cannot read, and pays from the typed one', async () => {
+    const meklit = userOf(424342, 'Meklit');
+    const orderId = await order(meklit, shopA.id, shopA.smallVariant);
+    const ref = cbeSummaryScript({
+      amount: '800.00',
+      receiver: 'Selam Tesfaye',
+      account: 'ETB-6038',
+      suffix: 'TY00E',
+      misread: 'FT2631190GR',
+      reread: 'FT2631190GR',
+    });
+
+    await bot.handleUpdate(photo(meklit));
+    expect(await statusOf(shopA.id, orderId)).toBe('awaiting_payment');
+    expect(lastTo(meklit.id)?.text).toContain('could not read the transaction ID');
+    expect(lastTo(ownerA)?.text).not.toContain(orderReference(orderId));
+
+    await bot.handleUpdate(textMessage(meklit, `it is ${ref.toLowerCase()}`));
+    expect(await statusOf(shopA.id, orderId)).toBe('paid');
+    expect(lastTo(meklit.id)?.text).toContain('Payment received for order');
+  });
+
+  it('asks once more for a typed reference that does not fit, then sends it to the owner', async () => {
+    const amen = userOf(424343, 'Amen');
+    const orderId = await order(amen, shopA.id, shopA.smallVariant);
+    cbeSummaryScript({
+      amount: '800.00',
+      receiver: 'Selam Tesfaye',
+      account: 'ETB-6038',
+      suffix: 'AG00E',
+      misread: 'FT2631190GR',
+      reread: 'FT2631190GR',
+    });
+
+    await bot.handleUpdate(photo(amen));
+    await bot.handleUpdate(textMessage(amen, 'FT2631190GR'));
+    expect(await statusOf(shopA.id, orderId)).toBe('awaiting_payment');
+    expect(lastTo(amen.id)?.text).toContain('could not read the transaction ID');
+
+    await bot.handleUpdate(textMessage(amen, 'FT26311900XYZ'));
+    expect(await statusOf(shopA.id, orderId)).toBe('needs_review');
+    expect(lastTo(ownerA)?.text).toContain('not in the format that its layout prints');
   });
 
   it('answers a product photo without touching the order', async () => {

@@ -1,9 +1,15 @@
 import { Money, type BankCheck } from '@buchi/shared';
 import type { AmountCheck, Check } from './payments.domain';
-import type { ImplausibleReason } from './receipt-reading.domain';
+import type { ImplausibleReason, ReferenceProblem } from './receipt-reading.domain';
 
 /** The design doc's default: without a bank check, Buchi approves on its own only up to this. */
 const AUTO_APPROVE_LIMIT = Money.of('1000.00');
+
+/**
+ * A customer types the reference after the model misread it twice, and gets one more try when
+ * the typed one does not fit either. After that, the owner checks the receipt.
+ */
+const MAX_REFERENCE_ASKS = 2;
 
 /** Rule results once R1 and R2 have passed and R3 to R6 could run. */
 export type CheckedRules = {
@@ -22,6 +28,7 @@ export type DecisionInput =
   | { stage: 'unreadable'; earlierUnreadable: number }
   | { stage: 'unknown_layout' }
   | { stage: 'implausible'; reason: ImplausibleReason }
+  | { stage: 'bad_reference'; problem: ReferenceProblem; earlierAsks: number }
   | {
       stage: 'checked';
       rules: CheckedRules;
@@ -52,7 +59,8 @@ export type Decision =
   | { outcome: 'review'; reason: ReviewReason }
   | { outcome: 'ask_difference'; missing: Money }
   | { outcome: 'ask_full_amount'; paid: Money; due: Money }
-  | { outcome: 'ask_clearer' };
+  | { outcome: 'ask_clearer' }
+  | { outcome: 'ask_reference' };
 
 const review = (reason: ReviewReason): Decision => ({ outcome: 'review', reason });
 
@@ -65,6 +73,10 @@ export function decide(input: DecisionInput): Decision {
       return review('unknown_layout');
     case 'implausible':
       return review(input.reason);
+    case 'bad_reference':
+      return input.earlierAsks < MAX_REFERENCE_ASKS
+        ? { outcome: 'ask_reference' }
+        : review(input.problem);
     case 'checked':
       return decideChecked(input);
   }

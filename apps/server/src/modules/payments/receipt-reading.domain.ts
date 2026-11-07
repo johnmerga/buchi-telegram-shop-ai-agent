@@ -38,12 +38,20 @@ export interface ReadReceipt {
 /** Why a readable receipt goes to the owner before any rule runs. */
 export type ImplausibleReason = 'unparseable' | 'reference_date' | 'amount_total' | 'not_completed';
 
+/** Why the transaction reference alone kept a receipt from being read. */
+export type ReferenceProblem = Extract<ImplausibleReason, 'unparseable' | 'reference_date'>;
+
 /** What code made of a receipt, before rules R3 to R6. */
 export type Reading =
   | { status: 'read'; receipt: ReadReceipt }
   | { status: 'unreadable' }
   | { status: 'unknown_layout' }
-  | { status: 'implausible'; reason: ImplausibleReason };
+  | { status: 'implausible'; reason: ImplausibleReason }
+  /**
+   * Every field read except the transaction reference, which a model can miscopy, such as one of
+   * three zeros in a row. It is worth reading again, or asking the customer to type it.
+   */
+  | { status: 'bad_reference'; provider: ReceiptProvider; problem: ReferenceProblem };
 
 const implausible = (reason: ImplausibleReason): Reading => ({ status: 'implausible', reason });
 
@@ -76,18 +84,21 @@ export function interpretReceipt(
   if (receiver.name === null && receiver.account === null) return unreadable;
 
   const provider = providerOf(layout.value);
-  const txRef = parseReference(provider, printedRef);
   const amount = parsePrintedAmount(printedAmount);
   const paidAt = parsePrintedTime(layout.value, printedTime);
-  if (!txRef || !amount || !paidAt) return implausible('unparseable');
+  if (!amount || !paidAt) return implausible('unparseable');
 
   const status = confident(extraction.status);
   if (status !== undefined && !isCompleted(status)) return implausible('not_completed');
-  if (provider === 'cbe_bank' && !cbeReferenceMatchesDate(txRef, paidAt)) {
-    return implausible('reference_date');
-  }
   const totals = checkTotals(amount, extraction);
   if (totals !== 'pass') return implausible(totals);
+
+  // The reference comes last, so a receipt is read again for it only when nothing else is wrong.
+  const txRef = parseReference(provider, printedRef);
+  if (!txRef) return { status: 'bad_reference', provider, problem: 'unparseable' };
+  if (provider === 'cbe_bank' && !cbeReferenceMatchesDate(txRef, paidAt)) {
+    return { status: 'bad_reference', provider, problem: 'reference_date' };
+  }
 
   const receiverFirstNameOnly = FIRST_NAME_ONLY.includes(layout.value);
   return {
@@ -111,6 +122,11 @@ function checkTotals(
   const parsedCharges = charges.filter((charge) => charge !== undefined);
   if (!total || parsedCharges.length !== charges.length) return 'unparseable';
   return chargesAddUp(amount, parsedCharges, total) ? 'pass' : 'amount_total';
+}
+
+/** The extraction with a transaction reference read again or typed by the customer. */
+export function withReference(extraction: ReceiptExtraction, reference: string): ReceiptExtraction {
+  return { ...extraction, transactionRef: { value: reference, confidence: 1 } };
 }
 
 function confident(field: PrintedField): string | undefined {
@@ -151,20 +167,35 @@ export function readBankPage(provider: ReceiptProvider, page: BankPage): Reading
   };
 }
 
+/** How often this order already asked for a clearer screenshot, and for the reference. */
+export interface EarlierAsks {
+  unreadable: number;
+  reference: number;
+}
+
 /** The rules and decision for a receipt that code could not read as a payment. */
 export function decideUnread(
   reading: Exclude<Reading, { status: 'read' }>,
-  earlierUnreadable: number,
+  earlier: EarlierAsks,
 ): { rules: RuleResults | null; decision: Decision } {
   switch (reading.status) {
     case 'unreadable':
       return {
         rules: { r1: 'fail' },
-        decision: decide({ stage: 'unreadable', earlierUnreadable }),
+        decision: decide({ stage: 'unreadable', earlierUnreadable: earlier.unreadable }),
       };
     case 'unknown_layout':
       return { rules: { r1: 'pass', r2: 'fail' }, decision: decide({ stage: 'unknown_layout' }) };
     case 'implausible':
       return { rules: null, decision: decide({ stage: 'implausible', reason: reading.reason }) };
+    case 'bad_reference':
+      return {
+        rules: null,
+        decision: decide({
+          stage: 'bad_reference',
+          problem: reading.problem,
+          earlierAsks: earlier.reference,
+        }),
+      };
   }
 }

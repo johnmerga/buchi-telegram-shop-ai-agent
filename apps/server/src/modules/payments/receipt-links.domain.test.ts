@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { receiptLinkIn } from './receipt-links.domain';
+import { receiptLinkIn, typedReferenceIn } from './receipt-links.domain';
 
 describe('receiptLinkIn', () => {
   it('reads the transaction number from a Telebirr receipt link', () => {
@@ -38,5 +38,18 @@ describe('receiptLinkIn', () => {
     expect(receiptLinkIn('Is the black one in size 42?')).toBeUndefined();
     expect(receiptLinkIn('FT26400AB12C')).toBeUndefined();
     expect(receiptLinkIn('XFT26310AB12C')).toBeUndefined();
+  });
+});
+
+describe('typedReferenceIn', () => {
+  it('finds a word of letters and digits that may be a reference, in capitals', () => {
+    expect(typedReferenceIn('my id is ft26311900gr')).toBe('FT26311900GR');
+    expect(typedReferenceIn('DK73SSK4JJ')).toBe('DK73SSK4JJ');
+  });
+
+  it('ignores ordinary words, phone numbers, and short codes', () => {
+    expect(typedReferenceIn('thank you, delivered yesterday')).toBeUndefined();
+    expect(typedReferenceIn('call 0911234567')).toBeUndefined();
+    expect(typedReferenceIn('size 42A')).toBeUndefined();
   });
 });

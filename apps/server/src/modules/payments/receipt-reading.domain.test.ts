@@ -1,7 +1,12 @@
 import { Money } from '@buchi/shared';
 import { describe, expect, it } from 'vitest';
 import type { ReceiptExtraction } from './payments.schemas';
-import { decideUnread, interpretReceipt, readBankPage } from './receipt-reading.domain';
+import {
+  decideUnread,
+  interpretReceipt,
+  readBankPage,
+  withReference,
+} from './receipt-reading.domain';
 
 const sure = (value: string | null) => ({ value, confidence: 0.95 });
 const none = sure(null);
@@ -150,8 +155,6 @@ describe('interpretReceipt', () => {
       status: 'implausible',
       reason: 'unparseable',
     });
-    const badRef = { ...telebirrApp, transactionRef: sure('QX41ZB7') };
-    expect(interpretReceipt(badRef, 0.9)).toMatchObject({ reason: 'unparseable' });
     const badTotal = { ...cbeWeb, totalAmount: sure('about 1000') };
     expect(interpretReceipt(badTotal, 0.9)).toMatchObject({ reason: 'unparseable' });
   });
@@ -163,12 +166,37 @@ describe('interpretReceipt', () => {
     });
   });
 
-  it('sends a CBE reference from another day than the printed date to the owner', () => {
+  it('flags a reference alone that does not fit its format, to be read again', () => {
+    const dropped = { ...cbeWeb, transactionRef: sure('FT2618600AB') };
+    expect(interpretReceipt(dropped, 0.9)).toEqual({
+      status: 'bad_reference',
+      provider: 'cbe_bank',
+      problem: 'unparseable',
+    });
+    const short = { ...telebirrApp, transactionRef: sure('QX41ZB7') };
+    expect(interpretReceipt(short, 0.9)).toMatchObject({ provider: 'telebirr' });
+  });
+
+  it('flags a CBE reference from another day than the printed date, to be read again', () => {
     const otherDay = { ...cbeWeb, transactionRef: sure('FT26150AB12C') };
     expect(interpretReceipt(otherDay, 0.9)).toEqual({
-      status: 'implausible',
-      reason: 'reference_date',
+      status: 'bad_reference',
+      provider: 'cbe_bank',
+      problem: 'reference_date',
     });
+  });
+
+  it('reads the receipt with a reference read again or typed', () => {
+    const dropped = { ...cbeWeb, transactionRef: sure('FT2618600AB') };
+    expect(interpretReceipt(withReference(dropped, 'ft26186 ab12c'), 0.9)).toMatchObject({
+      status: 'read',
+      receipt: { txRef: 'FT26186AB12C' },
+    });
+  });
+
+  it('checks everything else before the reference', () => {
+    const both = { ...cbeWeb, transactionRef: sure('FT2618'), amount: sure('1,500.00 ETB') };
+    expect(interpretReceipt(both, 0.9)).toEqual({ status: 'implausible', reason: 'amount_total' });
   });
 
   it('sends an amount that does not fit the printed total to the owner', () => {
@@ -219,24 +247,41 @@ describe('readBankPage', () => {
 });
 
 describe('decideUnread', () => {
+  const asks = { unreadable: 0, reference: 0 };
+
   it('records R1 as failed and asks again for an unreadable receipt', () => {
-    expect(decideUnread({ status: 'unreadable' }, 0)).toEqual({
+    expect(decideUnread({ status: 'unreadable' }, asks)).toEqual({
       rules: { r1: 'fail' },
       decision: { outcome: 'ask_clearer' },
     });
   });
 
   it('records R2 as failed for an unknown layout', () => {
-    expect(decideUnread({ status: 'unknown_layout' }, 0)).toEqual({
+    expect(decideUnread({ status: 'unknown_layout' }, asks)).toEqual({
       rules: { r1: 'pass', r2: 'fail' },
       decision: { outcome: 'review', reason: 'unknown_layout' },
     });
   });
 
   it('runs no rule on an implausible receipt', () => {
-    expect(decideUnread({ status: 'implausible', reason: 'amount_total' }, 0)).toEqual({
+    expect(decideUnread({ status: 'implausible', reason: 'amount_total' }, asks)).toEqual({
       rules: null,
       decision: { outcome: 'review', reason: 'amount_total' },
+    });
+  });
+
+  it('asks the customer for the reference twice, then sends it to the owner', () => {
+    const bad = {
+      status: 'bad_reference',
+      provider: 'cbe_bank',
+      problem: 'reference_date',
+    } as const;
+    expect(decideUnread(bad, { unreadable: 0, reference: 1 }).decision).toEqual({
+      outcome: 'ask_reference',
+    });
+    expect(decideUnread(bad, { unreadable: 0, reference: 2 }).decision).toEqual({
+      outcome: 'review',
+      reason: 'reference_date',
     });
   });
 });

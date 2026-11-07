@@ -62,6 +62,8 @@ export function customerMessage(decision: Decision, order: PaidOrder): string {
       return `ይቅርታ / Sorry, this receipt shows ${formatBirr(decision.paid.toString())}, less than the ${formatBirr(decision.due.toString())} due for order ${reference}. Please send the receipt for the full amount here.`;
     case 'ask_clearer':
       return 'ይቅርታ / Sorry, we could not read the screenshot. Please send a clear screenshot of the whole receipt.';
+    case 'ask_reference':
+      return `ይቅርታ / Sorry, we could not read the transaction ID on your receipt for order ${reference}. Please type it here exactly as printed, such as FT26311900GR for CBE or DK73SSK4JJ for Telebirr.`;
   }
 }
 

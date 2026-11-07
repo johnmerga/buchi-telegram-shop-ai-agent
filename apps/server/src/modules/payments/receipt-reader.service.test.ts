@@ -12,6 +12,7 @@ const extraction = {
   amount: sure('-4,500.00 ETB'),
   serviceCharge: sure('-2.00 ETB'),
   vat: sure(null),
+  otherCharge: sure(null),
   totalAmount: sure(null),
   paidAt: sure('2026/05/11 15:10:00'),
   receiverName: sure('Selam'),

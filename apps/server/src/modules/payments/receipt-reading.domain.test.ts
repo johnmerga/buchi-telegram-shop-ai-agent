@@ -13,6 +13,7 @@ const cbeWeb: ReceiptExtraction = {
   amount: sure('1000.00 ETB'),
   serviceCharge: sure('0.53 ETB'),
   vat: sure('0.08 ETB'),
+  otherCharge: none,
   totalAmount: sure('1000.61 ETB'),
   paidAt: sure('Jul 5, 2026, 11:17 AM'),
   receiverName: sure('Meron Alemu Kebede'),
@@ -87,6 +88,40 @@ describe('interpretReceipt', () => {
     });
     expect(interpretReceipt({ ...success, status: sure('Successful') }, 0.9)).toMatchObject({
       status: 'read',
+    });
+  });
+
+  it("reads the CBE app's payment summary, counting the disaster recovery charge in the total", () => {
+    const summary: ReceiptExtraction = {
+      ...cbeWeb,
+      layout: { value: 'cbe_app_success', confidence: 0.95 },
+      transactionRef: sure('FT2631183Y49'),
+      amount: sure('ETB 6.59'),
+      serviceCharge: sure('ETB0.50'),
+      vat: sure('ETB0.08'),
+      otherCharge: sure('ETB0.03'),
+      totalAmount: sure('ETB7.20'),
+      paidAt: sure('Nov 07, 2026 11:28 AM'),
+      receiverAccount: sure('ETB-4321'),
+      status: sure('Transaction Completed Successfully!'),
+    };
+    expect(interpretReceipt(summary, 0.9)).toEqual({
+      status: 'read',
+      receipt: {
+        provider: 'cbe_bank',
+        txRef: 'FT2631183Y49',
+        amount: Money.of('6.59'),
+        receiver: { name: 'Meron Alemu Kebede', account: 'ETB-4321' },
+        receiverFirstNameOnly: false,
+        paidAt: new Date('2026-11-07T08:28:00Z'),
+      },
+    });
+    const largerCharge = { ...summary, amount: sure('ETB 5.59'), otherCharge: sure('ETB 1.03') };
+    expect(interpretReceipt(largerCharge, 0.9)).toMatchObject({ status: 'read' });
+    const edited = { ...summary, amount: sure('ETB 16.59') };
+    expect(interpretReceipt(edited, 0.9)).toEqual({
+      status: 'implausible',
+      reason: 'amount_total',
     });
   });
 

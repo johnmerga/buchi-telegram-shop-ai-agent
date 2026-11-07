@@ -16,6 +16,7 @@ const providers: Record<KnownLayout, ReceiptProvider> = {
   telebirr_app_success: 'telebirr',
   telebirr_web: 'telebirr',
   cbe_app: 'cbe_bank',
+  cbe_app_success: 'cbe_bank',
   cbe_web: 'cbe_bank',
   cbe_pdf: 'cbe_bank',
 };
@@ -60,13 +61,15 @@ function dayOfYear(time: number): { year: number; day: number } {
 }
 
 /**
- * An amount as a receipt prints it, such as "-3,500.00 ETB", "-19.00 (ETB)", or "20 Birr". App
- * screens print the payer's debit with a minus sign, which says nothing about the amount itself.
+ * An amount as a receipt prints it, such as "-3,500.00 ETB", "-19.00 (ETB)", "20 Birr", or
+ * "ETB7.20". App screens print the payer's debit with a minus sign, which says nothing about the
+ * amount itself.
  */
 export function parsePrintedAmount(printed: string): Money | undefined {
-  const match = /^-?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d{1,2})?\s*(?:\(?(?:ETB|Birr|ብር)\)?)?$/i.exec(
-    printed.trim(),
-  );
+  const match =
+    /^(?:ETB\s*)?-?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d{1,2})?\s*(?:\(?(?:ETB|Birr|ብር)\)?)?$/i.exec(
+      printed.trim(),
+    );
   if (!match?.[1]) return undefined;
   return Money.of(`${match[1].replace(/,/g, '')}${match[2] ?? ''}`);
 }
@@ -78,11 +81,24 @@ export function chargesAddUp(amount: Money, charges: Money[], total: Money): boo
   return difference.compare(TOTAL_TOLERANCE) < 0;
 }
 
-/** Detail screens and pages print "Completed", and the Telebirr app's payment screen "Successful". */
-const COMPLETED_STATUSES = ['completed', 'successful', 'success'];
+/**
+ * Detail screens and pages print "Completed", the Telebirr app's payment screen "Successful", and
+ * the CBE app's "Success" or "Transaction Completed Successfully!".
+ */
+const COMPLETED_STATUSES = [
+  'completed',
+  'successful',
+  'success',
+  'transaction completed successfully',
+];
 
 export function isCompleted(status: string): boolean {
-  return COMPLETED_STATUSES.includes(status.trim().toLowerCase());
+  return COMPLETED_STATUSES.includes(
+    status
+      .trim()
+      .replace(/[.!]+$/, '')
+      .toLowerCase(),
+  );
 }
 
 interface LocalTime {
@@ -97,6 +113,12 @@ interface LocalTime {
 const TELEBIRR_APP_TIME = /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/** The CBE web page and the app's payment screen print "Nov 07, 2026 11:28 AM". */
+function monthNameTime(printed: string): LocalTime | undefined {
+  const m = /^([a-z]{3}) (\d{1,2}), (\d{4}),? (\d{1,2}):(\d{2}) ?([ap]m)$/i.exec(printed);
+  return m ? local(m[3], monthOf(m[1]), m[2], twelveHour(m[4], m[6]), m[5], '0') : undefined;
+}
 
 /**
  * Each layout's own date format. The Telebirr app's "Transaction Detail" screen prints
@@ -122,10 +144,8 @@ const timeFormats: Record<KnownLayout, (printed: string) => LocalTime | undefine
       ? local(`20${m[3] ?? ''}`, monthOf(m[2]), m[1], twelveHour(m[4], m[6]), m[5], '0')
       : undefined;
   },
-  cbe_web: (printed) => {
-    const m = /^([a-z]{3}) (\d{1,2}), (\d{4}),? (\d{1,2}):(\d{2}) ?([ap]m)$/i.exec(printed);
-    return m ? local(m[3], monthOf(m[1]), m[2], twelveHour(m[4], m[6]), m[5], '0') : undefined;
-  },
+  cbe_app_success: monthNameTime,
+  cbe_web: monthNameTime,
   cbe_pdf: (printed) => {
     const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4}),? (\d{1,2}):(\d{2})(?::(\d{2}))? ?([ap]m)$/i.exec(
       printed,

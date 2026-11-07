@@ -15,6 +15,7 @@ export const receiptLayouts = [
   'telebirr_app_success',
   'telebirr_web',
   'cbe_app',
+  'cbe_app_success',
   'cbe_web',
   'cbe_pdf',
   'unknown',
@@ -38,6 +39,8 @@ export const receiptExtractionSchema = z.object({
   amount: printed,
   serviceCharge: printed,
   vat: printed,
+  /** A further charge, such as CBE's "Disaster Recovery (5%)". */
+  otherCharge: printed,
   totalAmount: printed,
   paidAt: printed,
   receiverName: printed,

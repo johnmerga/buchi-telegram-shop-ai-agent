@@ -1,4 +1,4 @@
-import { productInputSchema } from '@buchi/shared';
+import { Money, productInputSchema } from '@buchi/shared';
 import { Api } from 'grammy';
 import type { Chat, Update, User } from 'grammy/types';
 import { pino } from 'pino';
@@ -108,13 +108,13 @@ const checkout = new CheckoutService(
 
 /** The model's answers, in order. Each test adds the turns it needs. */
 const script: ScriptedTurn[] = [];
-/** The fake Telebirr receipt pages, by transaction number. */
-const telebirrPages = new Map<string, BankReceipt>();
+/** The fake Telebirr and CBE receipt pages, by transaction number. */
+const bankPages = new Map<string, BankReceipt>();
 /** Whether the fake receipt pages answer at all. */
 let bankUp = true;
 const bank = {
   read: (_provider: string, txRef: string): Promise<PageReading> =>
-    Promise.resolve(bankUp ? (telebirrPages.get(txRef) ?? 'NOT_FOUND') : 'UNAVAILABLE'),
+    Promise.resolve(bankUp ? (bankPages.get(txRef) ?? 'NOT_FOUND') : 'UNAVAILABLE'),
 };
 
 interface Call {
@@ -261,9 +261,20 @@ async function setUpShop(
   shop: typeof shopA,
   owner: number,
   account: { accountName: string; accountNumber: string },
+  cbeAccountNumber?: string,
 ) {
   shop.id = await shops.create(owner, { name: `Shop ${String(owner)}` });
-  await shops.setPaymentAccounts(shop.id, [{ provider: 'telebirr', ...account }]);
+  const cbe =
+    cbeAccountNumber === undefined
+      ? []
+      : [
+          {
+            provider: 'cbe_bank' as const,
+            accountName: account.accountName,
+            accountNumber: cbeAccountNumber,
+          },
+        ];
+  await shops.setPaymentAccounts(shop.id, [{ provider: 'telebirr', ...account }, ...cbe]);
   for (const [price, key] of [
     ['4500', 'bigVariant'],
     ['800', 'smallVariant'],
@@ -321,6 +332,7 @@ function receiptScript(fields: {
         amount: sure(`${fields.amount} Birr`),
         serviceCharge: absent,
         vat: absent,
+        otherCharge: absent,
         totalAmount: absent,
         paidAt: sure(paidAt),
         receiverName: sure(fields.receiver),
@@ -332,7 +344,7 @@ function receiptScript(fields: {
     },
   );
   if (fields.onBank === false) return;
-  telebirrPages.set(fields.ref, {
+  bankPages.set(fields.ref, {
     txRef: fields.ref,
     amount: fields.amount,
     receiver: { name: fields.receiver, account: fields.account },
@@ -357,6 +369,7 @@ function paymentScreenScript(fields: { ref: string; total: string; firstName: st
         amount: sure(`-${fields.total} (ETB)`),
         serviceCharge: absent,
         vat: absent,
+        otherCharge: absent,
         totalAmount: absent,
         paidAt: sure(`${yyyy ?? ''}/${mm ?? ''}/${dd ?? ''} ${time}`),
         receiverName: sure(fields.firstName),
@@ -367,6 +380,49 @@ function paymentScreenScript(fields: { ref: string; total: string; firstName: st
       }),
     },
   );
+}
+
+/**
+ * The CBE app's summary right after a transfer, one sentence with the masked accounts. The bank's
+ * PDF page shows the same transfer, with its time as month/day/year.
+ */
+function cbeSummaryScript(fields: { amount: string; receiver: string; account: string }) {
+  const now = new Date(Date.now() + 60_000 + 3 * 60 * 60_000);
+  const month = now.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  const hour = now.getUTCHours() % 12 || 12;
+  const minute = String(now.getUTCMinutes()).padStart(2, '0');
+  const half = now.getUTCHours() < 12 ? 'AM' : 'PM';
+  const day = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86_400_000) + 1;
+  const ref = `FT${String(now.getUTCFullYear()).slice(2)}${String(day).padStart(3, '0')}CB12E`;
+  script.push(
+    { text: JSON.stringify({ kind: 'receipt', confidence: 0.97 }) },
+    {
+      text: JSON.stringify({
+        layout: sure('cbe_app_success'),
+        transactionRef: sure(ref),
+        amount: sure(`ETB ${fields.amount}`),
+        serviceCharge: sure('ETB0.50'),
+        vat: sure('ETB0.08'),
+        otherCharge: sure('ETB0.03'),
+        totalAmount: sure(`ETB${Money.of(fields.amount).add(Money.of('0.61')).toString()}`),
+        paidAt: sure(
+          `${month} ${String(now.getUTCDate()).padStart(2, '0')}, ${String(now.getUTCFullYear())} ${String(hour).padStart(2, '0')}:${minute} ${half}`,
+        ),
+        receiverName: sure(fields.receiver),
+        receiverAccount: sure(fields.account),
+        payerName: sure('Birtukan Lemma'),
+        payerAccount: sure('ETB-3154'),
+        status: sure('Transaction Completed Successfully!'),
+      }),
+    },
+  );
+  bankPages.set(ref, {
+    txRef: ref,
+    amount: fields.amount,
+    receiver: { name: fields.receiver, account: '1****6038' },
+    completed: true,
+    paidAt: `${String(now.getUTCMonth() + 1)}/${String(now.getUTCDate())}/${String(now.getUTCFullYear())}, ${String(hour)}:${minute}:00 ${half}`,
+  });
 }
 
 const toShopA = { receiver: 'SELAM TESFAYE', account: '2519****4567' };
@@ -381,7 +437,12 @@ const variantOf = async (shopId: string, variantId: string) =>
 const markupOf = (call: Call | undefined) => JSON.stringify(call?.payload.reply_markup);
 
 beforeAll(async () => {
-  await setUpShop(shopA, ownerA, { accountName: 'Selam Tesfaye', accountNumber: '0911234567' });
+  await setUpShop(
+    shopA,
+    ownerA,
+    { accountName: 'Selam Tesfaye', accountNumber: '0911234567' },
+    '1000123456038',
+  );
   await setUpShop(shopB, ownerB, { accountName: 'Abel Girma', accountNumber: '0922000000' });
 });
 
@@ -459,7 +520,7 @@ describe('a payment screenshot', () => {
     const eden = userOf(424316, 'Eden');
     const orderId = await order(eden, shopA.id, shopA.smallVariant);
     paymentScreenScript({ ref: 'KKKK121212', total: '801.00', firstName: 'SELAM' });
-    telebirrPages.set('KKKK121212', {
+    bankPages.set('KKKK121212', {
       txRef: 'KKKK121212',
       amount: '800',
       receiver: { name: 'SELAM TESFAYE ALEMU', account: toShopA.account },
@@ -497,6 +558,17 @@ describe('a payment screenshot', () => {
     expect(lastTo(bethel.id)?.text).toContain('shows 500.00 ብር, less than the 800.00 ብር due');
   });
 
+  it("pays from the CBE page after reading the CBE app's payment summary", async () => {
+    const tsion = userOf(424319, 'Tsion');
+    const orderId = await order(tsion, shopA.id, shopA.smallVariant);
+    cbeSummaryScript({ amount: '800.00', receiver: 'Selam Tesfaye', account: 'ETB-6038' });
+
+    await bot.handleUpdate(photo(tsion));
+
+    expect(await statusOf(shopA.id, orderId)).toBe('paid');
+    expect(lastTo(ownerA)?.text).toContain('bank-verified');
+  });
+
   it('answers a product photo without touching the order', async () => {
     const liya = userOf(424305, 'Liya');
     const orderId = await order(liya, shopA.id, shopA.smallVariant);
@@ -513,7 +585,7 @@ describe('a receipt link', () => {
   it('pays the order from the Telebirr page that the link opens, without the model', async () => {
     const selam = userOf(424321, 'Selamawit');
     const orderId = await order(selam, shopA.id, shopA.smallVariant);
-    telebirrPages.set('LINK123456', {
+    bankPages.set('LINK123456', {
       txRef: 'LINK123456',
       amount: '800',
       receiver: { name: toShopA.receiver, account: toShopA.account },
@@ -544,7 +616,7 @@ describe('a receipt link', () => {
   it('closes the order on a rejected link, whose Report a problem reaches the owners', async () => {
     const mekdes = userOf(424323, 'Mekdes');
     const orderId = await order(mekdes, shopA.id, shopA.smallVariant);
-    telebirrPages.set('LINK654321', {
+    bankPages.set('LINK654321', {
       txRef: 'LINK654321',
       amount: '800',
       receiver: { name: toShopA.receiver, account: toShopA.account },

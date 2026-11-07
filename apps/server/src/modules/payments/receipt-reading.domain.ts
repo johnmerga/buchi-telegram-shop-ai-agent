@@ -103,7 +103,7 @@ function checkTotals(
 ): 'pass' | 'unparseable' | 'amount_total' {
   const printedTotal = confident(extraction.totalAmount);
   if (printedTotal === undefined) return 'pass';
-  const printedCharges = [extraction.serviceCharge, extraction.vat].flatMap(
+  const printedCharges = [extraction.serviceCharge, extraction.vat, extraction.otherCharge].flatMap(
     (field) => confident(field) ?? [],
   );
   const total = parsePrintedAmount(printedTotal);

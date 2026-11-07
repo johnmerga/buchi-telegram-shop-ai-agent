@@ -43,6 +43,12 @@ describe('parsePrintedTime', () => {
     );
   });
 
+  it("reads the CBE app's payment summary time like the web receipt's", () => {
+    expect(parsePrintedTime('cbe_app_success', 'Nov 07, 2026 04:08 AM')).toEqual(
+      utc('2026-11-07T01:08:00Z'),
+    );
+  });
+
   it('reads the CBE PDF time as month/day/year', () => {
     expect(parsePrintedTime('cbe_pdf', '7/3/2026, 8:16:00 PM')).toEqual(
       utc('2026-07-03T17:16:00Z'),
@@ -69,6 +75,11 @@ describe('parsePrintedAmount', () => {
     expect(parsePrintedAmount('-19.00 (ETB)')?.toString()).toBe('19.00');
     expect(parsePrintedAmount('1000.61')?.toString()).toBe('1000.61');
     expect(parsePrintedAmount('1,234,567.5 ETB')?.toString()).toBe('1234567.50');
+  });
+
+  it('reads the currency before the amount, with or without a space', () => {
+    expect(parsePrintedAmount('ETB 6.59')?.toString()).toBe('6.59');
+    expect(parsePrintedAmount('ETB7.20')?.toString()).toBe('7.20');
   });
 
   it('rejects text, misplaced commas, and three decimals', () => {
@@ -138,12 +149,14 @@ describe('providerOf and isCompleted', () => {
   it('maps each layout to its provider', () => {
     expect(providerOf('telebirr_app')).toBe('telebirr');
     expect(providerOf('cbe_pdf')).toBe('cbe_bank');
+    expect(providerOf('cbe_app_success')).toBe('cbe_bank');
   });
 
   it('reads the printed status in any case', () => {
     expect(isCompleted('COMPLETED')).toBe(true);
     expect(isCompleted('Successful')).toBe(true);
     expect(isCompleted('success')).toBe(true);
+    expect(isCompleted('Transaction Completed Successfully!')).toBe(true);
     expect(isCompleted('Pending')).toBe(false);
   });
 });

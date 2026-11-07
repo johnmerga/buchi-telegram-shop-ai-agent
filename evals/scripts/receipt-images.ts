@@ -638,7 +638,8 @@ const cases: Case[] = [
     expected: {
       layout: 'cbe_app',
       fields: fields('FT26250AB7Q1', '640.00', '2026-11-05T07:05:00.000Z', MERON),
-      decision: 'review:reference_date',
+      // The edited day reads as a misread reference, so Buchi asks the customer to type it.
+      decision: 'ask_reference',
     },
   },
   {
@@ -677,6 +678,45 @@ const cases: Case[] = [
     expected: {
       layout: 'cbe_app_success',
       fields: fields('FT26309QW7RD', '650.00', '2026-11-05T11:40:00.000Z', MERON),
+      decision: 'approve',
+    },
+  },
+  {
+    id: 'cbe-app-summary-repeated-zeros',
+    receipt: cbeAppSuccess({
+      lines: [
+        [
+          ['ETB ', false],
+          ['17.50', true],
+          [' has been debited from ', false],
+        ],
+        [
+          ['Dawit Hailu Mekonnen', true],
+          [' ETB-5520 for ', false],
+        ],
+        [
+          ['Meron Alemu Kebede', true],
+          [' ETB-1234 on ', false],
+          ['Nov 05,', true],
+        ],
+        [
+          ['2026 12:10 PM', true],
+          [' with transaction ID:', false],
+        ],
+        [
+          ['FT26309000KR', true],
+          ['. Reason: MB Transfer', false],
+        ],
+        [['Total Amount Debited: ETB18.11 with', false]],
+        [['Service Charge of ETB0.50, VAT (15%) of', false]],
+        [['ETB0.08 and Disaster Recovery (5%) of', false]],
+        [['ETB0.03.', false]],
+      ],
+    }),
+    input: order('17.50', '2026-11-05T09:05:00Z'),
+    expected: {
+      layout: 'cbe_app_success',
+      fields: fields('FT26309000KR', '17.50', '2026-11-05T09:10:00.000Z', MERON),
       decision: 'approve',
     },
   },

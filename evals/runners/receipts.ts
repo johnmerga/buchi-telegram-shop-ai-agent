@@ -23,11 +23,8 @@ import {
   parseReference,
   providerOf,
 } from '@buchi/server/modules/payments/receipt-layouts.domain';
-import {
-  decideUnread,
-  interpretReceipt,
-  type Reading,
-} from '@buchi/server/modules/payments/receipt-reading.domain';
+import { decideUnread, type Reading } from '@buchi/server/modules/payments/receipt-reading.domain';
+import { readScreenshot } from '@buchi/server/modules/payments/screenshot-reading';
 import { pino } from 'pino';
 import { z } from 'zod';
 import { defineSuite, type Suite } from '../harness/suite';
@@ -73,9 +70,9 @@ interface Actual {
 }
 
 /**
- * The receipt reader on synthetic screenshots of the six known layouts, edited copies, and an
- * unknown layout: the model copies the text, code reads it, and the rules decide offline, as
- * when the bank's page is unavailable.
+ * The receipt reader on synthetic screenshots of the known layouts, edited copies, and an
+ * unknown layout: the model copies the text, code reads it, a reference that does not fit is
+ * copied once more, and the rules decide offline, as when the bank's page is unavailable.
  */
 export function receiptsSuite(): Suite {
   const logger = pino({ level: 'silent' });
@@ -83,10 +80,10 @@ export function receiptsSuite(): Suite {
   async function run(testCase: z.output<typeof input>, model: LanguageModel): Promise<Actual> {
     const data = (await readFile(`${imagesDir}${testCase.image}`)).toString('base64');
     const reader = new ReceiptReader(model, logger);
-    const extraction = await reader.extract({ mimeType: 'image/jpeg', data });
-    if (!extraction) return { layout: null, fields: null, decision: 'review:extraction_failed' };
     // Classification is a separate step, so the extraction alone decides here.
-    const reading = interpretReceipt(extraction, null);
+    const read = await readScreenshot(reader, { mimeType: 'image/jpeg', data }, null);
+    if (!read) return { layout: null, fields: null, decision: 'review:extraction_failed' };
+    const { extraction, reading } = read;
     return {
       layout: extraction.layout.value,
       fields: fieldsOf(extraction),
@@ -130,7 +127,8 @@ function fieldsOf(extraction: ReceiptExtraction): Actual['fields'] {
 
 /** The decision for one order, with the bank's page unavailable and a payer without history. */
 function decisionOf(reading: Reading, testCase: z.output<typeof input>): Decision {
-  if (reading.status !== 'read') return decideUnread(reading, 0).decision;
+  if (reading.status !== 'read')
+    return decideUnread(reading, { unreadable: 0, reference: 0 }).decision;
   const { receipt } = reading;
   const due = Money.of(testCase.orderTotal);
   const rules: CheckedRules = {

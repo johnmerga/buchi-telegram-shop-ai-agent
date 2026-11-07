@@ -382,7 +382,7 @@
       "parts": [
         {
           "text": "{\n  \"layout\": {\n    \"value\": \"cbe_pdf\",\n    \"confidence\": 1\n  },\n  \"transactionRef\": {\n    \"value\": \"FT26309QW3RT\",\n    \"confidence\": 1\n  },\n  \"amount\": {\n    \"value\": \"900.00 ETB\",\n    \"confidence\": 1\n  },\n  \"serviceCharge\": {\n    \"value\": \"0.53 ETB\",\n    \"confidence\": 1\n  },\n  \"vat\": {\n    \"value\": \"0.08 ETB\",\n    \"confidence\": 1\n  },\n  \"otherCharge\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"totalAmount\": {\n    \"value\": \"900.61 ETB\",\n    \"confidence\": 1\n  },\n  \"paidAt\": {\n    \"value\": \"11/5/2026, 4:40:00 PM\",\n    \"confidence\": 1\n  },\n  \"receiverName\": {\n    \"value\": \"MERON ALEMU KEBEDE\",\n    \"confidence\": 1\n  },\n  \"receiverAccount\": {\n    \"value\": \"1****1234\",\n    \"confidence\": 1\n  },\n  \"payerName\": {\n    \"value\": \"TSION GETACHEW MEKONNEN\",\n    \"confidence\": 1\n  },\n  \"payerAccount\": {\n    \"value\": \"1****3307\",\n    \"confidence\": 1\n  },\n  \"status\": {\n    \"value\": null,\n    \"confidence\": 1\n  }\n}",
-          "thoughtSignature": "EmAKXgFpFH0TfsYt8wCwD6q3YnROrPEluESAamNYrYYI4C0KB1UZdTG5yN50h/tYDKEnsE08SOCsQ7uFwJLocxQnKM/ESoMmbIsy/U9Umf77+f+f3jAEkW/9D5rqRbgp47w="
+          "thoughtSignature": "EmAKXgFpFH0ThoC0izCxXt0bwJGQnYtzmBNkfTUa7ntQsMkKnbwrz8xiMjjdL7zXEnOwe2B5igpkc8KLiAmRYGeT4FHRu8kFZeowYQvA7hk7x117X+mPh3nwPFNFMH9pKuQ="
         }
       ],
       "role": "model"

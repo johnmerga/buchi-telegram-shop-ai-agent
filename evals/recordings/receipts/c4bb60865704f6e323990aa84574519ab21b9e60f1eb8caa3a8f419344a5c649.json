@@ -382,7 +382,7 @@
       "parts": [
         {
           "text": "{\n  \"layout\": {\n    \"value\": \"telebirr_app\",\n    \"confidence\": 1\n  },\n  \"transactionRef\": {\n    \"value\": \"HB7Q2WD9LM\",\n    \"confidence\": 1\n  },\n  \"amount\": {\n    \"value\": \"-500.00 ETB\",\n    \"confidence\": 1\n  },\n  \"serviceCharge\": {\n    \"value\": \"-1.00 ETB\",\n    \"confidence\": 1\n  },\n  \"vat\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"otherCharge\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"totalAmount\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"paidAt\": {\n    \"value\": \"2026/05/11 09:05:44\",\n    \"confidence\": 1\n  },\n  \"receiverName\": {\n    \"value\": \"Liya\",\n    \"confidence\": 1\n  },\n  \"receiverAccount\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"payerName\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"payerAccount\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"status\": {\n    \"value\": \"Completed\",\n    \"confidence\": 1\n  }\n}",
-          "thoughtSignature": "EmAKXgFpFH0TVN7DLucoNQvYQdmGAOsIIyN1wzan6PJ5F7BM72pEpIcyR2DV2Ek9dniDnX8g85t5HoliXdvLCYJOeTMYZiwgGbqhQSfYt386+iCggNmABV3LEW6GzXnjwKE="
+          "thoughtSignature": "EmAKXgFpFH0TdXsdunA7G9N8qq/9sFT3DW/OPr8UenXA82z1Joy3XJVGMWvWoPHvcuYJksV78XXWjCoL/hfaqidVV8NcDyernRSya4exbym2RHGvm0SshiaYSFLkQefIXHA="
         }
       ],
       "role": "model"

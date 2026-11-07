@@ -382,7 +382,7 @@
       "parts": [
         {
           "text": "{\n  \"layout\": {\n    \"value\": \"telebirr_web\",\n    \"confidence\": 1\n  },\n  \"transactionRef\": {\n    \"value\": \"RW8N4DK7PB\",\n    \"confidence\": 1\n  },\n  \"amount\": {\n    \"value\": \"2,400 Birr\",\n    \"confidence\": 1\n  },\n  \"serviceCharge\": {\n    \"value\": \"2.08 Birr\",\n    \"confidence\": 1\n  },\n  \"vat\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"otherCharge\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"totalAmount\": {\n    \"value\": \"2,402 Birr\",\n    \"confidence\": 1\n  },\n  \"paidAt\": {\n    \"value\": \"05-11-2026 10:02:51\",\n    \"confidence\": 1\n  },\n  \"receiverName\": {\n    \"value\": \"LIYA BEKELE TADESSE\",\n    \"confidence\": 1\n  },\n  \"receiverAccount\": {\n    \"value\": \"2519****3344\",\n    \"confidence\": 1\n  },\n  \"payerName\": {\n    \"value\": \"Hana Girma Wolde\",\n    \"confidence\": 1\n  },\n  \"payerAccount\": {\n    \"value\": \"2519****7012\",\n    \"confidence\": 1\n  },\n  \"status\": {\n    \"value\": \"Completed\",\n    \"confidence\": 1\n  }\n}",
-          "thoughtSignature": "EmAKXgFpFH0TD0DaN/3Tss4P0+8fkMFVdtkFqqP6JTsYbA4kRWkcMsK9aum4iN1j6o6FNecLzCFFyKXY6AgBrvXLT2/2WohbBNXErYL4SRtp+Mw+ye9NL5XW2P2bCVS0DzA="
+          "thoughtSignature": "EmAKXgFpFH0TA2IBVrRcGk9jjx+w84xwA0Rx8U03wOhM1V10lbgNyTn0Sj95yZchuyBndJxW/lRC17bNFiAKYnlH2htTMXbOtehOdc/A53PMJSfPXhZ0LUHWQopAZI2LkYE="
         }
       ],
       "role": "model"

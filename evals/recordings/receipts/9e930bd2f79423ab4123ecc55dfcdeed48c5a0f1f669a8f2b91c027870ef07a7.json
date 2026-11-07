@@ -382,7 +382,7 @@
       "parts": [
         {
           "text": "{\n  \"layout\": {\n    \"value\": \"cbe_app\",\n    \"confidence\": 0.95\n  },\n  \"transactionRef\": {\n    \"value\": \"FT26309B7WQ5\",\n    \"confidence\": 0.95\n  },\n  \"amount\": {\n    \"value\": \"-920.00 ETB\",\n    \"confidence\": 0.95\n  },\n  \"serviceCharge\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"vat\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"otherCharge\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"totalAmount\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"paidAt\": {\n    \"value\": \"04-Nov-26 8:45 PM\",\n    \"confidence\": 0.95\n  },\n  \"receiverName\": {\n    \"value\": \"Meron Alemu Kebede\",\n    \"confidence\": 0.95\n  },\n  \"receiverAccount\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"payerName\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"payerAccount\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"status\": {\n    \"value\": \"Completed\",\n    \"confidence\": 0.95\n  }\n}",
-          "thoughtSignature": "EmAKXgFpFH0TfMAwiXtfRNvBj+WoXagpNFwRbasOZEI/GfD5nu7ZmUBnL6H+DKD5j6swVkumBBW9xYwhGiMnG8Oj4BYL9lsWso/B9mHWWSSR2L2Q6SMdLHuH/d5QHL8dQco="
+          "thoughtSignature": "EmAKXgFpFH0TKLpsbXVCRrZ0vRBf6Dxzd/bgDqXfqpGy0WyiU/AWsEGZXUgJ1FOEXikGVeZn5igzRRMyc+QTRRMbTPyesMJd+Dq/pfr5HokWHfbhFCHius4rYB3EnlTyoXQ="
         }
       ],
       "role": "model"

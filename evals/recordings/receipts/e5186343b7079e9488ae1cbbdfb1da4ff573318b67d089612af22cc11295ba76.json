@@ -382,7 +382,7 @@
       "parts": [
         {
           "text": "{\n  \"layout\": {\n    \"value\": \"cbe_web\",\n    \"confidence\": 0.95\n  },\n  \"transactionRef\": {\n    \"value\": \"FT26309RZ6KC\",\n    \"confidence\": 1.0\n  },\n  \"amount\": {\n    \"value\": \"1,500.00 ETB\",\n    \"confidence\": 1.0\n  },\n  \"serviceCharge\": {\n    \"value\": \"0.53 ETB\",\n    \"confidence\": 1.0\n  },\n  \"vat\": {\n    \"value\": \"0.08 ETB\",\n    \"confidence\": 1.0\n  },\n  \"otherCharge\": {\n    \"value\": null,\n    \"confidence\": 1.0\n  },\n  \"totalAmount\": {\n    \"value\": \"1000.61 ETB\",\n    \"confidence\": 1.0\n  },\n  \"paidAt\": {\n    \"value\": \"Nov 5, 2026, 2:26 PM\",\n    \"confidence\": 1.0\n  },\n  \"receiverName\": {\n    \"value\": \"Meron Alemu Kebede\",\n    \"confidence\": 1.0\n  },\n  \"receiverAccount\": {\n    \"value\": \"1****1234\",\n    \"confidence\": 1.0\n  },\n  \"payerName\": {\n    \"value\": \"Abel Tadesse Wolde\",\n    \"confidence\": 1.0\n  },\n  \"payerAccount\": {\n    \"value\": \"1****4410\",\n    \"confidence\": 1.0\n  },\n  \"status\": {\n    \"value\": \"COMPLETED\",\n    \"confidence\": 1.0\n  }\n}",
-          "thoughtSignature": "EmAKXgFpFH0TApIuxTNBRtvl0Y/H6HX1Pq/8y7o2gNlhxSD9xmanTIEUWQHxhbZKxnwH0bNLhllv2CWt/RfvyislVfUtipFntyw6vxFLqg/JcsVeW4m/8OTlarFZQuR0Sko="
+          "thoughtSignature": "EmAKXgFpFH0T6YKkOMDnQyYshEW2ko+RPuXPBGpultGOY85XdbMun3mcN96NBc4ibctULRMfZvFCiFYzyAnvLxSL1wCL1Eltsg6nAweJ4qSsnVJcHz2UZsBWxUTCCXjfB5M="
         }
       ],
       "role": "model"

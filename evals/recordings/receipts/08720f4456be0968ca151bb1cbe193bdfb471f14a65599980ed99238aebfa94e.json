@@ -382,7 +382,7 @@
       "parts": [
         {
           "text": "{\n  \"layout\": {\n    \"value\": \"telebirr_web\",\n    \"confidence\": 1\n  },\n  \"transactionRef\": {\n    \"value\": \"KD2M7XQ4NE\",\n    \"confidence\": 1\n  },\n  \"amount\": {\n    \"value\": \"450 Birr\",\n    \"confidence\": 1\n  },\n  \"serviceCharge\": {\n    \"value\": \"0.39 Birr\",\n    \"confidence\": 1\n  },\n  \"vat\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"otherCharge\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"totalAmount\": {\n    \"value\": \"450 Birr\",\n    \"confidence\": 1\n  },\n  \"paidAt\": {\n    \"value\": \"05-11-2026 12:21:09\",\n    \"confidence\": 1\n  },\n  \"receiverName\": {\n    \"value\": \"LIYA BEKELE TADESSE\",\n    \"confidence\": 1\n  },\n  \"receiverAccount\": {\n    \"value\": \"2519****3344\",\n    \"confidence\": 1\n  },\n  \"payerName\": {\n    \"value\": \"Samuel Tesfaye Alemu\",\n    \"confidence\": 1\n  },\n  \"payerAccount\": {\n    \"value\": \"2519****8890\",\n    \"confidence\": 1\n  },\n  \"status\": {\n    \"value\": \"Completed\",\n    \"confidence\": 1\n  }\n}",
-          "thoughtSignature": "EmAKXgFpFH0TVXPvEtI118Dbt5rJb17hpL7YXDViGzYrbTsdmmGgnRAeOI+FgoTPLsrQXVr9wQi/mw0lg9wFivEpQEU8bu/HL9ykZS4K5eqkRUBiM6L8Cussma+jnpd6llM="
+          "thoughtSignature": "EmAKXgFpFH0TjG4KbB37B1e4v77Y6RUerSLhSba0BvltGCPf15vOYh3jUaM+dal24WGVIui2ViZYPasPYVFRo8HBFXnq+hymoolm8tcVL+ScRen8NFVM4kTDBCaiIJAJ0Ro="
         }
       ],
       "role": "model"

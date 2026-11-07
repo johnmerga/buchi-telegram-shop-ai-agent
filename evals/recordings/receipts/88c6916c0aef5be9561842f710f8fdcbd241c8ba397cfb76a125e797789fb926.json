@@ -382,7 +382,7 @@
       "parts": [
         {
           "text": "{\n  \"layout\": {\n    \"value\": \"telebirr_web\",\n    \"confidence\": 1\n  },\n  \"transactionRef\": {\n    \"value\": \"MC5T9EJ2RA\",\n    \"confidence\": 1\n  },\n  \"amount\": {\n    \"value\": \"600 Birr\",\n    \"confidence\": 1\n  },\n  \"serviceCharge\": {\n    \"value\": \"0.52 Birr\",\n    \"confidence\": 1\n  },\n  \"vat\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"otherCharge\": {\n    \"value\": null,\n    \"confidence\": 1\n  },\n  \"totalAmount\": {\n    \"value\": \"601 Birr\",\n    \"confidence\": 1\n  },\n  \"paidAt\": {\n    \"value\": \"05-11-2026 16:48:27\",\n    \"confidence\": 1\n  },\n  \"receiverName\": {\n    \"value\": \"LIYA BEKELE TADESSE\",\n    \"confidence\": 1\n  },\n  \"receiverAccount\": {\n    \"value\": \"2519****3344\",\n    \"confidence\": 1\n  },\n  \"payerName\": {\n    \"value\": \"Dawit Hailu Gebre\",\n    \"confidence\": 1\n  },\n  \"payerAccount\": {\n    \"value\": \"2519****5521\",\n    \"confidence\": 1\n  },\n  \"status\": {\n    \"value\": \"Completed\",\n    \"confidence\": 1\n  }\n}",
-          "thoughtSignature": "EmAKXgFpFH0TNUDPG5cu+35PV7ZiyKgIEzCiXFtZ5ZMf53jAeyJjDQtHettYR5USPK2Pr7C3vOqGww43Kmq4G9Qsu/MtR85Ahs0Ro0Nre5n2X7Hus6GLQUJI/3DzcP/yoW4="
+          "thoughtSignature": "EmAKXgFpFH0T2fZqydMBpS20dRHDwxPlBAWpHe6McUfnrPvi0kr5sP/jNMvdZyxx6FBn4KENSa09FrocIi+LNg9T8cxwD9Cok9Qh/b39CoU+F9ptmMYLgu6P0rvYhQYOADU="
         }
       ],
       "role": "model"

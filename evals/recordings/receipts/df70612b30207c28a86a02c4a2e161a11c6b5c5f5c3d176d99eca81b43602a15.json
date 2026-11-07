@@ -382,7 +382,7 @@
       "parts": [
         {
           "text": "{\n  \"layout\": {\n    \"value\": \"cbe_app_success\",\n    \"confidence\": 1\n  },\n  \"transactionRef\": {\n    \"value\": \"FT26309QW7RD\",\n    \"confidence\": 1\n  },\n  \"amount\": {\n    \"value\": \"ETB 650.00\",\n    \"confidence\": 1\n  },\n  \"serviceCharge\": {\n    \"value\": \"ETB0.50\",\n    \"confidence\": 1\n  },\n  \"vat\": {\n    \"value\": \"ETB0.08\",\n    \"confidence\": 1\n  },\n  \"otherCharge\": {\n    \"value\": \"ETB0.03\",\n    \"confidence\": 1\n  },\n  \"totalAmount\": {\n    \"value\": \"ETB650.61\",\n    \"confidence\": 1\n  },\n  \"paidAt\": {\n    \"value\": \"Nov 05, 2026 02:40 PM\",\n    \"confidence\": 1\n  },\n  \"receiverName\": {\n    \"value\": \"Meron Alemu Kebede\",\n    \"confidence\": 1\n  },\n  \"receiverAccount\": {\n    \"value\": \"ETB-1234\",\n    \"confidence\": 1\n  },\n  \"payerName\": {\n    \"value\": \"Yonas Bekele Abebe\",\n    \"confidence\": 1\n  },\n  \"payerAccount\": {\n    \"value\": \"ETB-7781\",\n    \"confidence\": 1\n  },\n  \"status\": {\n    \"value\": \"Success\",\n    \"confidence\": 1\n  }\n}",
-          "thoughtSignature": "EmAKXgFpFH0TqyaL9oxx2ZlBPW/TCGxefOgR60U3L3UnMN/6EueyBLG/tS1oehm/5Lej4OoowKQ5WkuVxr7intW/SU1+eXLqqUhzKUsSOSUV82LsPvlA8ih1G6+TZo0g5q8="
+          "thoughtSignature": "EmAKXgFpFH0TNVT8AHHaKWhJqahDCFd88z/jYWzbFd4h3MgFr12XyGwn6VstPcjiO6cAFa85eC1ahpkIkdvcyLLWuQG1/qxSgih8IkfV1TRLcceMWfy79pvBm9dhtJC5ygA="
         }
       ],
       "role": "model"

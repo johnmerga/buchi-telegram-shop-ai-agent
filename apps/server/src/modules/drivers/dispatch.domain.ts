@@ -10,7 +10,7 @@ export const RECEIPT_WINDOW_MS = 2 * 60 * 60_000;
 export const DELIVERY_RADIUS_M = 300;
 
 /** Traffic in Addis Ababa varies, so a trip counts as late only well after its estimate. */
-const LATE_GRACE_MINUTES = 15;
+export const LATE_GRACE_MINUTES = 15;
 
 /** When a picked-up trip that is still on the road counts as running late. */
 export function lateAt(pickedUpAt: Date, estimatedMinutes: number): Date {

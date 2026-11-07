@@ -15,6 +15,10 @@ export class ZoneFactorsRepo {
     await this.db.insert(tripLegs).values(legs);
   }
 
+  async deleteSyntheticLegs(): Promise<void> {
+    await this.db.delete(tripLegs).where(eq(tripLegs.synthetic, true));
+  }
+
   legsSince(since: Date): Promise<TripLegRow[]> {
     return this.db.select().from(tripLegs).where(gte(tripLegs.startedAt, since));
   }

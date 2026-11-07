@@ -116,6 +116,11 @@ export class ZoneFactorService {
     );
   }
 
+  /** Removes the seeded demo legs. The next learning then counts real trips only. */
+  removeSyntheticLegs(): Promise<void> {
+    return this.repo.deleteSyntheticLegs();
+  }
+
   /** The nightly learning: every zone's factor per band from the last year of legs. */
   async learn(): Promise<TimeLearningSummary> {
     const now = this.now();

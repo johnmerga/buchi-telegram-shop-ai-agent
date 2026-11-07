@@ -55,6 +55,8 @@ export const products = pgTable(
       .notNull()
       .default(sql`'{}'`),
     active: boolean('active').notNull().default(true),
+    /** Made by the demo seed, so a demo reset can remove it without touching the owner's own. */
+    synthetic: boolean('synthetic').notNull().default(false),
     /** The title and description embedded for photo search. Null until the background job runs. */
     embedding: vector('embedding', { dimensions: PRODUCT_EMBEDDING_DIMENSIONS }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

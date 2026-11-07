@@ -29,7 +29,7 @@ const productColumns = {
   createdAt: products.createdAt,
 };
 
-export type ProductRow = Omit<typeof products.$inferSelect, 'embedding'>;
+export type ProductRow = Omit<typeof products.$inferSelect, 'embedding' | 'synthetic'>;
 export type VariantRow = typeof productVariants.$inferSelect;
 
 const productValues = (input: ProductInput) => ({

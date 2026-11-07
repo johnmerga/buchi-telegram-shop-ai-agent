@@ -263,6 +263,52 @@ function cbeApp(r: {
   };
 }
 
+/**
+ * The CBE app's screen right after a transfer: one summary sentence, wrapped as on a phone, with
+ * the amounts, names, date, and transaction ID in bold.
+ */
+function cbeAppSuccess(r: { lines: [segment: string, bold: boolean][][] }): Receipt {
+  return {
+    width: 600,
+    height: 1200,
+    draw(ctx) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 600, 1200);
+      ctx.fillStyle = '#7b1fa2';
+      ctx.fillRect(0, 0, 600, 230);
+      text(ctx, 'Thank you', 90, 120, { size: 26, bold: true, color: '#ffffff' });
+      text(ctx, 'Success', 90, 152, { size: 17, color: '#f3e5f5' });
+      ctx.fillStyle = '#7b1fa2';
+      ctx.beginPath();
+      ctx.arc(300, 230, 70, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 16;
+      ctx.beginPath();
+      ctx.moveTo(262, 232);
+      ctx.lineTo(290, 260);
+      ctx.lineTo(342, 204);
+      ctx.stroke();
+      text(ctx, 'Transaction Completed Successfully!', 300, 345, { size: 19, align: 'center' });
+      box(ctx, 30, 380, 540, 700, '#f2f2f2');
+      text(ctx, 'Transaction Summary', 56, 420, { size: 18, color: '#9a9a9a' });
+      r.lines.forEach((line, i) => {
+        let x = 56;
+        for (const [segment, bold] of line) {
+          text(ctx, segment, x, 470 + i * 38, { size: 22, bold });
+          x += ctx.measureText(segment).width;
+        }
+      });
+      text(ctx, 'Commercial Bank of Ethiopia', 150, 1010, {
+        size: 18,
+        bold: true,
+        color: '#444444',
+      });
+      text(ctx, 'The bank you can always rely on!', 150, 1038, { size: 16, color: '#555555' });
+    },
+  };
+}
+
 /** The CBE "Customer Receipt" web page of the newer `mbreciept` host. */
 function cbeWeb(r: {
   payer: string;
@@ -593,6 +639,45 @@ const cases: Case[] = [
       layout: 'cbe_app',
       fields: fields('FT26250AB7Q1', '640.00', '2026-11-05T07:05:00.000Z', MERON),
       decision: 'review:reference_date',
+    },
+  },
+  {
+    id: 'cbe-app-payment-summary',
+    receipt: cbeAppSuccess({
+      lines: [
+        [
+          ['ETB ', false],
+          ['650.00', true],
+          [' has been debited from ', false],
+        ],
+        [
+          ['Yonas Bekele Abebe', true],
+          [' ETB-7781 for ', false],
+        ],
+        [
+          ['Meron Alemu Kebede', true],
+          [' ETB-1234 on ', false],
+          ['Nov 05,', true],
+        ],
+        [
+          ['2026 02:40 PM', true],
+          [' with transaction ID:', false],
+        ],
+        [
+          ['FT26309QW7RD', true],
+          ['. Reason: MB Transfer', false],
+        ],
+        [['Total Amount Debited: ETB650.61 with', false]],
+        [['Service Charge of ETB0.50, VAT (15%) of', false]],
+        [['ETB0.08 and Disaster Recovery (5%) of', false]],
+        [['ETB0.03.', false]],
+      ],
+    }),
+    input: order('650.00', '2026-11-05T11:30:00Z'),
+    expected: {
+      layout: 'cbe_app_success',
+      fields: fields('FT26309QW7RD', '650.00', '2026-11-05T11:40:00.000Z', MERON),
+      decision: 'approve',
     },
   },
   {

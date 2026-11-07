@@ -304,9 +304,9 @@ When a customer sends a screenshot, Buchi checks it in four layers:
 
 1. **Extraction.** Gemini Vision names the receipt's layout and copies its fields exactly as
    printed, with a confidence score for each field: transaction reference, amount, charges, total,
-   receiver, payer, time, and status. Buchi knows six layouts: the Telebirr app's transaction
-   detail and its screen right after a payment, the Telebirr web receipt, the CBE app's transaction sheet, the CBE web receipt, and the
-   legacy CBE PDF. Any other receipt is `unknown`. The model never converts a value.
+   receiver, payer, time, and status. Buchi knows seven layouts: the Telebirr app's transaction
+   detail and its screen right after a payment, the Telebirr web receipt, the CBE app's transaction
+   sheet and its summary right after a transfer, the CBE web receipt, and the legacy CBE PDF. Any other receipt is `unknown`. The model never converts a value.
 2. **Rules.** Deterministic code reads each layout's own date, amount, and reference formats, for
    example the year/day/month dates of the Telebirr app's transaction detail, and runs checks R1
    to R6 from the following table. A known layout with a field that does not parse goes to owner review.
@@ -601,7 +601,7 @@ An evaluation suite runs in GitHub Actions on every push:
 
 | Set | Size | Measures |
 | --- | --- | --- |
-| Synthetic receipt screenshots of the six layouts, plus edited copies and an unknown layout | 16 | Field accuracy and decision accuracy |
+| Synthetic receipt screenshots of the seven layouts, plus edited copies and an unknown layout | 17 | Field accuracy and decision accuracy |
 | Sales conversations in Amharic and English, including negotiation | About 60 | Correct tool calls. Zero prices outside the owner's range, and zero discounts on fixed-price products. |
 | Adversarial messages, such as prompt injection and false claims | About 30 | Zero actions outside the limits |
 | Product photos | About 30 | The right product in the top three |

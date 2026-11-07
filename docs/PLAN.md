@@ -368,19 +368,20 @@ including across two shops.
 - **Deliverables:** image classification (receipt, product, other) and structured extraction with a
   `zod` schema and per-field confidence.
 - **Acceptance:** malformed model output leads to owner review, never to approval.
-- **Built as:** the model only transcribes. `ai/prompts/receipts.ts` names six layouts by their
+- **Built as:** the model only transcribes. `ai/prompts/receipts.ts` names seven layouts by their
   labels (Telebirr app detail, Telebirr app payment screen, Telebirr web receipt, CBE app sheet,
-  CBE web receipt, CBE PDF) and returns
+  CBE app payment summary, CBE web receipt, CBE PDF) and returns
   the `layout`, or `unknown`, with each field copied as printed. `receipt-layouts.domain.ts` reads
   each layout's date format in Addis Ababa time (the Telebirr app's detail prints year/day/month,
   its payment screen year/month/day), amounts
-  with signs, commas, and currency words, and each provider's reference format.
+  with signs, commas, and currency words before or after the number, and each provider's reference format.
   `receipt-reading.domain.ts` asks for a clearer screenshot when a needed field is missing or
   unsure, and sends to the owner an unknown layout, a confident field that does not parse, a status
-  other than Completed or Successful, a CBE reference whose day of the year is neither the printed date nor the
-  next day, and an amount whose charges do not add up to the printed total. The Telebirr app shows
+  other than Completed, Successful, or Success, a CBE reference whose day of the year is neither the printed date nor the
+  next day, and an amount whose charges (service charge, VAT, and CBE's disaster recovery charge) do not add
+  up to the printed total. The Telebirr app shows
   only the receiver's first name, so its payments need the bank page to approve automatically. The
-  `receipts` eval suite reads 16 synthetic screenshots that `evals/scripts/receipt-images.ts` draws.
+  `receipts` eval suite reads 17 synthetic screenshots that `evals/scripts/receipt-images.ts` draws.
 
 ### 3.2 Rules R1 to R6
 

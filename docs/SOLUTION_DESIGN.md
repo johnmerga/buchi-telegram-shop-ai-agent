@@ -309,7 +309,12 @@ When a customer sends a screenshot, Buchi checks it in four layers:
    sheet and its summary right after a transfer, the CBE web receipt, and the legacy CBE PDF. Any other receipt is `unknown`. The model never converts a value.
 2. **Rules.** Deterministic code reads each layout's own date, amount, and reference formats, for
    example the year/day/month dates of the Telebirr app's transaction detail, and runs checks R1
-   to R6 from the following table. A known layout with a field that does not parse goes to owner review.
+   to R6 from the following table. A known layout with a field that does not parse goes to owner
+   review, except the transaction reference: a model can miscopy it, such as one of three zeros in
+   a row, so when the reference alone does not fit its format or its date, Gemini copies only that
+   value once more with its exact shape. If it still does not fit, Buchi asks the customer to type
+   it, reads the typed one in place of the misread one, asks once more, and then sends the receipt
+   to owner review.
 3. **Bank check.** When the receiver matches, the backend fetches the public Telebirr or CBE
    receipt page for the transaction reference. The page then stands in for the screenshot: R3 to
    R6 run on its amount, full receiver, and time, so the fee that the Telebirr payment screen
@@ -601,7 +606,7 @@ An evaluation suite runs in GitHub Actions on every push:
 
 | Set | Size | Measures |
 | --- | --- | --- |
-| Synthetic receipt screenshots of the seven layouts, plus edited copies and an unknown layout | 17 | Field accuracy and decision accuracy |
+| Synthetic receipt screenshots of the seven layouts, plus edited copies and an unknown layout | 18 | Field accuracy and decision accuracy |
 | Sales conversations in Amharic and English, including negotiation | About 60 | Correct tool calls. Zero prices outside the owner's range, and zero discounts on fixed-price products. |
 | Adversarial messages, such as prompt injection and false claims | About 30 | Zero actions outside the limits |
 | Product photos | About 30 | The right product in the top three |

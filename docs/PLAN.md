@@ -377,11 +377,16 @@ including across two shops.
   with signs, commas, and currency words before or after the number, and each provider's reference format.
   `receipt-reading.domain.ts` asks for a clearer screenshot when a needed field is missing or
   unsure, and sends to the owner an unknown layout, a confident field that does not parse, a status
-  other than Completed, Successful, or Success, a CBE reference whose day of the year is neither the printed date nor the
-  next day, and an amount whose charges (service charge, VAT, and CBE's disaster recovery charge) do not add
-  up to the printed total. The Telebirr app shows
+  other than Completed, Successful, or Success, and an amount whose charges (service charge, VAT,
+  and CBE's disaster recovery charge) do not add up to the printed total. The reference is checked
+  last: when it alone does not fit its format, or a CBE reference's day of the year is neither the
+  printed date nor the next day, `screenshot-reading.ts` has the model copy only the reference once
+  more with its exact shape (`receiptReferencePrompt`), because a model can drop one of three zeros
+  in a row. If that copy fails too, Buchi asks the customer to type the transaction ID
+  (`ask_reference`), reads the typed one in place of the misread one, and asks once more before
+  the owner reviews it. The Telebirr app shows
   only the receiver's first name, so its payments need the bank page to approve automatically. The
-  `receipts` eval suite reads 17 synthetic screenshots that `evals/scripts/receipt-images.ts` draws.
+  `receipts` eval suite reads 18 synthetic screenshots that `evals/scripts/receipt-images.ts` draws.
 
 ### 3.2 Rules R1 to R6
 

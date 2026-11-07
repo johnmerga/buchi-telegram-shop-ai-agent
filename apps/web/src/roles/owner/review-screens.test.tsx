@@ -18,6 +18,18 @@ const shop = {
   createdAt: '2026-11-01T08:00:00.000Z',
   paymentAccounts: [],
 };
+const paymentDecision = {
+  proofId,
+  orderReference: '#3D6F0A',
+  customerName: 'Hana',
+  amount: '3630.00',
+  provider: 'telebirr',
+  outcome: 'approved',
+  decidedBy: 'owner',
+  receivedAt: '2026-11-05T09:00:00.000Z',
+  bankCheck: 'UNAVAILABLE',
+  reasons: ['receiver_unconfirmed'],
+};
 const field = (value: string | null, confidence = 0.9) => ({ value, confidence });
 const review = {
   proofId,
@@ -95,6 +107,7 @@ describe('payment review screen', () => {
       'POST /auth/mini-app': session,
       [`GET /shops/${shopId}`]: () => json(200, shop),
       [`GET /shops/${shopId}/payment-reviews`]: () => json(200, [review]),
+      [`GET /shops/${shopId}/payment-decisions`]: () => json(200, []),
       [`GET /shops/${shopId}/payment-reviews/${proofId}/screenshot`]: () =>
         new Response(new Uint8Array([0xff, 0xd8]), { headers: { 'content-type': 'image/jpeg' } }),
       [`GET /shops/${shopId}/events`]: openStream,
@@ -114,24 +127,34 @@ describe('payment review screen', () => {
     expect(new Headers(screenshot?.init?.headers).get('authorization')).toBe('Bearer test-token');
   });
 
-  it('approves a payment and reloads the queue', async () => {
+  it('approves a payment, which moves it from the queue to the recent decisions', async () => {
     let queue = [review];
+    let decided: (typeof paymentDecision)[] = [];
     const { calls } = fakeServer({
       'POST /auth/mini-app': session,
       [`GET /shops/${shopId}`]: () => json(200, shop),
       [`GET /shops/${shopId}/payment-reviews`]: () => json(200, queue),
+      [`GET /shops/${shopId}/payment-decisions`]: () => json(200, decided),
       [`GET /shops/${shopId}/payment-reviews/${proofId}/screenshot`]: () =>
         new Response(new Uint8Array([0xff, 0xd8])),
       [`GET /shops/${shopId}/events`]: openStream,
       [`POST /shops/${shopId}/payment-reviews/${proofId}/approve`]: () => {
         queue = [];
+        decided = [paymentDecision];
         return json(200, { result: 'approved' });
       },
     });
     renderAt(`/shops/${shopId}/payments`, <OwnerApp />);
 
+    expect(await screen.findByText('No payment has been decided yet.')).toBeTruthy();
     await userEvent.click(await screen.findByRole('button', { name: /Approve/ }));
     expect(await screen.findByText(/Nothing to review/)).toBeTruthy();
+    const history = screen.getByRole('region', { name: 'Recent decisions' });
+    await waitFor(() => {
+      expect(history.textContent).toContain('Approved · ጸድቋል');
+    });
+    expect(history.textContent).toContain('3,630.00 ብር · Telebirr · bank page: UNAVAILABLE');
+    expect(history.textContent).toContain('Decided by You · receiver_unconfirmed');
     expect(calls.some((call) => call.key.endsWith(`${proofId}/approve`))).toBe(true);
   });
 });

@@ -1,23 +1,13 @@
-import {
-  paymentAccountsSchema,
-  paymentProviders,
-  type PaymentAccount,
-  type PaymentProvider,
-} from '@buchi/shared';
+import { paymentAccountsSchema, paymentProviders, type PaymentAccount } from '@buchi/shared';
 import { useId, useState, type SubmitEvent } from 'react';
 import { Alert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/form';
+import { providerLabels } from '../../lib/labels';
 import { useSetPaymentAccounts } from './owner-api';
 import { StepTitle } from './step-title';
-
-const providerLabels: Record<PaymentProvider, string> = {
-  telebirr: 'Telebirr',
-  cbe_birr: 'CBE Birr',
-  cbe_bank: 'CBE bank account',
-};
 
 const MAX_ACCOUNTS = 5;
 const emptyAccount: PaymentAccount = { provider: 'telebirr', accountName: '', accountNumber: '' };

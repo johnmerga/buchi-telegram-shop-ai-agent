@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
-import { paymentProofs } from '../../db/schema';
+import { customers, orders, paymentProofs } from '../../db/schema';
 
 export type PaymentProofRow = typeof paymentProofs.$inferSelect;
 type NewPaymentProof = typeof paymentProofs.$inferInsert;
@@ -10,6 +10,22 @@ const waitsForOwner = or(
   eq(paymentProofs.decision, 'review'),
   and(eq(paymentProofs.decision, 'reject'), isNotNull(paymentProofs.reportedAt)),
 );
+const stillWithOwner = and(waitsForOwner, isNull(paymentProofs.ownerDecision));
+/** The opposite of `stillWithOwner`: the owner answered, or the proof never needed them. */
+const settled = or(
+  isNotNull(paymentProofs.ownerDecision),
+  and(
+    ne(paymentProofs.decision, 'review'),
+    or(ne(paymentProofs.decision, 'reject'), isNull(paymentProofs.reportedAt)),
+  ),
+);
+
+/** A settled proof with the order and customer that the owner's history shows. */
+export interface SettledProofRow {
+  proof: PaymentProofRow;
+  orderId: string;
+  customerName: string;
+}
 
 /** Every query runs inside `withShop`, so row-level security limits it to one shop. */
 export class PaymentProofsRepo {
@@ -34,8 +50,23 @@ export class PaymentProofsRepo {
     return tx
       .select()
       .from(paymentProofs)
-      .where(and(waitsForOwner, isNull(paymentProofs.ownerDecision)))
+      .where(stillWithOwner)
       .orderBy(asc(paymentProofs.createdAt));
+  }
+
+  /** The newest proofs that no longer wait for the owner, with their order's customer. */
+  recentlySettled(tx: Transaction, limit: number): Promise<SettledProofRow[]> {
+    return tx
+      .select({ proof: paymentProofs, orderId: orders.id, customerName: customers.name })
+      .from(paymentProofs)
+      .innerJoin(
+        orders,
+        and(eq(orders.id, paymentProofs.orderId), eq(orders.shopId, paymentProofs.shopId)),
+      )
+      .innerJoin(customers, eq(customers.id, orders.customerId))
+      .where(settled)
+      .orderBy(desc(paymentProofs.createdAt))
+      .limit(limit);
   }
 
   /** Reports a rejected screenshot once, in one statement, so two taps cannot both count. */
@@ -79,7 +110,7 @@ export class PaymentProofsRepo {
     const updated = await tx
       .update(paymentProofs)
       .set({ ownerDecision: decision })
-      .where(and(eq(paymentProofs.id, id), waitsForOwner, isNull(paymentProofs.ownerDecision)))
+      .where(and(eq(paymentProofs.id, id), stillWithOwner))
       .returning({ id: paymentProofs.id });
     return updated.length > 0;
   }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { moneySchema } from './money';
+import { paymentProviderSchema } from './shops';
 
 /** What the bank's public receipt page said about a transaction reference (layer 3). */
 export const bankChecks = ['CONFIRMED', 'NOT_FOUND', 'MISMATCH', 'UNAVAILABLE'] as const;
@@ -49,3 +50,31 @@ export const paymentReviewActionSchema = z.enum(['approve', 'reject']);
 export type PaymentReviewAction = z.infer<typeof paymentReviewActionSchema>;
 
 export const paymentReviewResultSchema = z.object({ result: z.enum(['approved', 'rejected']) });
+
+/** What became of a payment proof that no longer waits for the owner. */
+export const paymentOutcomes = [
+  'approved',
+  'rejected',
+  'asked_rest',
+  'asked_full_amount',
+  'asked_clearer',
+] as const;
+export type PaymentOutcome = (typeof paymentOutcomes)[number];
+
+/**
+ * A payment proof that Buchi or the owner decided, for the owner's history. `amount` is what the
+ * receipt or the bank's page showed, and is null when Buchi could not read it.
+ */
+export const paymentDecisionItemSchema = z.object({
+  proofId: z.uuid(),
+  orderReference: z.string(),
+  customerName: z.string(),
+  amount: moneySchema.nullable(),
+  provider: paymentProviderSchema.nullable(),
+  outcome: z.enum(paymentOutcomes),
+  decidedBy: z.enum(['buchi', 'owner']),
+  receivedAt: z.iso.datetime(),
+  bankCheck: z.enum(bankChecks).nullable(),
+  reasons: z.array(z.string()),
+});
+export type PaymentDecisionItem = z.infer<typeof paymentDecisionItemSchema>;

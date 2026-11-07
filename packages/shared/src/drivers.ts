@@ -21,7 +21,20 @@ export const driverInviteLinkSchema = z.object({
   expiresAt: z.iso.datetime(),
 });
 
-/** A driver on the owner's list. `linked` turns true once the driver opens the invite link. */
+/**
+ * What a driver is doing now: on the way to the shop for an accepted job, or carrying it to the
+ * next customer. `orderReference` names the next undelivered order.
+ */
+export const driverWorkSchema = z.object({
+  stage: z.enum(['to_pickup', 'delivering']),
+  orderReference: z.string(),
+});
+export type DriverWork = z.infer<typeof driverWorkSchema>;
+
+/**
+ * A driver on the owner's list. `linked` turns true once the driver opens the invite link.
+ * `available` is the driver's own On duty switch, and `work` is null when they have no job.
+ */
 export const driverListItemSchema = z.object({
   id: z.uuid(),
   username: z.string(),
@@ -29,6 +42,7 @@ export const driverListItemSchema = z.object({
   linked: z.boolean(),
   available: z.boolean(),
   inviteExpiresAt: z.iso.datetime().nullable(),
+  work: driverWorkSchema.nullable(),
 });
 export type DriverListItem = z.infer<typeof driverListItemSchema>;
 

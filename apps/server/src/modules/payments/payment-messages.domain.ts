@@ -1,4 +1,4 @@
-import { formatBirr, type BankCheck, type MoneyString } from '@buchi/shared';
+import { formatBirr, type BankCheck, type DeliveryType, type MoneyString } from '@buchi/shared';
 import { orderReference } from '../orders/orders.domain';
 import type { Button } from '../owner/owner.domain';
 import { reportCallbackData } from './payments.schemas';
@@ -37,12 +37,18 @@ const bankResults: Record<BankCheck, string> = {
   UNAVAILABLE: 'page unavailable',
 };
 
+/** The order fields that the customer's messages depend on. */
+export interface PaidOrder {
+  id: string;
+  deliveryType: DeliveryType;
+}
+
 /** What the customer reads after Buchi checks their screenshot. */
-export function customerMessage(decision: Decision, orderId: string): string {
-  const reference = orderReference(orderId);
+export function customerMessage(decision: Decision, order: PaidOrder): string {
+  const reference = orderReference(order.id);
   switch (decision.outcome) {
     case 'approve':
-      return paymentConfirmed(orderId);
+      return paymentConfirmed(order);
     case 'reject':
       return [
         `ይቅርታ / Sorry, the payment for order ${reference} was not accepted: ${decision.reasons.map((r) => rejectReasons[r]).join('; ')}.`,
@@ -59,8 +65,13 @@ export function customerMessage(decision: Decision, orderId: string): string {
   }
 }
 
-export function paymentConfirmed(orderId: string): string {
-  return `✅ ክፍያዎ ተረጋግጧል / Payment received for order ${orderReference(orderId)}. Thank you! Pickup at the shop.`;
+/** A pickup order waits at the shop, and any other order goes out with a driver. */
+export function paymentConfirmed(order: PaidOrder): string {
+  const next =
+    order.deliveryType === 'pickup'
+      ? 'ከሱቁ ይውሰዱ / Pickup at the shop.'
+      : 'በቅርቡ እንልክልዎታለን / We will send it to you soon.';
+  return `✅ ክፍያዎ ተረጋግጧል / Payment received for order ${orderReference(order.id)}. Thank you! ${next}`;
 }
 
 export function paymentDeclinedByOwner(orderId: string): string {

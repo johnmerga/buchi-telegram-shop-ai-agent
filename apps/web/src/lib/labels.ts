@@ -1,4 +1,4 @@
-import type { DeliveryType, OrderStatus } from '@buchi/shared';
+import type { DeliveryType, OrderStatus, PaymentOutcome, PaymentProvider } from '@buchi/shared';
 
 /** English with the Amharic the bot uses, so owners see the same words in both places. */
 export const statusLabels: Record<OrderStatus, string> = {
@@ -23,6 +23,20 @@ export const deliveryLabels: Record<DeliveryType, string> = {
   saver: 'Saver',
   far: 'Far area',
   pickup: 'Pickup',
+};
+
+export const providerLabels: Record<PaymentProvider, string> = {
+  telebirr: 'Telebirr',
+  cbe_birr: 'CBE Birr',
+  cbe_bank: 'CBE bank account',
+};
+
+export const paymentOutcomeLabels: Record<PaymentOutcome, string> = {
+  approved: 'Approved · ጸድቋል',
+  rejected: 'Rejected · ውድቅ',
+  asked_rest: 'Asked for the rest · ቀሪውን ጠይቋል',
+  asked_full_amount: 'Asked for the full amount · ሙሉውን ጠይቋል',
+  asked_clearer: 'Asked for a clearer screenshot · ግልጽ ምስል ጠይቋል',
 };
 
 const timeFormat = new Intl.DateTimeFormat('en-GB', {

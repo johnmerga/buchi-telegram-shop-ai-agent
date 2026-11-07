@@ -22,7 +22,10 @@ const shopParams = z.object({ shopId: z.uuid() });
 const proofParams = shopParams.extend({ proofId: z.uuid() });
 const decideParams = proofParams.extend({ action: paymentReviewActionSchema });
 
-/** The owner's **Payment review** screen: the queue, each screenshot, and Approve or Reject. */
+/**
+ * The owner's **Payment review** screen: the queue, each screenshot, Approve or Reject, and the
+ * recent decisions.
+ */
 export function createPaymentsRouter(deps: {
   records: PaymentRecords;
   review: Pick<PaymentReview, 'decide'>;
@@ -36,6 +39,10 @@ export function createPaymentsRouter(deps: {
 
   router.get('/shops/:shopId/payment-reviews', ...owner, async (req, res) => {
     res.json(await records.reviewQueue(parseInput(shopParams, req.params).shopId));
+  });
+
+  router.get('/shops/:shopId/payment-decisions', ...owner, async (req, res) => {
+    res.json(await records.recentDecisions(parseInput(shopParams, req.params).shopId));
   });
 
   /** Streams the image from Telegram on each request, so Buchi never stores a screenshot. */

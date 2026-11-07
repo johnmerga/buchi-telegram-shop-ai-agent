@@ -2,6 +2,7 @@ import {
   aiDecisionSchema,
   approvalOutcomeSchema,
   conversationItemSchema,
+  paymentDecisionItemSchema,
   paymentReviewItemSchema,
   paymentReviewResultSchema,
   type ApprovalChoice,
@@ -19,6 +20,15 @@ export function usePaymentReviews(shopId: string) {
   return useQuery({
     queryKey: ownerKeys.paymentReviews(shopId),
     queryFn: () => api.get(`/shops/${shopId}/payment-reviews`, z.array(paymentReviewItemSchema)),
+  });
+}
+
+export function usePaymentDecisions(shopId: string) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ownerKeys.paymentDecisions(shopId),
+    queryFn: () =>
+      api.get(`/shops/${shopId}/payment-decisions`, z.array(paymentDecisionItemSchema)),
   });
 }
 

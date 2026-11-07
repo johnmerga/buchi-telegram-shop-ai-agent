@@ -7,7 +7,8 @@
     "evals": "tsx cli.ts replay",
     "evals:record": "tsx --env-file-if-exists=../.env cli.ts record",
     "evals:live": "tsx --env-file-if-exists=../.env cli.ts live",
-    "receipts:generate": "tsx scripts/receipt-images.ts"
+    "receipts:generate": "tsx scripts/receipt-images.ts",
+    "demo:receipts": "tsx scripts/demo-receipts.ts"
   },
   "dependencies": {
     "@buchi/server": "workspace:*",

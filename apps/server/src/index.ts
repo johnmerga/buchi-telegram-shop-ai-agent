@@ -186,6 +186,7 @@ import { TelegramFiles } from './telegram/files';
 import { TelegramPhotoUploads } from './telegram/photo-uploads';
 import { TelegramLiveMap } from './telegram/live-map';
 import { TelegramMessenger } from './telegram/messenger';
+import { skipDemoRecipients } from './telegram/demo-recipients';
 import { TelegramIngress } from './telegram/ingress';
 import { MiniAppLinks } from './telegram/mini-app-links';
 import { TelegramOrderNotifier } from './telegram/order-notifier';
@@ -206,6 +207,7 @@ const database = connectDatabase(env.DATABASE_URL);
 const timers = new TimerService(new TimersRepo(database.db), logger);
 
 const telegramApi = new Api(env.TELEGRAM_BOT_TOKEN);
+telegramApi.config.use(skipDemoRecipients(logger));
 const botInfo = await telegramApi.getMe();
 const channels = new TelegramChannels(telegramApi, botInfo.id);
 
@@ -773,6 +775,7 @@ const bot = createBot({
     }),
   ],
 });
+bot.api.config.use(skipDemoRecipients(logger));
 
 const worker = new UpdateWorker(updatesRepo, (update) => bot.handleUpdate(update), logger);
 const ingress = new TelegramIngress(updatesRepo, worker);

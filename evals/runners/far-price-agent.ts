@@ -14,7 +14,7 @@ import { ZoneFactorService } from '@buchi/server/modules/delivery/zone-factors.s
 import { AcceptanceFactorService } from '@buchi/server/modules/far-quotes/acceptance-factors.service';
 import { FarQuoteEvidence } from '@buchi/server/modules/far-quotes/far-quote-evidence.service';
 import { FarQuotesRepo } from '@buchi/server/modules/far-quotes/far-quotes.repo';
-import { statisticalPrice } from '@buchi/server/modules/far-quotes/far-quotes.domain';
+import { scaled, statisticalPrice } from '@buchi/server/modules/far-quotes/far-quotes.domain';
 import { syntheticTrips } from '@buchi/server/modules/far-quotes/synthetic-trips.domain';
 import { ShopsRepo } from '@buchi/server/modules/shops/shops.repo';
 import { ShopsService } from '@buchi/server/modules/shops/shops.service';
@@ -34,6 +34,12 @@ const input = z.strictObject({
     .int()
     .min(1)
     .max(TRIPS - 1),
+  /**
+   * The owner changed the delivery settings after the history: the trip's formula payout is
+   * `scale` times what it was, and the cap is `cap`. Past trips keep their old prices in birr, so
+   * only their multiples of the formula still apply.
+   */
+  retuned: z.strictObject({ scale: z.number().positive().max(1), cap: moneySchema }).optional(),
 });
 
 interface Actual {
@@ -41,6 +47,8 @@ interface Actual {
   price: string;
   statisticsPrice: string;
   heldPrice: string;
+  /** The held price under today's settings, which both estimates are measured against. */
+  fairPrice: string;
   outsideLimits: boolean;
 }
 
@@ -76,8 +84,10 @@ export function farPriceAgentSuite(db: Database): Suite {
     await acceptance.learnAll();
 
     const { far } = target;
-    const payout = Money.of(far.formulaPayout);
-    const cap = Money.of(far.cap);
+    const { retuned } = testCase;
+    const scale = retuned?.scale ?? 1;
+    const payout = scaled(Money.of(far.formulaPayout), scale);
+    const cap = Money.of(retuned?.cap ?? far.cap);
     const facts = await evidence.build(shopId, target.destination, {
       payout,
       meters: far.routeMeters,
@@ -100,6 +110,7 @@ export function farPriceAgentSuite(db: Database): Suite {
       price: estimate.price.toString(),
       statisticsPrice: statisticalPrice(payout, facts.acceptanceFactor.value).toString(),
       heldPrice: far.heldPrice,
+      fairPrice: scaled(Money.of(far.heldPrice), scale).toString(),
       outsideLimits:
         estimate.price.compare(payout) < 0 ||
         (estimate.price.compare(cap) > 0 && !estimate.needsOwner),
@@ -128,8 +139,8 @@ export function farPriceAgentSuite(db: Database): Suite {
       }
       return {
         agentAnswered: actual.source === 'agent' ? 1 : 0,
-        agentError: error(actual.price, actual.heldPrice),
-        statisticsError: error(actual.statisticsPrice, actual.heldPrice),
+        agentError: error(actual.price, actual.fairPrice),
+        statisticsError: error(actual.statisticsPrice, actual.fairPrice),
         priceOutsideLimits: actual.outsideLimits ? 1 : 0,
       };
     },

@@ -10,3 +10,4 @@
 {"id":"north-east-11km","input":{"seed":20,"trip":130},"expected":{"heldPrice":"270.00"}}
 {"id":"north-west-16km","input":{"seed":21,"trip":155},"expected":{"heldPrice":"390.00"}}
 {"id":"north-west-9km","input":{"seed":23,"trip":170},"expected":{"heldPrice":"250.00"}}
+{"id":"retuned-settings-15km","input":{"seed":24,"trip":150,"retuned":{"scale":0.1,"cap":"40.00"}},"expected":{"heldPrice":"330.00"}}

@@ -17,8 +17,8 @@
   },
   "far-price-agent": {
     "agentAnswered": 1,
-    "agentError": 0.06836481483535849,
-    "statisticsError": 0.07291939997978349,
+    "agentError": 0.04746752674640915,
+    "statisticsError": 0.08362723168297032,
     "priceOutsideLimits": 0
   },
   "owner-commands": {

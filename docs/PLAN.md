@@ -738,6 +738,10 @@ loading, empty, and error states.
 - **Deliverables:** demo seed data (shop, products, drivers, synthetic trips); a demo script that
   covers negotiation, a rejected reused receipt, a far-area quote, a driver problem, and an owner
   command; the README; the video.
+- **Built as:** `modules/demo/` and `scripts/demo.ts` (`demo:seed`, `demo:photos`, `demo:reset`,
+  `demo:scenario`), with `evals` `demo:receipts` for the payment screenshots; see `docs/DEMO.md`.
+  Demo people have Telegram IDs from `DEMO_TELEGRAM_ID_BASE` up, which the Bot API transformer
+  in `telegram/demo-recipients.ts` never sends to, and demo products are marked `synthetic`.
 
 ---
 

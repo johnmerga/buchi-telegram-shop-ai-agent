@@ -11,7 +11,7 @@ export const DEMO_DELIVERY_SETTINGS: DeliverySettings = {
   ratePerKm: '12.00',
   ratePerMinute: '1.50',
   freeRadiusKm: 2,
-  standardRangeKm: 8,
+  standardRangeKm: 18,
   farRangeKm: 35,
   farCap: '400.00',
   saverDiscountPercent: 20,

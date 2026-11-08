@@ -11,7 +11,8 @@ export interface DatabaseConnection {
 }
 
 export function connectDatabase(url: string): DatabaseConnection {
-  // The Supabase transaction pooler does not support prepared statements.
+  // The Supabase transaction pooler does not support prepared statements. Closing waits at most
+  // 5 seconds for running queries, so a dropped connection cannot hold a script open silently.
   const client = postgres(url, { prepare: false });
-  return { db: drizzle(client, { schema }), close: () => client.end() };
+  return { db: drizzle(client, { schema }), close: () => client.end({ timeout: 5 }) };
 }

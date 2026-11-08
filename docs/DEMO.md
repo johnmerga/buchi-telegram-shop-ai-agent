@@ -24,7 +24,7 @@ pnpm --filter @buchi/server demo:photos <shop-id>
 `demo:seed` first removes the shop's earlier demo data, so running it again gives the same shop.
 It adds, relative to now:
 
-- the demo delivery prices (30 birr base, 12 per km, 1.50 per minute, far cap 400), which it prints;
+- the demo delivery prices (30 birr base, 12 per km, 1.50 per minute, standard range 18 km, far cap 400), which it prints;
 - 17 products from the photo list `evals/inbox/photos/demo-photos.json`: football boots by item
   code and kids' shoes by brand, with asking and lowest prices;
 - 40 demo customers and 120 orders over six weeks, busier at weekends, with three best-sellers

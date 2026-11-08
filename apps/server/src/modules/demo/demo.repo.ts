@@ -69,104 +69,87 @@ export class DemoRepo {
     return rows.map((row) => row.id);
   }
 
-  /** Each order with its item, its history, its payment, and its trip. */
+  /**
+   * Each order with its item, its history, its payment, and its trip, one insert per table, so the
+   * seed's transaction makes a few round trips to the database rather than hundreds.
+   */
   async insertOrders(tx: Transaction, shopId: string, planned: DemoOrder[]): Promise<void> {
-    for (const order of planned) {
-      const [created] = order.timeline;
-      const last = order.timeline.at(-1) ?? created;
-      const itemsTotal = order.unitPrice;
-      await tx.insert(orders).values({
-        id: order.id,
-        shopId,
-        customerId: order.customerId,
-        status: last.status,
-        deliveryType: order.deliveryType,
-        itemsTotal: itemsTotal.toString(),
-        deliveryFee: order.deliveryFee.toString(),
-        total: itemsTotal.add(order.deliveryFee).toString(),
-        deliveryLatitude: order.pin?.latitude ?? null,
-        deliveryLongitude: order.pin?.longitude ?? null,
-        deliveryZone: order.pin ? zoneOf(order.pin) : null,
-        createdAt: created.at,
-        updatedAt: last.at,
-      });
-      await tx.insert(orderItems).values({
+    if (planned.length === 0) return;
+    await tx.insert(orders).values(planned.map((order) => orderRow(shopId, order)));
+    await tx.insert(orderItems).values(
+      planned.map((order) => ({
         shopId,
         orderId: order.id,
         variantId: order.variantId,
         quantity: 1,
         unitPrice: order.unitPrice.toString(),
-      });
-      await tx.insert(orderEvents).values(
-        order.timeline.map((step, index) => ({
+      })),
+    );
+    await tx.insert(orderEvents).values(planned.flatMap((order) => eventRows(shopId, order)));
+    const paid = planned.flatMap((order) =>
+      order.payment ? [{ order, payment: order.payment }] : [],
+    );
+    if (paid.length > 0) {
+      await tx.insert(paymentProofs).values(
+        paid.map(({ order, payment }) => ({
           shopId,
           orderId: order.id,
-          fromStatus: order.timeline[index - 1]?.status ?? null,
-          toStatus: step.status,
-          actor: step.actor,
-          reason: step.reason,
-          createdAt: step.at,
+          provider: payment.provider,
+          txRef: payment.txRef,
+          amount: order.unitPrice.add(order.deliveryFee).toString(),
+          decision: payment.decision,
+          bankCheck: payment.bankCheck,
+          reasons: payment.reasons,
+          ownerDecision: payment.ownerDecision,
+          reportedAt: payment.reportedAt,
+          createdAt: payment.at,
         })),
       );
-      await this.insertPayment(tx, shopId, order);
-      await this.insertTrip(tx, shopId, order);
     }
-  }
-
-  private async insertPayment(tx: Transaction, shopId: string, order: DemoOrder): Promise<void> {
-    const { payment } = order;
-    if (!payment) return;
-    const amount = order.unitPrice.add(order.deliveryFee).toString();
-    await tx.insert(paymentProofs).values({
-      shopId,
-      orderId: order.id,
-      provider: payment.provider,
-      txRef: payment.txRef,
-      amount,
-      decision: payment.decision,
-      bankCheck: payment.bankCheck,
-      reasons: payment.reasons,
-      ownerDecision: payment.ownerDecision,
-      reportedAt: payment.reportedAt,
-      createdAt: payment.at,
-    });
-    if (payment.decision !== 'reject') {
-      await tx
-        .insert(paymentRefs)
-        .values({ provider: payment.provider, txRef: payment.txRef, orderId: order.id });
+    const kept = paid.filter(({ payment }) => payment.decision !== 'reject');
+    if (kept.length > 0) {
+      await tx.insert(paymentRefs).values(
+        kept.map(({ order, payment }) => ({
+          provider: payment.provider,
+          txRef: payment.txRef,
+          orderId: order.id,
+        })),
+      );
     }
-  }
-
-  private async insertTrip(tx: Transaction, shopId: string, order: DemoOrder): Promise<void> {
-    const { trip } = order;
-    if (!trip) return;
-    await tx.insert(deliveryJobs).values({
-      id: trip.id,
-      shopId,
-      driverId: trip.driverId,
-      status: 'delivered',
-      payout: trip.payout.toString(),
-      separateTripsPayout: trip.payout.toString(),
-      routeMeters: trip.routeMeters,
-      estimatedMinutes: trip.estimatedMinutes,
-      actualMinutes: trip.actualMinutes,
-      createdAt: trip.acceptedAt,
-      acceptedAt: trip.acceptedAt,
-      pickedUpAt: trip.pickedUpAt,
-      deliveredAt: trip.deliveredAt,
-    });
-    await tx.insert(jobStops).values({
-      shopId,
-      jobId: trip.id,
-      orderId: order.id,
-      position: 1,
-      routingSeconds: trip.routingSeconds,
-      expectedSeconds: trip.expectedSeconds,
-      deliveredAt: trip.deliveredAt,
-      metersFromPin: trip.metersFromPin,
-      receipt: trip.receipt,
-      receiptAt: trip.deliveredAt,
-    });
+    const trips = planned.flatMap((order) => (order.trip ? [{ order, trip: order.trip }] : []));
+    if (trips.length > 0) {
+      await tx.insert(deliveryJobs).values(
+        trips.map(({ trip }) => ({
+          id: trip.id,
+          shopId,
+          driverId: trip.driverId,
+          status: 'delivered' as const,
+          payout: trip.payout.toString(),
+          separateTripsPayout: trip.payout.toString(),
+          routeMeters: trip.routeMeters,
+          estimatedMinutes: trip.estimatedMinutes,
+          actualMinutes: trip.actualMinutes,
+          createdAt: trip.acceptedAt,
+          acceptedAt: trip.acceptedAt,
+          pickedUpAt: trip.pickedUpAt,
+          deliveredAt: trip.deliveredAt,
+        })),
+      );
+      await tx.insert(jobStops).values(
+        trips.map(({ order, trip }) => ({
+          shopId,
+          jobId: trip.id,
+          orderId: order.id,
+          position: 1,
+          routingSeconds: trip.routingSeconds,
+          expectedSeconds: trip.expectedSeconds,
+          deliveredAt: trip.deliveredAt,
+          metersFromPin: trip.metersFromPin,
+          receipt: trip.receipt,
+          receiptAt: trip.deliveredAt,
+        })),
+      );
+    }
   }
 
   async markSynthetic(tx: Transaction, productId: string): Promise<void> {
@@ -292,4 +275,36 @@ export class DemoRepo {
   async deleteTimers(db: Database, targetIds: string[]): Promise<void> {
     if (targetIds.length > 0) await db.delete(timers).where(inArray(timers.targetId, targetIds));
   }
+}
+
+function orderRow(shopId: string, order: DemoOrder) {
+  const [created] = order.timeline;
+  const last = order.timeline.at(-1) ?? created;
+  return {
+    id: order.id,
+    shopId,
+    customerId: order.customerId,
+    status: last.status,
+    deliveryType: order.deliveryType,
+    itemsTotal: order.unitPrice.toString(),
+    deliveryFee: order.deliveryFee.toString(),
+    total: order.unitPrice.add(order.deliveryFee).toString(),
+    deliveryLatitude: order.pin?.latitude ?? null,
+    deliveryLongitude: order.pin?.longitude ?? null,
+    deliveryZone: order.pin ? zoneOf(order.pin) : null,
+    createdAt: created.at,
+    updatedAt: last.at,
+  };
+}
+
+function eventRows(shopId: string, order: DemoOrder) {
+  return order.timeline.map((step, index) => ({
+    shopId,
+    orderId: order.id,
+    fromStatus: order.timeline[index - 1]?.status ?? null,
+    toStatus: step.status,
+    actor: step.actor,
+    reason: step.reason,
+    createdAt: step.at,
+  }));
 }

@@ -10,6 +10,7 @@ import { CatalogRepo } from '../../src/modules/catalog/catalog.repo';
 import { CatalogService } from '../../src/modules/catalog/catalog.service';
 import type { ProductPhoto } from '../../src/modules/catalog/catalog.schemas';
 import { PhotoSearchService } from '../../src/modules/catalog/photo-search.service';
+import { ProductSearch } from '../../src/modules/catalog/product-search.service';
 import {
   PRODUCT_EMBEDDING_TIMER,
   ProductEmbeddingService,
@@ -254,5 +255,49 @@ describe('photo search', () => {
     const search = new PhotoSearchService(db, catalogRepo, catalog, noEmbeddings, demand, logger);
     script.push(describes({ category: 'sneakers', colors: ['white'], brand: null, style: '' }));
     expect(await search.search(shopId, customerId, image)).toEqual({ status: 'unavailable' });
+  });
+});
+
+describe('product search by words and meaning', () => {
+  /** Amharic words as the fake embedding reads them, as a real embedding model would place them. */
+  const amharic: Record<string, string> = { 'ነጭ ስኒከር': 'white high-top sneaker', ቦርሳ: 'bag' };
+  const embedder = {
+    embed: (text: string) => Promise.resolve(fakeEmbedding(amharic[text] ?? text)),
+  };
+  const search = new ProductSearch(db, catalogRepo, catalog, embedder, logger);
+  const titles = async (query: string, limit = 5) =>
+    (await search.search(shopId, query, limit)).map((product) => product.title);
+
+  it('finds a product by meaning when no word of the query is in its listing', async () => {
+    expect(await titles('ነጭ ስኒከር')).toEqual(['White high-top sneakers']);
+  });
+
+  it('lists products found by words first, then close ones once each', async () => {
+    const found = await titles('leather');
+    expect(found.slice(0, 2).toSorted()).toEqual(['Black leather boots', 'Leather belt']);
+    expect(new Set(found).size).toBe(found.length);
+  });
+
+  it('finds nothing for a query that is close to no product', async () => {
+    expect(await titles('ቦርሳ')).toEqual([]);
+  });
+
+  it('keeps to the limit', async () => {
+    expect(await titles('leather', 1)).toHaveLength(1);
+  });
+
+  it('keeps the products found by words when the query cannot be embedded', async () => {
+    const offline = new ProductSearch(
+      db,
+      catalogRepo,
+      catalog,
+      { embed: () => Promise.reject(new Error('quota')) },
+      logger,
+    );
+    expect((await offline.search(shopId, 'leather', 5)).map((p) => p.title).toSorted()).toEqual([
+      'Black leather boots',
+      'Leather belt',
+    ]);
+    expect(await offline.search(shopId, 'ነጭ ስኒከር', 5)).toEqual([]);
   });
 });

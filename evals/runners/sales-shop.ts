@@ -10,6 +10,8 @@ import { TracesRepo } from '@buchi/server/ai/traces.repo';
 import type { Database } from '@buchi/server/db/client';
 import { CatalogRepo } from '@buchi/server/modules/catalog/catalog.repo';
 import { CatalogService } from '@buchi/server/modules/catalog/catalog.service';
+import { ProductSearch } from '@buchi/server/modules/catalog/product-search.service';
+import { PRODUCT_EMBEDDING_DIMENSIONS } from '@buchi/server/db/schema';
 import { CustomerFactsRepo } from '@buchi/server/modules/customers/customer-facts.repo';
 import { CustomerMemoryService } from '@buchi/server/modules/customers/customer-memory.service';
 import { CustomersRepo } from '@buchi/server/modules/customers/customers.repo';
@@ -102,8 +104,12 @@ export function createSalesShop(
     confirmPlace: () => Promise.resolve(),
     askForPin: () => Promise.resolve(),
   };
+  // Replay serves no embeddings, and the evaluation's products have none, so a search by meaning
+  // gets a fixed vector, finds nothing, and the suites measure the search by words as recorded.
+  const fixedQuery = { embed: () => Promise.resolve(unitVector()) };
   const tools = salesTools({
     catalog,
+    productSearch: new ProductSearch(db, new CatalogRepo(), catalog, fixedQuery, logger),
     customers,
     orders,
     checkout,
@@ -137,4 +143,8 @@ export function createSalesShop(
     logger,
   );
   return { agent, shops, catalog, customers, orders };
+}
+
+function unitVector(): number[] {
+  return Array.from({ length: PRODUCT_EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0));
 }

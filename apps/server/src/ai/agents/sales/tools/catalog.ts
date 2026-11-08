@@ -3,6 +3,7 @@ import type {
   CatalogService,
   ProductWithVariants,
 } from '../../../../modules/catalog/catalog.service';
+import type { ProductSearch } from '../../../../modules/catalog/product-search.service';
 import type { CustomersService } from '../../../../modules/customers/customers.service';
 import type { DemandService } from '../../../../modules/demand/demand.service';
 import type { PriceEvidenceService } from '../../../../modules/sales/price-evidence.service';
@@ -14,7 +15,8 @@ import { customerOf } from './customer';
 const MAX_RESULTS = 5;
 
 export interface CatalogToolDeps {
-  catalog: Pick<CatalogService, 'search' | 'variantForSale'>;
+  catalog: Pick<CatalogService, 'variantForSale'>;
+  productSearch: Pick<ProductSearch, 'search'>;
   customers: Pick<CustomersService, 'byTelegramUser'>;
   evidence: Pick<PriceEvidenceService, 'evidence'>;
   demand: Pick<DemandService, 'joinWaitlist'>;
@@ -52,7 +54,7 @@ export function searchProductsTool(deps: CatalogToolDeps): Tool {
     input: z.object({ query: z.string().trim().max(100) }),
     handle: async ({ query }, context) => {
       const customer = await customerOf(deps.customers, context);
-      const found = await deps.catalog.search(context.shopId, query, MAX_RESULTS);
+      const found = await deps.productSearch.search(context.shopId, query, MAX_RESULTS);
       const products = await Promise.all(
         found.map(async (product) =>
           productForModel(

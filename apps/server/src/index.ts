@@ -36,6 +36,7 @@ import { createCatalogHandlers } from './modules/catalog/catalog.handlers';
 import { CatalogRepo } from './modules/catalog/catalog.repo';
 import { createCatalogRouter } from './modules/catalog/catalog.routes';
 import { CatalogService } from './modules/catalog/catalog.service';
+import { ProductSearch } from './modules/catalog/product-search.service';
 import { PhotoSearchService } from './modules/catalog/photo-search.service';
 import {
   PRODUCT_EMBEDDING_TIMER,
@@ -554,6 +555,7 @@ const registry = new ToolRegistry(
   [
     ...salesTools({
       catalog,
+      productSearch: new ProductSearch(database.db, catalogRepo, catalog, model, logger),
       customers,
       orders,
       checkout,

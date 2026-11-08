@@ -13,6 +13,7 @@ import { TracesRepo } from '../../src/ai/traces.repo';
 import type { Database } from '../../src/db/client';
 import { CatalogRepo } from '../../src/modules/catalog/catalog.repo';
 import { CatalogService } from '../../src/modules/catalog/catalog.service';
+import { ProductSearch } from '../../src/modules/catalog/product-search.service';
 import { CustomerFactsRepo } from '../../src/modules/customers/customer-facts.repo';
 import { CustomerMemoryService } from '../../src/modules/customers/customer-memory.service';
 import { CustomersRepo } from '../../src/modules/customers/customers.repo';
@@ -44,7 +45,7 @@ import { EventBus } from '../../src/shared/events';
 import { createBot } from '../../src/telegram/bot';
 import { TelegramCustomerChat } from '../../src/telegram/customer-chat';
 import { TelegramMessenger } from '../../src/telegram/messenger';
-import { noEmbeddings } from './no-embeddings';
+import { fixedQueryEmbedding, noEmbeddings } from './no-embeddings';
 import { pickupOnlyDelivery } from './pickup-only-delivery';
 import { StockHoldsRepo } from '../../src/modules/orders/stock-holds.repo';
 import { noEvents } from './no-events';
@@ -152,6 +153,7 @@ export function createSalesBot(db: Database, model: LanguageModel, geocoder: Geo
   const registry = new ToolRegistry(
     salesTools({
       catalog,
+      productSearch: new ProductSearch(db, new CatalogRepo(), catalog, fixedQueryEmbedding, logger),
       customers,
       orders,
       checkout,

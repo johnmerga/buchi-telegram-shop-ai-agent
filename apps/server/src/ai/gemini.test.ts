@@ -138,6 +138,25 @@ describe('GeminiModel', () => {
     expect(generate).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps a payment check trying through a longer overload than a chat reply', async () => {
+    const overloaded = () => new ApiError({ message: 'overloaded', status: 503 });
+    const failsFourTimes = vi
+      .fn()
+      .mockRejectedValueOnce(overloaded())
+      .mockRejectedValueOnce(overloaded())
+      .mockRejectedValueOnce(overloaded())
+      .mockRejectedValueOnce(overloaded())
+      .mockResolvedValue(responseWith('ok'));
+    expect((await setUp(failsFourTimes).generate({ ...request, priority: 'payment' })).text).toBe(
+      'ok',
+    );
+    expect(failsFourTimes).toHaveBeenCalledTimes(5);
+
+    const alwaysOverloaded = vi.fn().mockRejectedValue(overloaded());
+    await expect(setUp(alwaysOverloaded).generate(request)).rejects.toThrow('overloaded');
+    expect(alwaysOverloaded).toHaveBeenCalledTimes(3);
+  });
+
   it('does not retry a request that Gemini rejects as invalid', async () => {
     const generate = vi
       .fn<Models['generateContent']>()

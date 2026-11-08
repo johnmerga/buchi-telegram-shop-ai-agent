@@ -19,8 +19,17 @@ export interface GeminiConfig {
   embeddingDimensions: number;
 }
 
-const MAX_ATTEMPTS = 3;
-const BASE_BACKOFF_MS = 500;
+/**
+ * Attempts per call. Gemini's overload spells can last many seconds, and a payment check holds an
+ * order, so it tries longer than a chat reply, which the customer is watching.
+ */
+const MAX_ATTEMPTS: Record<Priority, number> = {
+  payment: 5,
+  customer: 3,
+  operations: 4,
+  owner: 3,
+};
+const BASE_BACKOFF_MS = 1000;
 /** Rate limits and temporary server errors pass after a short wait. Anything else is final. */
 const RETRYABLE_STATUSES = new Set([429, 500, 503]);
 /**
@@ -113,7 +122,9 @@ export class GeminiModel implements LanguageModel {
       } catch (err) {
         if (!(err instanceof ApiError) || !RETRYABLE_STATUSES.has(err.status)) throw err;
         const delay = rateLimitDelayMs(err);
-        if (attempt === MAX_ATTEMPTS || (delay ?? 0) > MAX_RATE_LIMIT_WAIT_MS[priority]) throw err;
+        if (attempt === MAX_ATTEMPTS[priority] || (delay ?? 0) > MAX_RATE_LIMIT_WAIT_MS[priority]) {
+          throw err;
+        }
         await this.wait(delay ?? BASE_BACKOFF_MS * 2 ** (attempt - 1) * (1 + Math.random()));
       }
     }

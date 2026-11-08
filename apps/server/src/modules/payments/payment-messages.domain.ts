@@ -14,7 +14,7 @@ const rejectReasons: Record<RejectReason, string> = {
 };
 
 const reviewReasons: Record<ReviewReason, string> = {
-  extraction_failed: 'Buchi could not read the screenshot.',
+  extraction_failed: 'The AI reader was busy or failed, so Buchi could not read the screenshot.',
   unreadable: 'The screenshot was unclear twice.',
   unknown_layout: 'Buchi does not know this receipt layout.',
   unparseable: 'A field on the receipt is not in the format that its layout prints.',

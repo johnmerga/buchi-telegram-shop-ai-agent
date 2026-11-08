@@ -355,6 +355,28 @@ describe('sales agent tools', () => {
     ).toMatchObject([{ variantId: ids.soldOutSize }]);
   });
 
+  it('sends the product cards the model asks to show, and none from another shop', async () => {
+    const sara = userOf(425016, 'Sara');
+    await bot.handleUpdate(start(sara, sneakersLink));
+    const before = to(sara.id).length;
+    script.push(call('show_products', { productIds: [ids.boots, ids.sneakers, ids.boots] }), {
+      text: 'Here they are.',
+    });
+
+    await bot.handleUpdate(text(sara, 'Can I see the photos?'));
+
+    const cards = to(sara.id).slice(before, -1);
+    expect(cards.map((card) => card.text)).toEqual([
+      expect.stringContaining('Leather Boots'),
+      expect.stringContaining('White Sneakers'),
+    ]);
+    expect(JSON.stringify(model.requests.at(-1)?.contents.at(-1))).toContain('"shown":2');
+
+    script.push(call('show_products', { productIds: [crypto.randomUUID()] }), { text: 'Sorry.' });
+    await bot.handleUpdate(text(sara, 'And this one?'));
+    expect(JSON.stringify(model.requests.at(-1)?.contents.at(-1))).toContain('None of these');
+  });
+
   it("lists the customer's orders", async () => {
     const mulu = userOf(425015, 'Mulu');
     await bot.handleUpdate(start(mulu, sneakersLink));

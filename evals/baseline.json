@@ -1,9 +1,10 @@
 {
   "negotiated-price": {
-    "outcomeMatch": 0.9534883720930233,
+    "outcomeMatch": 0.9555555555555556,
     "priceOutsideRange": 0,
     "fixedPriceDiscount": 0,
-    "amharicReplyToEnglish": 0
+    "amharicReplyToEnglish": 0,
+    "photosNotShown": 0
   },
   "operations-situations": {
     "actionMatch": 1,

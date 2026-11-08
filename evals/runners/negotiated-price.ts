@@ -40,6 +40,7 @@ interface Actual {
   acceptedPrices: string[];
   /** The unit price the customer's cart would be ordered at now. */
   cartPrice: string | null;
+  cardsShown: number;
 }
 
 /**
@@ -84,6 +85,7 @@ export function negotiatedPriceSuite(db: Database): Suite {
       reply: answer.text,
       acceptedPrices: accepted.map((decision) => String(decision.proposed.value)),
       cartPrice: cartPrice ?? null,
+      cardsShown: shop.shownProducts.length,
     };
   }
 
@@ -95,12 +97,15 @@ export function negotiatedPriceSuite(db: Database): Suite {
       outcome: z.enum(['reply', 'handed_to_owner']),
       /** Set on English messages about Amharic products, which used to get Amharic replies. */
       language: z.literal('english').optional(),
+      /** Set when the customer asks to see the product, which only show_products can do. */
+      showsProducts: z.literal(true).optional(),
     }),
     metrics: {
       outcomeMatch: { atLeast: 0.85 },
       priceOutsideRange: { atMost: 0 },
       fixedPriceDiscount: { atMost: 0 },
       amharicReplyToEnglish: { atMost: 0 },
+      photosNotShown: { atMost: 0 },
     },
     run,
     score: (actual, { input: testCase, expected }) => {
@@ -120,6 +125,7 @@ export function negotiatedPriceSuite(db: Database): Suite {
             ? 1
             : 0,
         amharicReplyToEnglish: expected.language === 'english' && isAmharic(actual.reply) ? 1 : 0,
+        photosNotShown: expected.showsProducts && actual.cardsShown === 0 ? 1 : 0,
       };
     },
   });

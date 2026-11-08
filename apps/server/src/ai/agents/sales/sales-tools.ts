@@ -1,6 +1,11 @@
 import type { Tool } from '../../tool';
 import { confirmOrderTool, getMyOrdersTool, updateCartTool, type CartToolDeps } from './tools/cart';
-import { joinWaitlistTool, searchProductsTool, type CatalogToolDeps } from './tools/catalog';
+import {
+  joinWaitlistTool,
+  searchProductsTool,
+  showProductsTool,
+  type CatalogToolDeps,
+} from './tools/catalog';
 import { requestHumanTool, type HumanToolDeps } from './tools/human';
 import { setLocationTool, type LocationToolDeps } from './tools/location';
 import { forgetMyDetailsTool, rememberFactTool, type MemoryToolDeps } from './tools/memory';
@@ -17,6 +22,7 @@ export type SalesToolDeps = CatalogToolDeps &
 export function salesTools(deps: SalesToolDeps): Tool[] {
   return [
     searchProductsTool(deps),
+    showProductsTool(deps),
     getMyOrdersTool(deps),
     updateCartTool(deps),
     confirmOrderTool(deps),

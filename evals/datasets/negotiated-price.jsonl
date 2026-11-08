@@ -41,3 +41,5 @@
 {"id":"english-asks-amharic-dress-price","input":{"product":"የሀበሻ ቀሚስ","pricingMode":"fixed","price":"3500.00","message":"Hi, how much is this dress?"},"expected":{"outcome":"reply","language":"english"}}
 {"id":"english-offer-amharic-boots","input":{"product":"የቆዳ ጫማ","pricingMode":"negotiable","price":"1000.00","lowest":"800.00","message":"Can you do 900 for these boots?"},"expected":{"outcome":"reply","language":"english"}}
 {"id":"english-size-amharic-shirt","input":{"product":"የወንድ ሸሚዝ","pricingMode":"fixed","price":"850.00","message":"Do you have size 41? I want to buy it today."},"expected":{"outcome":"reply","language":"english"}}
+{"id":"asks-to-see-photos","input":{"product":"Leather boots","pricingMode":"fixed","price":"1500.00","message":"Can I see the photos of these?"},"expected":{"outcome":"reply","showsProducts":true}}
+{"id":"amharic-asks-to-see-photos","input":{"product":"የቆዳ ጫማ","pricingMode":"fixed","price":"1500.00","message":"ፎቶውን ማየት እችላለሁ?"},"expected":{"outcome":"reply","showsProducts":true}}

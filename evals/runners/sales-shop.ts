@@ -99,7 +99,13 @@ export function createSalesShop(
   );
   const memory = new CustomerMemoryService(db, new CustomerFactsRepo());
   const guard = new PolicyGuard(db, new DecisionsRepo());
+  /** The products whose cards show_products sent, for the suites to check. */
+  const shownProducts: string[] = [];
   const silentChat = {
+    productCard: (_chatId: number, product: { id: string }) => {
+      shownProducts.push(product.id);
+      return Promise.resolve();
+    },
     orderStep: () => Promise.resolve(),
     confirmPlace: () => Promise.resolve(),
     askForPin: () => Promise.resolve(),
@@ -142,7 +148,7 @@ export function createSalesShop(
     memory,
     logger,
   );
-  return { agent, shops, catalog, customers, orders };
+  return { agent, shops, catalog, customers, orders, shownProducts };
 }
 
 function unitVector(): number[] {

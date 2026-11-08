@@ -23,8 +23,9 @@ const stale = 'This button no longer works.';
 
 /**
  * The Telegram events that wake the operations agent: a customer's **Problem** answers, a
- * driver's message during a trip (answered with their next stop's buttons), and a customer's message close to the payment deadline. It runs
- * after the takeover guard and just before the sales agent, which answers everything else.
+ * driver's message during a trip (answered with their next stop's buttons), and a customer's
+ * message close to the payment deadline. It runs after the takeover guard and just before the
+ * sales agent, which answers everything else.
  */
 export function createOperationsHandlers(deps: OperationsDeps): Composer<BuchiContext> {
   const { triggers, problems, customers, trips } = deps;

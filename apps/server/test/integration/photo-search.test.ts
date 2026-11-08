@@ -260,7 +260,11 @@ describe('photo search', () => {
 
 describe('product search by words and meaning', () => {
   /** Amharic words as the fake embedding reads them, as a real embedding model would place them. */
-  const amharic: Record<string, string> = { 'ነጭ ስኒከር': 'white high-top sneaker', ቦርሳ: 'bag' };
+  const amharic: Record<string, string> = {
+    'ነጭ ስኒከር': 'white high-top sneaker',
+    ቦርሳ: 'bag',
+    'black ስኒከር': 'white high-top sneaker',
+  };
   const embedder = {
     embed: (text: string) => Promise.resolve(fakeEmbedding(amharic[text] ?? text)),
   };
@@ -276,6 +280,13 @@ describe('product search by words and meaning', () => {
     const found = await titles('leather');
     expect(found.slice(0, 2).toSorted()).toEqual(['Black leather boots', 'Leather belt']);
     expect(new Set(found).size).toBe(found.length);
+  });
+
+  it('shows a product close in meaning before products that share only one word', async () => {
+    expect(await titles('black ስኒከር', 1)).toEqual(['White high-top sneakers']);
+    const all = await titles('black ስኒከር');
+    expect(all[0]).toBe('White high-top sneakers');
+    expect(all.slice(1).toSorted()).toEqual(['Black leather boots', 'Leather belt']);
   });
 
   it('finds nothing for a query that is close to no product', async () => {

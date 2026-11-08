@@ -10,6 +10,7 @@ import {
   embeddingText,
   postContent,
   restockedVariants,
+  searchTerms,
 } from './catalog.domain';
 import type { CatalogRepo, ProductRow, VariantRow } from './catalog.repo';
 
@@ -91,7 +92,7 @@ export class CatalogService {
 
   /** Active products that mention any of the query's words, or the newest ones for no words. */
   search(shopId: string, query: string, limit: number): Promise<ProductWithVariants[]> {
-    const terms = query.split(/\s+/).filter((term) => term.length > 1);
+    const terms = searchTerms(query);
     return withShop(this.db, shopId, async (tx) => {
       const rows =
         terms.length > 0

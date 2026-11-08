@@ -116,3 +116,34 @@ export function restockedVariants(
     .filter((variant) => variant.stock > (stockBefore.get(variant.id) ?? 0))
     .map((variant) => variant.id);
 }
+
+/** The words of a search query worth matching: one-letter words match almost everything. */
+export function searchTerms(query: string): string[] {
+  return query.split(/\s+/).filter((term) => term.length > 1);
+}
+
+interface WordMatch {
+  id: string;
+  title: string;
+  description: string;
+}
+
+/**
+ * The order a search shows products in: those whose text holds every word of the query, such as
+ * an item code, then those close in meaning, closest first, then those that share only some
+ * words. A generic word like "shoe" alone thus never crowds out what the query means.
+ */
+export function rankSearchResults(
+  terms: string[],
+  byWords: WordMatch[],
+  byMeaning: string[],
+  limit: number,
+): string[] {
+  const holdsAll = (product: WordMatch) => {
+    const text = `${product.title}\n${product.description}`.toLowerCase();
+    return terms.every((term) => text.includes(term.toLowerCase()));
+  };
+  const complete = byWords.filter(holdsAll).map((product) => product.id);
+  const partial = byWords.filter((product) => !holdsAll(product)).map((product) => product.id);
+  return [...new Set([...complete, ...byMeaning, ...partial])].slice(0, limit);
+}

@@ -7,7 +7,9 @@ import {
   postContent,
   postIdFromStartPayload,
   productCard,
+  rankSearchResults,
   restockedVariants,
+  searchTerms,
 } from './catalog.domain';
 
 describe('availableSizes', () => {
@@ -128,5 +130,43 @@ describe('restockedVariants', () => {
       { id: 'e', stock: 0 },
     ];
     expect(restockedVariants(before, after)).toEqual(['a', 'd']);
+  });
+});
+
+describe('searchTerms', () => {
+  it('keeps the words longer than one letter', () => {
+    expect(searchTerms(' Nike  a kids ')).toEqual(['Nike', 'kids']);
+  });
+});
+
+describe('rankSearchResults', () => {
+  const kids = (id: string) => ({ id, title: `Kids ${id}`, description: 'የልጆች ጫማ' });
+  const boots = { id: 'm1912', title: 'Football shoes · M1912', description: 'Football boots' };
+
+  it('puts products close in meaning before those sharing only a generic word', () => {
+    const words = [kids('a'), kids('b'), kids('c'), kids('d'), kids('e')];
+    expect(rankSearchResults(['የእግር', 'ኳስ', 'ጫማ'], words, ['m1913', 'm1916'], 5)).toEqual([
+      'm1913',
+      'm1916',
+      'a',
+      'b',
+      'c',
+    ]);
+  });
+
+  it('keeps a product holding every word, such as an item code, first', () => {
+    expect(rankSearchResults(['m1912'], [boots], ['m1913', 'm1912'], 5)).toEqual([
+      'm1912',
+      'm1913',
+    ]);
+  });
+
+  it('matches every word in the title or the description, whatever the case', () => {
+    const words = [kids('a'), boots];
+    expect(rankSearchResults(['FOOTBALL', 'm1912'], words, [], 5)).toEqual(['m1912', 'a']);
+  });
+
+  it('lists each product once and stops at the limit', () => {
+    expect(rankSearchResults(['kids'], [kids('a'), kids('b')], ['b', 'z'], 2)).toEqual(['a', 'b']);
   });
 });

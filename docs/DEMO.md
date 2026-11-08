@@ -61,15 +61,38 @@ pnpm --filter @buchi/server demo:scenario far-over-cap <shop-id>
 | `restock-waitlist` | The customer first in line for the sold-out size | The owner sets that size to 1 in the dashboard, and the customer gets a held unit |
 | `far-over-cap` | Nothing; it prints a spot to share | The customer buys and shares the spot, and the owner gets **Approve once** |
 
-Payment screenshots for a live order come from the evals package, timed now:
+## Payment checks
+
+Draw each screenshot after its order exists: it carries the time it was drawn, and rule R5 rejects
+a payment made before the order. Send it within the order's 3-minute hold.
+
+CBE, whose page the server can reach:
+
+```sh
+pnpm --filter @buchi/evals demo:receipts --bank cbe --total <order total> --name "<account holder>" --reused <FT reference of an earlier order>
+```
+
+| Send | What happens |
+|---|---|
+| `fake-reference.jpg` | The bank's page does not know the ID, so it goes to the owner's **Payment review** |
+| `reused.jpg` | The reference is from another day, so Buchi asks for it; once typed, the bank's page and rule R6 reject it |
+
+An underpaid payment needs a real transfer, since only a bank-confirmed partial payment counts.
+Lower a demo product's price to 25 birr and order it as pickup. After the order exists, transfer
+10 birr to the shop's CBE account and send that screenshot: Buchi asks for the 15.00 still missing.
+Within 3 minutes, transfer 15 birr and send it: the payment is approved. Then restore the price.
+
+Telebirr's page answers only inside Ethiopia, so its receipts are checked from the screenshot:
 
 ```sh
 pnpm --filter @buchi/evals demo:receipts --total <order total> --name "<account holder>" --phone <Telebirr number>
 ```
 
-From the customer account, within one order's 3-minute hold, send `underpaid.jpg` (Buchi asks for
-the full amount) and then `edited-total.jpg` (it goes to the owner). For a second order, send
-`reused.jpg`: it is rejected, with **Report a problem**.
+Within one order's hold, send `underpaid.jpg` (Buchi asks for the full amount) and then
+`edited-total.jpg` (it goes to the owner). For a second order, send `reused.jpg`: it is rejected,
+with **Report a problem**.
+
+If Gemini is overloaded past its retries, the receipt goes to the owner as unread: send it again.
 
 Negotiation, photo search, and owner questions need no setup: chat with the bot.
 

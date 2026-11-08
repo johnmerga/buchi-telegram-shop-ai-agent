@@ -330,6 +330,36 @@ describe('PolicyGuard', () => {
     ]);
   });
 
+  it('keeps one pending request per order and tool, even for two at once', async () => {
+    const orderId = '00000000-0000-4000-8000-0000000000e1';
+    const escalation = (runId: string) =>
+      guard.requestOwnerConfirmation(
+        { ...context, shopId, runId, tool: 'escalate' },
+        { orderId, summary: 'Driver says delivered', recommendation: 'Check with the driver' },
+      );
+    const first = '00000000-0000-4000-8000-0000000000e2';
+    const second = '00000000-0000-4000-8000-0000000000e3';
+
+    const results = await Promise.all([escalation(first), escalation(second)]);
+
+    expect(results).toContainEqual({ status: 'awaiting_owner' });
+    expect(results).toContainEqual({
+      status: 'ok',
+      output: expect.objectContaining({ alreadyWithOwner: true }) as unknown,
+    });
+    const pending = [...(await decisionsOf(first)), ...(await decisionsOf(second))];
+    expect(pending).toHaveLength(1);
+
+    // Once the owner answered, a new request about the order goes through again.
+    await guard.answerOwner(shopId, pending[0]?.id ?? '', {
+      status: 'declined',
+      decidedBy: 4242,
+      decidedAt: new Date(),
+    });
+    const third = '00000000-0000-4000-8000-0000000000e4';
+    expect(await escalation(third)).toEqual({ status: 'awaiting_owner' });
+  });
+
   it('records the owner answer once, so a second tap changes nothing', async () => {
     const scoped = { ...context, shopId, runId: '00000000-0000-4000-8000-0000000000d3' };
     const proposal = { value: Money.of('1200'), reason: 'Roadworks', evidenceIds: [] };

@@ -38,6 +38,15 @@ type LimitsRecord = Record<string, string | number | null>;
 
 const formatMoney = (amount: Money) => amount.toString();
 
+/** What the model hears when the same request already waits for the owner. */
+const alreadyWithOwner: ToolResult = {
+  status: 'ok',
+  output: {
+    alreadyWithOwner: true,
+    note: 'The same request for this order already waits for the owner.',
+  },
+};
+
 /**
  * The only path from an agent's proposed value to an action. Each check applies its pure checker,
  * records the decision with the private limits, and gives the model a result without them.
@@ -90,21 +99,28 @@ export class PolicyGuard {
     return decided !== undefined;
   }
 
-  /** Holds an `owner_confirms` action as a pending request until the owner approves it. */
+  /**
+   * Holds an `owner_confirms` action as a pending request until the owner approves it. A request
+   * about an order that the same tool already has waiting is not added again, so a driver who
+   * sends the same message twice does not give the owner two cards.
+   */
   async requestOwnerConfirmation(
     context: ToolCallContext,
     proposed: Record<string, unknown>,
   ): Promise<ToolResult> {
-    await withShop(this.db, context.shopId, (tx) =>
-      this.repo.insert(tx, {
+    const orderId = typeof proposed.orderId === 'string' ? proposed.orderId : undefined;
+    const added = await withShop(this.db, context.shopId, async (tx) => {
+      if (orderId && (await this.repo.hasPendingForOrder(tx, context.tool, orderId))) return false;
+      await this.repo.insert(tx, {
         ...scopeOf(context),
         proposed,
         result: 'needs_owner',
         reason: 'owner_confirms',
         ownerStatus: 'pending',
-      }),
-    );
-    return { status: 'awaiting_owner' };
+      });
+      return true;
+    });
+    return added ? { status: 'awaiting_owner' } : alreadyWithOwner;
   }
 
   private async record<Value, D extends Decision<Value>>(

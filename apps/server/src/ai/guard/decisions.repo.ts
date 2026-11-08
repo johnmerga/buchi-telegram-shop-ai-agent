@@ -25,6 +25,26 @@ export class DecisionsRepo {
   }
 
   /**
+   * Whether the same tool already waits for the owner about this order. The lock, held to the end
+   * of the transaction, makes two requests that arrive together check one after the other.
+   */
+  async hasPendingForOrder(tx: Transaction, tool: string, orderId: string): Promise<boolean> {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${tool}:${orderId}`}))`);
+    const [row] = await tx
+      .select({ id: agentDecisions.id })
+      .from(agentDecisions)
+      .where(
+        and(
+          eq(agentDecisions.tool, tool),
+          eq(agentDecisions.ownerStatus, 'pending'),
+          sql`${agentDecisions.proposed} ->> 'orderId' = ${orderId}`,
+        ),
+      )
+      .limit(1);
+    return row !== undefined;
+  }
+
+  /**
    * Records the owner's answer only while the request is pending, in one statement, so a second
    * tap, even a parallel one, finds nothing to decide.
    */

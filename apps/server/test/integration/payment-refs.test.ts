@@ -115,6 +115,12 @@ describe('payment reference claims (R6)', () => {
     expect(await refs.claim('cbe_birr', 'SAME000001', second)).toBe(second);
   });
 
+  it('finds a claimed reference read with a look-alike letter', async () => {
+    const [holder, other] = [await newOrder(shopIds[0] ?? ''), await newOrder(shopIds[1] ?? '')];
+    expect(await refs.claim('telebirr', 'DM0REUSED8', holder)).toBe(holder);
+    expect(await refs.claim('telebirr', 'DMOREUSED8', other)).toBe(holder);
+  });
+
   it('frees a reference only for the order that holds it', async () => {
     const [holder, other] = [await newOrder(shopIds[0] ?? ''), await newOrder(shopIds[1] ?? '')];
     await refs.claim('telebirr', 'FREE000001', holder);

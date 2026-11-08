@@ -19,6 +19,7 @@ import {
 } from '../../db/schema';
 import { DEMO_TELEGRAM_ID_BASE } from '../../shared/demo-ids';
 import { zoneOf } from '../delivery/zones.domain';
+import { referenceKey } from '../payments/payments.domain';
 import type { DemoCustomer, DemoOrder } from './demo-history.domain';
 
 /** What a demo reset removed or retired, for the script to print. */
@@ -111,7 +112,7 @@ export class DemoRepo {
       await tx.insert(paymentRefs).values(
         kept.map(({ order, payment }) => ({
           provider: payment.provider,
-          txRef: payment.txRef,
+          txRef: referenceKey(payment.txRef),
           orderId: order.id,
         })),
       );

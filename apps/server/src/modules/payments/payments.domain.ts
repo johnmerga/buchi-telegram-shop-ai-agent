@@ -53,3 +53,11 @@ export function checkTime(paidAt: Date, orderCreatedAt: Date): Check {
 export function checkReference(claimedByOrderId: string, orderId: string): Check {
   return claimedByOrderId === orderId ? 'pass' : 'fail';
 }
+
+/**
+ * The key rule R6 compares references by. Screenshot readers confuse O with 0 and I with 1, and
+ * references print in capitals, so the key folds those letters to digits.
+ */
+export function referenceKey(txRef: string): string {
+  return txRef.toUpperCase().replaceAll('O', '0').replaceAll('I', '1');
+}

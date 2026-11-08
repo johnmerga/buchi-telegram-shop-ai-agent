@@ -1,6 +1,7 @@
 import { Money, type PaymentAccount } from '@buchi/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  referenceKey,
   amountDue,
   checkAmount,
   checkReference,
@@ -94,5 +95,13 @@ describe('R6: a reference for one order only', () => {
 
   it('fails when another order holds it', () => {
     expect(checkReference('order-2', 'order-1')).toBe('fail');
+  });
+});
+
+describe('referenceKey', () => {
+  it('folds the letters a reader confuses with digits', () => {
+    expect(referenceKey('DMOREUSED7')).toBe(referenceKey('DM0REUSED7'));
+    expect(referenceKey('ft26311sdwv6')).toBe('FT26311SDWV6');
+    expect(referenceKey('CHI4OL')).toBe('CH140L');
   });
 });

@@ -185,6 +185,13 @@ describe('the demo scenarios', () => {
     );
     expect(job?.status).toBe('picked_up');
     expect(trip.order).toMatch(/^#[0-9A-F]{6}$/);
+    // The driver gets what a real pickup sends, so Delivered is a tap away.
+    const [live, stop] = trip.driverMessages;
+    expect(live?.text).toContain('Live Location');
+    expect(stop?.buttons.map((button) => button.data)).toEqual([
+      expect.stringMatching(/^job:delivered:/),
+      `job:problem:${job?.id ?? ''}`,
+    ]);
   });
 
   it('keeps the late check ahead for a trip that is on time', async () => {

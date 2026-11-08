@@ -39,6 +39,7 @@ import { FarQuotesRepo } from '../src/modules/far-quotes/far-quotes.repo';
 import { TimersRepo } from '../src/modules/jobs/timers.repo';
 import { ShopsRepo } from '../src/modules/shops/shops.repo';
 import { ShopsService } from '../src/modules/shops/shops.service';
+import { TelegramMessenger } from '../src/telegram/messenger';
 import { TelegramPhotoUploads } from '../src/telegram/photo-uploads';
 
 /** The private photo folder. It is gitignored, and its list names each photo's product. */
@@ -162,8 +163,7 @@ function seeder(database: Database): DemoSeeder {
  * bot, which then deletes it. A product that already has a photo is skipped.
  */
 async function uploadPhotos(shopId: string): Promise<void> {
-  const token = z.string().min(1, 'Set TELEGRAM_BOT_TOKEN').parse(process.env.TELEGRAM_BOT_TOKEN);
-  const uploads = new TelegramPhotoUploads(new Api(token));
+  const uploads = new TelegramPhotoUploads(new Api(botToken()));
   const [owner] = await shops(db).ownerIds(shopId);
   if (owner === undefined) throw new Error('The shop has no owner');
   const products = catalog(db);
@@ -176,6 +176,10 @@ async function uploadPhotos(shopId: string): Promise<void> {
     console.log(`Added the photo of ${product.title}`);
     await new Promise((resolve) => setTimeout(resolve, UPLOAD_GAP_MS));
   }
+}
+
+function botToken(): string {
+  return z.string().min(1, 'Set TELEGRAM_BOT_TOKEN').parse(process.env.TELEGRAM_BOT_TOKEN);
 }
 
 async function runScenario(name: (typeof scenarioNames)[number], shopId: string): Promise<void> {
@@ -195,7 +199,12 @@ async function runScenario(name: (typeof scenarioNames)[number], shopId: string)
         driver: userIdArg('driver', values.driver),
       };
       const trip = await scenarios.onTheRoad(shopId, people, name === 'late-delivery');
+      const messenger = new TelegramMessenger(new Api(botToken()));
+      for (const message of trip.driverMessages) {
+        await messenger.send(people.driver, message.text, message.buttons);
+      }
       console.log(`Order ${trip.order} (${trip.product}) is on the road with the driver.`);
+      console.log('The driver got the pickup messages: share Live Location, then Delivered.');
       console.log(
         name === 'late-delivery'
           ? 'Within a minute the operations agent messages the customer and the driver about the delay.'

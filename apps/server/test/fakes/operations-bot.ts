@@ -295,7 +295,7 @@ export function createOperationsBot(db: Database, model: LanguageModel, now: () 
       }),
       createApprovalHandlers(approvals),
       createConversationHandlers({ conversations, customers }),
-      createOperationsHandlers({ triggers, problems, customers }),
+      createOperationsHandlers({ triggers, problems, customers, trips }),
       salesStandIn,
     ],
   });

@@ -13,15 +13,15 @@ import type { Messenger } from '../owner/owner-notifier.service';
 import type { DeliveryJobsRepo, StopRow } from './delivery-jobs.repo';
 import {
   deliveredQuestion,
-  deliverPrompt,
   liveLocationRequest,
   offPinAlert,
   onTheWay,
+  stopPrompt,
 } from './dispatch-messages.domain';
 import { lateAt, minutesBetween, needsReview, point, RECEIPT_WINDOW_MS } from './dispatch.domain';
 import { driverDisplayName } from './drivers.domain';
 import type { DriverRow, DriversRepo } from './drivers.repo';
-import { jobCallbackData, receiptCallbackData, type ReceiptAnswer } from './drivers.schemas';
+import { receiptCallbackData, type ReceiptAnswer } from './drivers.schemas';
 import { forDriver } from './for-driver';
 import { freshLivePoint } from './live-location.domain';
 import type { LiveTracking } from './live-tracking.service';
@@ -93,16 +93,24 @@ export class TripService {
       const order = await this.orders.get(shopId, stop.orderId);
       const customer = await this.customers.get(shopId, order.customerId);
       await this.tell(customer.telegramUserId, onTheWay(order.id, { name, phone: driver.phone }));
-      await this.tell(
-        telegramUserId,
-        deliverPrompt({ position: stop.position, customerName: customer.name }),
-        [
-          { text: '✅ Delivered / ደርሷል', data: jobCallbackData('delivered', stop.id) },
-          { text: '⚠️ Problem / ችግር', data: jobCallbackData('problem', stop.jobId) },
-        ],
-      );
+      const prompt = stopPrompt({ ...stop, customerName: customer.name });
+      await this.tell(telegramUserId, prompt.text, prompt.buttons);
     }
     return true;
+  }
+
+  /** The prompt and buttons of the next undelivered stop of the driver's trip on the road. */
+  async nextStop(telegramUserId: number): Promise<{ text: string; buttons: Button[] } | undefined> {
+    const found = await this.forDriver(telegramUserId, async (tx, driver) => {
+      const job = await this.jobs.jobOnTheWay(tx, driver.id);
+      const stops = job ? await this.jobs.stops(tx, job.id) : [];
+      return stops.find((stop) => stop.deliveredAt === null);
+    });
+    if (!found) return undefined;
+    const { shopId, result: stop } = found;
+    const order = await this.orders.get(shopId, stop.orderId);
+    const customer = await this.customers.get(shopId, order.customerId);
+    return stopPrompt({ ...stop, customerName: customer.name });
   }
 
   /**

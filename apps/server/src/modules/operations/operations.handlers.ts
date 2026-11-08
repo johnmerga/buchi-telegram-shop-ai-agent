@@ -1,7 +1,8 @@
 import { Composer } from 'grammy';
 import type { BuchiContext } from '../../telegram/actor';
-import { oneButtonPerRow } from '../../telegram/keyboards';
+import { inlineKeyboard, oneButtonPerRow } from '../../telegram/keyboards';
 import type { CustomersService } from '../customers/customers.service';
+import type { TripService } from '../drivers/trips.service';
 import type { CustomerProblems } from './customer-problems.service';
 import { problemNoted, sizeQuestion } from './operations.domain';
 import {
@@ -15,17 +16,18 @@ interface OperationsDeps {
   triggers: Pick<OperationsTriggers, 'customerMessage' | 'driverMessage'>;
   problems: Pick<CustomerProblems, 'report' | 'chooseSize' | 'resolve'>;
   customers: Pick<CustomersService, 'sessionOf'>;
+  trips: Pick<TripService, 'nextStop'>;
 }
 
 const stale = 'This button no longer works.';
 
 /**
  * The Telegram events that wake the operations agent: a customer's **Problem** answers, a
- * driver's message during a trip, and a customer's message close to the payment deadline. It runs
+ * driver's message during a trip (answered with their next stop's buttons), and a customer's message close to the payment deadline. It runs
  * after the takeover guard and just before the sales agent, which answers everything else.
  */
 export function createOperationsHandlers(deps: OperationsDeps): Composer<BuchiContext> {
-  const { triggers, problems, customers } = deps;
+  const { triggers, problems, customers, trips } = deps;
   const handlers = new Composer<BuchiContext>();
 
   handlers.callbackQuery(/^problem:/, async (ctx) => {
@@ -66,7 +68,15 @@ export function createOperationsHandlers(deps: OperationsDeps): Composer<BuchiCo
     const { text } = ctx.msg;
     if (text.startsWith('/')) return next();
     if (ctx.actor.driverShopIds.length > 0 && (await triggers.driverMessage(ctx.from.id, text))) {
-      await ctx.reply(problemNoted);
+      // A driver who writes "delivered" gets the stop's buttons, since only a tap confirms it.
+      const stop = await trips.nextStop(ctx.from.id);
+      if (stop) {
+        await ctx.reply(`${problemNoted}\n${stop.text}`, {
+          reply_markup: inlineKeyboard(stop.buttons),
+        });
+      } else {
+        await ctx.reply(problemNoted);
+      }
       return;
     }
     const session = await customers.sessionOf(ctx.from.id);

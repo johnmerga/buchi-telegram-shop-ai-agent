@@ -1,7 +1,9 @@
 import { formatBirr, type MoneyString } from '@buchi/shared';
 import type { Coordinates } from '../delivery/location.domain';
 import { orderReference } from '../orders/orders.domain';
+import type { Button } from '../owner/owner.domain';
 import { mapsLink } from './dispatch.domain';
+import { jobCallbackData } from './drivers.schemas';
 
 /**
  * What a driver sees before accepting: never the customer's name, phone, or pin. A special offer
@@ -80,6 +82,25 @@ function stopDetails(stop: StopDetails): string {
 
 export function deliverPrompt(stop: { position: number; customerName: string }): string {
   return `${String(stop.position)}. ${stop.customerName}: tap Delivered at the door / ሲያደርሱ ይጫኑ.`;
+}
+
+/**
+ * A stop's prompt with its **Delivered** and **Problem** buttons. Sent at pickup, and again when a
+ * driver on the road writes instead of tapping, so the buttons are always at hand.
+ */
+export function stopPrompt(stop: {
+  id: string;
+  jobId: string;
+  position: number;
+  customerName: string;
+}): { text: string; buttons: Button[] } {
+  return {
+    text: deliverPrompt(stop),
+    buttons: [
+      { text: '✅ Delivered / ደርሷል', data: jobCallbackData('delivered', stop.id) },
+      { text: '⚠️ Problem / ችግር', data: jobCallbackData('problem', stop.jobId) },
+    ],
+  };
 }
 
 /** Sent once a trip starts, so customers can follow the driver on a map. */

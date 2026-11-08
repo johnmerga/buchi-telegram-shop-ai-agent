@@ -765,7 +765,7 @@ const bot = createBot({
     createListingHandlers(listings),
     createCatalogHandlers(catalog),
     createDemandHandlers({ demand, customers }),
-    createOperationsHandlers({ triggers: operations, problems, customers }),
+    createOperationsHandlers({ triggers: operations, problems, customers, trips }),
     // Last, so every button and code path answers before the model does.
     createAssistantHandlers({ assistant: ownerAssistantAgent, customers }),
     createSalesHandlers({

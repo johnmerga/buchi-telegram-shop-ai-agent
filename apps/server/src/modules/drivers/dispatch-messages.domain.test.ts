@@ -6,6 +6,7 @@ import {
   offerText,
   onTheWay,
   readyForPickup,
+  stopPrompt,
 } from './dispatch-messages.domain';
 
 const orderId = '3f2a9c00-0000-4000-8000-000000000001';
@@ -107,5 +108,19 @@ describe('availabilityText', () => {
   it('says whether new jobs will come', () => {
     expect(availabilityText(true)).toContain('You are available');
     expect(availabilityText(false)).toContain('You are off duty');
+  });
+});
+
+describe('stopPrompt', () => {
+  it('names the stop and carries its Delivered and Problem buttons', () => {
+    const stop = { id: 'stop-1', jobId: 'job-1', position: 2, customerName: 'Hana' };
+
+    expect(stopPrompt(stop)).toEqual({
+      text: '2. Hana: tap Delivered at the door / ሲያደርሱ ይጫኑ.',
+      buttons: [
+        { text: '✅ Delivered / ደርሷል', data: 'job:delivered:stop-1' },
+        { text: '⚠️ Problem / ችግር', data: 'job:problem:job-1' },
+      ],
+    });
   });
 });

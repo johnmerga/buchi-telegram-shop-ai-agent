@@ -159,6 +159,12 @@ describe('a driver who reports a delay', () => {
     await bot.handleUpdate(text(abebe, 'Stuck at Megenagna, 30 minutes late'));
 
     expect(lastTo(sara.id)?.text).toContain('should arrive around');
+    // The reply carries the stop's buttons, since only a tap confirms the delivery.
+    const reply = lastTo(abebe.id);
+    expect(reply?.text).toContain('Buchi is on it');
+    expect(reply?.text).toContain('Sara: tap Delivered');
+    expect(buttonsOf(reply)).toHaveLength(2);
+    expect(buttonsOf(reply)[0]).toMatch(/^job:delivered:/);
     const notes = await shopRows((tx) => tx.select().from(areaNotes));
     expect(notes).toMatchObject([
       { zone: noteZone(customerPin), note: 'Traffic jam at Megenagna', source: 'driver' },

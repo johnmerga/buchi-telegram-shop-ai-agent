@@ -36,18 +36,22 @@ export interface RoadTrip {
 /** The rows that the demo scenarios read and start, in the shop the transaction is in. */
 export class DemoScenariosRepo {
   /** The customer row of a real Telegram user, added the way their first message would add it. */
-  async customerOf(tx: Transaction, shopId: string, telegramUserId: number): Promise<string> {
+  async customerOf(
+    tx: Transaction,
+    shopId: string,
+    telegramUserId: number,
+  ): Promise<{ id: string; name: string }> {
     const [found] = await tx
-      .select({ id: customers.id })
+      .select({ id: customers.id, name: customers.name })
       .from(customers)
       .where(eq(customers.telegramUserId, telegramUserId));
-    if (found) return found.id;
+    if (found) return found;
     const [added] = await tx
       .insert(customers)
       .values({ shopId, telegramUserId, name: 'Demo customer' })
-      .returning({ id: customers.id });
+      .returning({ id: customers.id, name: customers.name });
     if (!added) throw new Error('Insert returned no customer');
-    return added.id;
+    return added;
   }
 
   /** A linked driver of the shop with this Telegram user ID. */
@@ -87,7 +91,7 @@ export class DemoScenariosRepo {
     tx: Transaction,
     shopId: string,
     trip: RoadTrip,
-  ): Promise<{ orderId: string; jobId: string }> {
+  ): Promise<{ orderId: string; jobId: string; stopId: string }> {
     const total = trip.unitPrice.add(trip.deliveryFee);
     const [order] = await tx
       .insert(orders)
@@ -153,15 +157,19 @@ export class DemoScenariosRepo {
       })
       .returning({ id: deliveryJobs.id });
     if (!job) throw new Error('Insert returned no trip');
-    await tx.insert(jobStops).values({
-      shopId,
-      jobId: job.id,
-      orderId: order.id,
-      position: 1,
-      routingSeconds: trip.routingSeconds,
-      expectedSeconds: trip.estimatedMinutes * 60,
-    });
-    return { orderId: order.id, jobId: job.id };
+    const [stop] = await tx
+      .insert(jobStops)
+      .values({
+        shopId,
+        jobId: job.id,
+        orderId: order.id,
+        position: 1,
+        routingSeconds: trip.routingSeconds,
+        expectedSeconds: trip.estimatedMinutes * 60,
+      })
+      .returning({ id: jobStops.id });
+    if (!stop) throw new Error('Insert returned no stop');
+    return { orderId: order.id, jobId: job.id, stopId: stop.id };
   }
 
   /** The sold-out demo size that demo customers wait for, and when the first of them joined. */

@@ -190,7 +190,7 @@ export class PaymentVerification {
       case 'typed_reference':
         return {
           extraction: received.extraction,
-          reading: interpretReceipt(received.extraction, null),
+          reading: interpretReceipt(received.extraction, null, { referenceTyped: true }),
         };
       case 'screenshot':
         return readScreenshot(this.reader, received.image, received.classificationConfidence);

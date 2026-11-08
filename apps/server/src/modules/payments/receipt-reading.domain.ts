@@ -60,10 +60,13 @@ const implausible = (reason: ImplausibleReason): Reading => ({ status: 'implausi
  * formats. A missing or unsure field asks for a clearer screenshot, while a confident field that
  * does not parse, or fields that contradict each other, go to the owner. Classification
  * confidence is `null` when the classifier was unavailable, and then the fields alone decide.
+ * A reference the customer typed is not checked against the printed date again: asking once more
+ * would get the same answer, so the bank's page and the rules decide instead.
  */
 export function interpretReceipt(
   extraction: ReceiptExtraction,
   classificationConfidence: number | null,
+  { referenceTyped = false }: { referenceTyped?: boolean } = {},
 ): Reading {
   const unreadable: Reading = { status: 'unreadable' };
   if (classificationConfidence !== null && classificationConfidence < MIN_CONFIDENCE) {
@@ -96,7 +99,7 @@ export function interpretReceipt(
   // The reference comes last, so a receipt is read again for it only when nothing else is wrong.
   const txRef = parseReference(provider, printedRef);
   if (!txRef) return { status: 'bad_reference', provider, problem: 'unparseable' };
-  if (provider === 'cbe_bank' && !cbeReferenceMatchesDate(txRef, paidAt)) {
+  if (provider === 'cbe_bank' && !referenceTyped && !cbeReferenceMatchesDate(txRef, paidAt)) {
     return { status: 'bad_reference', provider, problem: 'reference_date' };
   }
 

@@ -177,6 +177,14 @@ describe('interpretReceipt', () => {
     expect(interpretReceipt(short, 0.9)).toMatchObject({ provider: 'telebirr' });
   });
 
+  it('takes a typed CBE reference from another day as the customer typed it', () => {
+    const otherDay = { ...cbeWeb, transactionRef: sure('FT26150AB12C') };
+    expect(interpretReceipt(otherDay, null, { referenceTyped: true })).toMatchObject({
+      status: 'read',
+      receipt: { txRef: 'FT26150AB12C' },
+    });
+  });
+
   it('flags a CBE reference from another day than the printed date, to be read again', () => {
     const otherDay = { ...cbeWeb, transactionRef: sure('FT26150AB12C') };
     expect(interpretReceipt(otherDay, 0.9)).toEqual({

@@ -27,6 +27,11 @@ export class ShopsRepo {
     await tx.insert(shopMembers).values({ shopId: shop.id, telegramUserId: shop.ownerId });
   }
 
+  /** Every shop table references the shop with `on delete cascade`, so this removes all of it. */
+  async delete(tx: Transaction, shopId: string): Promise<void> {
+    await tx.delete(shops).where(eq(shops.id, shopId));
+  }
+
   async memberIds(tx: Transaction): Promise<number[]> {
     const rows = await tx.select({ telegramUserId: shopMembers.telegramUserId }).from(shopMembers);
     return rows.map((row) => row.telegramUserId);

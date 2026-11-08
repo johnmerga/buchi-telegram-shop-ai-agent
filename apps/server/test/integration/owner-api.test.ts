@@ -116,6 +116,43 @@ describe('owner API', () => {
     expect(blocked.status).toBe(403);
   });
 
+  it('deletes a shop only for its owner, once the name is typed again', async () => {
+    const owner = `Bearer ${await tokenFor(5011)}`;
+    const stranger = `Bearer ${await tokenFor(5012)}`;
+    const created = await request(app)
+      .post('/shops')
+      .set('authorization', owner)
+      .send({ name: 'Abebe Sneakers' });
+    const { id: shopId } = z.object({ id: z.uuid() }).parse(created.body);
+    const path = `/shops/${shopId}`;
+
+    const blocked = await request(app)
+      .delete(path)
+      .set('authorization', stranger)
+      .send({ name: 'Abebe Sneakers' });
+    expect(blocked.status).toBe(403);
+
+    const wrongName = await request(app)
+      .delete(path)
+      .set('authorization', owner)
+      .send({ name: 'Abebe' });
+    expect(wrongName.status).toBe(400);
+    expect(wrongName.body).toMatchObject({
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: "Type the shop's name, Abebe Sneakers, to delete it",
+      },
+    });
+
+    const deleted = await request(app)
+      .delete(path)
+      .set('authorization', owner)
+      .send({ name: 'Abebe Sneakers' });
+    expect(deleted.status).toBe(204);
+    expect((await request(app).get('/shops').set('authorization', owner)).body).toEqual([]);
+    expect((await request(app).get(path).set('authorization', owner)).status).toBe(403);
+  });
+
   it("adds a photo through the owner's bot chat and shows it only to the owner", async () => {
     const owner = `Bearer ${await tokenFor(5011)}`;
     const stranger = `Bearer ${await tokenFor(5012)}`;

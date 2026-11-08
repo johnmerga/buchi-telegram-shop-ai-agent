@@ -110,6 +110,19 @@ export function useCreateShop() {
   );
 }
 
+/** Deletes the shop, then forgets everything cached about it and reloads the shop list. */
+export function useDeleteShop(shopId: string) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.sendOnly('DELETE', `/shops/${shopId}`, { name }),
+    onSuccess: async () => {
+      queryClient.removeQueries({ queryKey: ownerKeys.shop(shopId) });
+      await queryClient.invalidateQueries({ queryKey: ownerKeys.shops, exact: true });
+    },
+  });
+}
+
 export function useConnectChannel(shopId: string) {
   const api = useApi();
   return useOwnerMutation(

@@ -8,6 +8,10 @@ export type PaymentProvider = z.infer<typeof paymentProviderSchema>;
 export const createShopSchema = z.object({ name: z.string().trim().min(2).max(80) });
 export type CreateShopInput = z.infer<typeof createShopSchema>;
 
+/** Deleting a shop asks for its name, typed again, so a mistap cannot remove it. */
+export const deleteShopSchema = z.object({ name: z.string().trim().min(1) });
+export type DeleteShopInput = z.infer<typeof deleteShopSchema>;
+
 export const shopLocationSchema = coordinatesSchema;
 export type ShopLocation = z.infer<typeof shopLocationSchema>;
 

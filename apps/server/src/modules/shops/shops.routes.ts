@@ -1,6 +1,7 @@
 import {
   connectChannelSchema,
   createShopSchema,
+  deleteShopSchema,
   paymentAccountsSchema,
   shopLocationSchema,
 } from '@buchi/shared';
@@ -34,6 +35,12 @@ export function createShopsRouter(deps: {
 
   router.get('/shops/:shopId', requireAuth, requireShopOwner, async (req, res) => {
     res.json(await shops.get(parseInput(shopParams, req.params).shopId));
+  });
+
+  router.delete('/shops/:shopId', requireAuth, requireShopOwner, async (req, res) => {
+    const { shopId } = parseInput(shopParams, req.params);
+    await shops.delete(shopId, parseInput(deleteShopSchema, req.body).name);
+    res.sendStatus(204);
   });
 
   router.put('/shops/:shopId/location', requireAuth, requireShopOwner, async (req, res) => {

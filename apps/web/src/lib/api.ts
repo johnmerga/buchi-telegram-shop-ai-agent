@@ -3,7 +3,7 @@ import { readError } from './api-error';
 import type { Auth } from './auth';
 import { followEventStream } from './sse';
 
-type Method = 'POST' | 'PUT';
+type Method = 'POST' | 'PUT' | 'DELETE';
 
 /** Calls the Buchi API with the bearer token and parses every response with its schema. */
 export class Api {

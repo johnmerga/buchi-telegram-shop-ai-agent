@@ -105,3 +105,7 @@ pnpm --filter @buchi/server demo:reset <shop-id>
 It removes the demo customers and everything they ordered, the demo drivers, far trips, area
 notes, and the seeded road legs, then learns the factors again. A demo product that a real order
 names stays, switched off, so that order keeps its item. The owner's own rows stay as they were.
+
+To remove a whole test shop instead, open its **Settings** in the dashboard and use **Delete
+shop**: type the shop's name, and the shop and everything in it are removed for good. Road legs
+and time factors stay, because they are platform-wide and name no shop.

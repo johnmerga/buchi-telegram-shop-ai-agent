@@ -1,14 +1,21 @@
-import { and, eq, gte, lt } from 'drizzle-orm';
+import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { connectDatabase } from '../../src/db/client';
 import {
+  agentDecisions,
+  conversations,
+  customerSessions,
   customers,
   deliveryJobs,
   drivers,
   farQuotes,
   orderItems,
   orders,
+  paymentRefs,
   products,
+  relayedMessages,
+  riskSignals,
+  timers,
   waitlist,
 } from '../../src/db/schema';
 import { withShop } from '../../src/db/with-shop';
@@ -265,5 +272,95 @@ describe('the demo reset', () => {
       expect(await tx.select().from(farQuotes)).toHaveLength(0);
       expect(await tx.select().from(drivers)).toHaveLength(1);
     });
+  });
+});
+
+describe('deleting a shop', () => {
+  /** Rows per table that name the shop, for every table with a `shop_id` column. */
+  async function rowsOf(id: string): Promise<Record<string, number>> {
+    const tables = await db.execute<{ table_name: string }>(sql`
+      select c.table_name from information_schema.columns c
+      join information_schema.tables t using (table_schema, table_name)
+      where c.table_schema = 'public' and c.column_name = 'shop_id' and t.table_type = 'BASE TABLE'
+      order by c.table_name`);
+    const counts: Record<string, number> = {};
+    for (const { table_name: table } of tables) {
+      const [row] = await db.execute<{ n: number }>(
+        sql`select count(*)::int as n from ${sql.identifier(table)} where shop_id = ${id}`,
+      );
+      counts[table] = row?.n ?? 0;
+    }
+    return counts;
+  }
+
+  it('removes every row of the shop, and only that shop, under row-level security', async () => {
+    const goneId = await shops.create(980_100, { name: 'Shop to delete' });
+    await shops.setLocation(goneId, { latitude: 8.98, longitude: 38.75 });
+    await seeder.seed(goneId, photos);
+    await withShop(db, goneId, async (tx) => {
+      const [decision] = await tx
+        .insert(agentDecisions)
+        .values({
+          shopId: goneId,
+          runId: crypto.randomUUID(),
+          agent: 'operations',
+          tool: 'propose_delivery_price',
+          proposed: { price: '500.00' },
+          result: 'needs_owner',
+          reason: 'Above the cap',
+          ownerStatus: 'pending',
+        })
+        .returning();
+      const [quote] = await tx.select().from(farQuotes).limit(1);
+      await tx
+        .update(farQuotes)
+        .set({ decisionId: decision?.id ?? null })
+        .where(eq(farQuotes.id, quote?.id ?? ''));
+      const [chat] = await tx
+        .insert(conversations)
+        .values({ shopId: goneId, customerTelegramUserId: 980_101, customerName: 'Abebe' })
+        .returning();
+      await tx.insert(relayedMessages).values({
+        ownerChatId: 980_100,
+        messageId: 1,
+        shopId: goneId,
+        conversationId: chat?.id ?? '',
+      });
+    });
+    await db.insert(timers).values({
+      kind: 'test',
+      targetId: 'x',
+      shopId: goneId,
+      dueAt: new Date(now.getTime() + 60_000),
+    });
+    await db.insert(customerSessions).values({ telegramUserId: 980_101, shopId: goneId });
+    await db
+      .insert(riskSignals)
+      .values({ payerHash: 'h', shopId: goneId, kind: 'receipt_rejected' });
+    const goneOrders = (
+      await withShop(db, goneId, (tx) => tx.select({ id: orders.id }).from(orders))
+    ).map((order) => order.id);
+    const refsBefore = await db
+      .select()
+      .from(paymentRefs)
+      .where(inArray(paymentRefs.orderId, goneOrders));
+    expect(refsBefore.length).toBeGreaterThan(0);
+    const before = await rowsOf(goneId);
+    expect(before.orders).toBeGreaterThan(0);
+    expect(before.agent_decisions).toBeGreaterThan(0);
+    const otherBefore = await rowsOf(shopId);
+
+    await expect(shops.delete(goneId, 'Shop to remove')).rejects.toThrow(
+      "Type the shop's name, Shop to delete, to delete it",
+    );
+    await shops.delete(goneId, ' Shop to delete ');
+
+    const after = await rowsOf(goneId);
+    expect(Object.entries(after).filter(([, n]) => n > 0)).toEqual([]);
+    expect(
+      await db.select().from(paymentRefs).where(inArray(paymentRefs.orderId, goneOrders)),
+    ).toHaveLength(0);
+    expect(await shops.ownedShopIds(980_100)).toEqual([]);
+    expect(await rowsOf(shopId)).toEqual(otherBefore);
   });
 });

@@ -45,6 +45,21 @@ export class ShopsService {
     return found.filter((shop) => shop !== undefined);
   }
 
+  /**
+   * Removes the shop and everything in it: products, customers, orders, payments, deliveries, and
+   * the AI's records. The owner confirms by typing the shop's name.
+   */
+  async delete(shopId: string, confirmedName: string): Promise<void> {
+    await withShop(this.db, shopId, async (tx) => {
+      const shop = await this.repo.find(tx, shopId);
+      if (!shop) throw new AppError('NOT_FOUND', 'Shop not found');
+      if (shop.name.trim() !== confirmedName.trim()) {
+        throw new AppError('VALIDATION_FAILED', `Type the shop's name, ${shop.name}, to delete it`);
+      }
+      await this.repo.delete(tx, shopId);
+    });
+  }
+
   get(shopId: string): Promise<ShopDetails> {
     return withShop(this.db, shopId, async (tx) => {
       const shop = await this.repo.find(tx, shopId);

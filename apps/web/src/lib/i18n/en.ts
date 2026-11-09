@@ -162,7 +162,6 @@ export const en = {
   'ai.empty': 'No decisions yet',
   'ai.emptyHint': 'Prices, refunds, and other actions that Buchi’s agents propose appear here.',
   'ai.decision': 'Decision {tool}',
-  'ai.agent': '{agent} agent',
   'ai.result.accepted': 'Allowed',
   'ai.result.rejected': 'Blocked',
   'ai.result.needsOwner': 'Needs you',
@@ -423,6 +422,9 @@ export const en = {
   'driver.directions': 'Directions',
   'driver.checkingLocation': 'Checking your location…',
   'driver.delivered': 'Delivered',
+  'agent.sales': 'Sales agent',
+  'agent.operations': 'Operations agent',
+  'agent.owner_assistant': 'Owner assistant',
 };
 
 export type MessageKey = keyof typeof en;

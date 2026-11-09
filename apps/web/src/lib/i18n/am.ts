@@ -159,7 +159,6 @@ export const am: Record<MessageKey, string> = {
   'ai.empty': 'ገና ውሳኔ የለም',
   'ai.emptyHint': 'የቡቺ ወኪሎች የሚያቀርቧቸው ዋጋዎች፣ ተመላሾች እና ሌሎች ተግባሮች እዚህ ይታያሉ።',
   'ai.decision': 'ውሳኔ {tool}',
-  'ai.agent': '{agent} ወኪል',
   'ai.result.accepted': 'ተፈቅዷል',
   'ai.result.rejected': 'ታግዷል',
   'ai.result.needsOwner': 'እርስዎን ይፈልጋል',
@@ -406,4 +405,7 @@ export const am: Record<MessageKey, string> = {
   'driver.directions': 'አቅጣጫ',
   'driver.checkingLocation': 'ቦታዎን በማረጋገጥ ላይ…',
   'driver.delivered': 'ደርሷል',
+  'agent.sales': 'የሽያጭ ወኪል',
+  'agent.operations': 'የስራ ሂደት ወኪል',
+  'agent.owner_assistant': 'የባለቤት ረዳት',
 };

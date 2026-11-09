@@ -60,7 +60,7 @@ function DecisionCard({ shopId, decision }: { shopId: string; decision: AiDecisi
         <div>
           <p className="font-medium">{decision.tool}</p>
           <p className="text-xs text-muted-foreground">
-            {t('ai.agent', { agent: decision.agent })} · {formatTime(decision.createdAt)}
+            {t(`agent.${decision.agent}`)} · {formatTime(decision.createdAt)}
           </p>
         </div>
         <Badge tone={decision.result === 'accepted' ? 'neutral' : 'warning'}>

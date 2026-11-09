@@ -7,12 +7,33 @@ import { Alert } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
+import { Field } from '../../components/ui/field';
 import { usePostToChannel, useProducts, useRemoveProduct, useRestoreProduct } from './owner-api';
 import { useShopId } from './use-shop-id';
+
+/** Newest first, and only the products whose title, description, sizes, or colours hold every typed word. */
+export function arrangeProducts(
+  list: ProductWithVariants[],
+  search: string,
+): ProductWithVariants[] {
+  const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (product: ProductWithVariants) => {
+    const text = [
+      product.title,
+      product.description,
+      ...product.variants.flatMap((variant) => [variant.size, variant.color ?? '']),
+    ]
+      .join(' ')
+      .toLowerCase();
+    return words.every((word) => text.includes(word));
+  };
+  return list.filter(matches).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+}
 
 export default function InventoryScreen() {
   const shopId = useShopId();
   const products = useProducts(shopId);
+  const [search, setSearch] = useState('');
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -26,11 +47,29 @@ export default function InventoryScreen() {
       </div>
       <QueryView query={products}>
         {(list) => {
-          const onSale = list.filter((product) => product.active);
-          const removed = list.filter((product) => !product.active);
+          const shown = arrangeProducts(list, search);
+          const onSale = shown.filter((product) => product.active);
+          const removed = shown.filter((product) => !product.active);
+          const searching = search.trim() !== '';
           return (
             <>
-              {onSale.length === 0 ? (
+              {list.length > 0 && (
+                <Field
+                  label="Search products · ፈልግ"
+                  type="search"
+                  placeholder="Name, size, or colour"
+                  autoComplete="off"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                  }}
+                />
+              )}
+              {onSale.length === 0 && searching ? (
+                <EmptyState title="No match · አልተገኘም">
+                  No product on sale matches “{search.trim()}”.
+                </EmptyState>
+              ) : onSale.length === 0 ? (
                 <EmptyState title="No products yet · ገና ዕቃ የለም">
                   Add a product with its sizes and stock, then post it to your channel.
                 </EmptyState>

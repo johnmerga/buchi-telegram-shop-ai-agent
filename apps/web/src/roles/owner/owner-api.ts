@@ -8,6 +8,7 @@ import {
   orderBoardItemSchema,
   productSchema,
   productWithVariantsSchema,
+  removedProductSchema,
   shopDetailsSchema,
   shopSchema,
   type ConnectChannelInput,
@@ -198,6 +199,24 @@ export function useProductPhoto(shopId: string, productId: string, index: number
     queryFn: () => api.blob(`/shops/${shopId}/products/${productId}/photos/${String(index)}`),
     staleTime: Infinity,
   });
+}
+
+export function useRemoveProduct(shopId: string) {
+  const api = useApi();
+  return useOwnerMutation(
+    (productId: string) =>
+      api.send('DELETE', `/shops/${shopId}/products/${productId}`, {}, removedProductSchema),
+    ownerKeys.products(shopId),
+  );
+}
+
+export function useRestoreProduct(shopId: string) {
+  const api = useApi();
+  return useOwnerMutation(
+    (productId: string) =>
+      api.send('POST', `/shops/${shopId}/products/${productId}/restore`, {}, productSchema),
+    ownerKeys.products(shopId),
+  );
 }
 
 export function usePostToChannel(shopId: string) {

@@ -13,7 +13,13 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { Database, Transaction } from '../../db/client';
-import { channelPosts, products, productVariants } from '../../db/schema';
+import {
+  channelPosts,
+  orderExchanges,
+  orderItems,
+  products,
+  productVariants,
+} from '../../db/schema';
 
 /** Every product column but the embedding, which only photo search reads, inside the database. */
 const productColumns = {
@@ -193,6 +199,61 @@ export class CatalogRepo {
 
   async deletePost(tx: Transaction, postId: string): Promise<void> {
     await tx.delete(channelPosts).where(eq(channelPosts.id, postId));
+  }
+
+  /**
+   * Locks the product's sizes, so no order can name one between the history check and the
+   * delete. Placing an order updates the size's reserved count, which waits for this lock.
+   */
+  async lockVariants(tx: Transaction, productId: string): Promise<void> {
+    await tx
+      .select({ id: productVariants.id })
+      .from(productVariants)
+      .where(eq(productVariants.productId, productId))
+      .for('update');
+  }
+
+  /** Whether an order or an exchange names one of the product's sizes. */
+  async hasOrderHistory(tx: Transaction, productId: string): Promise<boolean> {
+    const sizes = tx
+      .select({ id: productVariants.id })
+      .from(productVariants)
+      .where(eq(productVariants.productId, productId));
+    const [item] = await tx
+      .select({ id: orderItems.id })
+      .from(orderItems)
+      .where(inArray(orderItems.variantId, sizes))
+      .limit(1);
+    if (item) return true;
+    const [exchange] = await tx
+      .select({ id: orderExchanges.id })
+      .from(orderExchanges)
+      .where(
+        or(
+          inArray(orderExchanges.fromVariantId, sizes),
+          inArray(orderExchanges.toVariantId, sizes),
+        ),
+      )
+      .limit(1);
+    return exchange !== undefined;
+  }
+
+  /** Its sizes, channel posts, waitlist, holds, and agreed prices go with it by cascade. */
+  async deleteProduct(tx: Transaction, productId: string): Promise<void> {
+    await tx.delete(products).where(eq(products.id, productId));
+  }
+
+  async setActive(
+    tx: Transaction,
+    productId: string,
+    active: boolean,
+  ): Promise<ProductRow | undefined> {
+    const [row] = await tx
+      .update(products)
+      .set({ active })
+      .where(eq(products.id, productId))
+      .returning(productColumns);
+    return row;
   }
 }
 

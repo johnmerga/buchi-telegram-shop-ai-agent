@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { formatBirr, type ProductWithVariants } from '@buchi/shared';
 import { Link } from 'react-router';
 import { QueryView } from '../../components/query-view';
@@ -6,7 +7,7 @@ import { Alert } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import { usePostToChannel, useProducts } from './owner-api';
+import { usePostToChannel, useProducts, useRemoveProduct, useRestoreProduct } from './owner-api';
 import { useShopId } from './use-shop-id';
 
 export default function InventoryScreen() {
@@ -24,17 +25,24 @@ export default function InventoryScreen() {
         </Link>
       </div>
       <QueryView query={products}>
-        {(list) =>
-          list.length === 0 ? (
-            <EmptyState title="No products yet · ገና ዕቃ የለም">
-              Add a product with its sizes and stock, then post it to your channel.
-            </EmptyState>
-          ) : (
-            list.map((product) => (
-              <ProductCard key={product.id} shopId={shopId} product={product} />
-            ))
-          )
-        }
+        {(list) => {
+          const onSale = list.filter((product) => product.active);
+          const removed = list.filter((product) => !product.active);
+          return (
+            <>
+              {onSale.length === 0 ? (
+                <EmptyState title="No products yet · ገና ዕቃ የለም">
+                  Add a product with its sizes and stock, then post it to your channel.
+                </EmptyState>
+              ) : (
+                onSale.map((product) => (
+                  <ProductCard key={product.id} shopId={shopId} product={product} />
+                ))
+              )}
+              {removed.length > 0 && <RemovedProducts shopId={shopId} products={removed} />}
+            </>
+          );
+        }}
       </QueryView>
     </div>
   );
@@ -42,6 +50,7 @@ export default function InventoryScreen() {
 
 function ProductCard({ shopId, product }: { shopId: string; product: ProductWithVariants }) {
   const post = usePostToChannel(shopId);
+  const [confirming, setConfirming] = useState(false);
   const negotiable = product.pricingMode === 'negotiable';
   return (
     <Card className="flex flex-col gap-2">
@@ -90,6 +99,103 @@ function ProductCard({ shopId, product }: { shopId: string; product: ProductWith
           {post.isPending ? 'Posting…' : 'Post to channel'}
         </Button>
       </div>
+      {confirming ? (
+        <RemoveConfirm
+          shopId={shopId}
+          product={product}
+          onCancel={() => {
+            setConfirming(false);
+          }}
+        />
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start text-destructive"
+          onClick={() => {
+            setConfirming(true);
+          }}
+        >
+          Remove · አስወግድ
+        </Button>
+      )}
     </Card>
+  );
+}
+
+/** An in-place confirmation, because removing hides the product from customers at once. */
+function RemoveConfirm({
+  shopId,
+  product,
+  onCancel,
+}: {
+  shopId: string;
+  product: ProductWithVariants;
+  onCancel: () => void;
+}) {
+  const remove = useRemoveProduct(shopId);
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-destructive p-3">
+      <p className="text-sm">
+        Remove <b>{product.title}</b>? Customers can no longer find or buy it, and its channel posts
+        answer that it is no longer available. If past orders include it, it is hidden instead of
+        erased, so those orders keep it, and you can restore it later.
+      </p>
+      {remove.isError && <Alert tone="error">{remove.error.message}</Alert>}
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onCancel}>
+          Keep it
+        </Button>
+        <Button
+          variant="destructive"
+          className="flex-1"
+          disabled={remove.isPending}
+          onClick={() => {
+            remove.mutate(product.id);
+          }}
+        >
+          {remove.isPending ? 'Removing…' : 'Remove'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Products with past orders that the owner removed. They stay so those orders keep their item. */
+function RemovedProducts({
+  shopId,
+  products,
+}: {
+  shopId: string;
+  products: ProductWithVariants[];
+}) {
+  const restore = useRestoreProduct(shopId);
+  return (
+    <details className="rounded-lg border border-border p-3">
+      <summary className="cursor-pointer text-sm font-medium">
+        Removed products · የተወገዱ ({products.length})
+      </summary>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Hidden from customers. Past orders still show them.
+      </p>
+      {restore.isError && <Alert tone="error">{restore.error.message}</Alert>}
+      <ul className="mt-2 flex flex-col gap-2">
+        {products.map((product) => (
+          <li key={product.id} className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-sm">{product.title}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={restore.isPending}
+              onClick={() => {
+                restore.mutate(product.id);
+              }}
+            >
+              Restore
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

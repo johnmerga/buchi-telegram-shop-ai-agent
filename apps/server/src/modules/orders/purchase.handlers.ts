@@ -50,7 +50,7 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
     if (!postId || !ctx.from) return next();
     const opened = await catalog.openPost(postId);
     if (!opened) {
-      await ctx.reply('ይህ ምርት አሁን አይገኝም / This product is no longer available.');
+      await ctx.reply(noLongerAvailable);
       return;
     }
     const buyer = buyerOf(ctx.from);
@@ -64,7 +64,8 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
     const forSale = session && (await catalog.variantForSale(session.shopId, ctx.match[1] ?? ''));
     await ctx.answerCallbackQuery();
     if (!forSale) {
-      await ctx.reply(startAgain);
+      // With a session, the size is gone because the owner removed the product.
+      await ctx.reply(session ? noLongerAvailable : startAgain);
       return;
     }
     const { product, variant } = forSale;
@@ -247,6 +248,7 @@ function parseJson(text: string): unknown {
   }
 }
 
+const noLongerAvailable = 'ይህ ምርት አሁን አይገኝም / This product is no longer available.';
 const startAgain = 'እባክዎ በቻናሉ ላይ ያለውን ቁልፍ እንደገና ይጫኑ / Tap the button on the channel post again.';
 
 /** Sends the result of placing an order, or the reason it could not be placed, and returns it. */

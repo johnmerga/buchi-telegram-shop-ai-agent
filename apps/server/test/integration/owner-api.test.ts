@@ -116,6 +116,36 @@ describe('owner API', () => {
     expect(blocked.status).toBe(403);
   });
 
+  it('removes and restores a product only for its owner', async () => {
+    const owner = `Bearer ${await tokenFor(5021)}`;
+    const stranger = `Bearer ${await tokenFor(5022)}`;
+    const shop = await request(app)
+      .post('/shops')
+      .set('authorization', owner)
+      .send({ name: 'Kidist Shoes' });
+    const { id: shopId } = z.object({ id: z.uuid() }).parse(shop.body);
+    const created = await request(app)
+      .post(`/shops/${shopId}/products`)
+      .set('authorization', owner)
+      .send({ title: 'Puma Suede', pricingMode: 'fixed', price: '2800' });
+    const { id: productId } = z.object({ id: z.uuid() }).parse(created.body);
+    const path = `/shops/${shopId}/products/${productId}`;
+
+    const blocked = await request(app).delete(path).set('authorization', stranger);
+    expect(blocked.status).toBe(403);
+    const blockedRestore = await request(app)
+      .post(`${path}/restore`)
+      .set('authorization', stranger);
+    expect(blockedRestore.status).toBe(403);
+
+    const removed = await request(app).delete(path).set('authorization', owner);
+    expect(removed.status).toBe(200);
+    expect(removed.body).toEqual({ removed: 'deleted' });
+
+    const gone = await request(app).post(`${path}/restore`).set('authorization', owner);
+    expect(gone.status).toBe(404);
+  });
+
   it('deletes a shop only for its owner, once the name is typed again', async () => {
     const owner = `Bearer ${await tokenFor(5011)}`;
     const stranger = `Bearer ${await tokenFor(5012)}`;

@@ -66,3 +66,10 @@ export const productPhotoTypes = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_PRODUCT_PHOTO_BYTES = 10 * 1024 * 1024;
 
 export const channelPostSchema = z.object({ postId: z.uuid() });
+
+/**
+ * How a removed product went: `deleted` when no order named it, `archived` when orders do, so it
+ * is only switched off and those orders keep their item.
+ */
+export const removedProductSchema = z.object({ removed: z.enum(['deleted', 'archived']) });
+export type RemovedProduct = z.infer<typeof removedProductSchema>;

@@ -149,6 +149,41 @@ export class CatalogService {
     }
   }
 
+  /**
+   * Removes a product from the shop. One that no order names is deleted. One with orders is only
+   * switched off, so those orders keep their item: customers can no longer find or buy it, and its
+   * waitlist waits in case the owner restores it.
+   */
+  removeProduct(shopId: string, productId: string): Promise<{ removed: 'deleted' | 'archived' }> {
+    return withShop(this.db, shopId, async (tx) => {
+      if (!(await this.repo.findProduct(tx, productId))) throw productNotFound();
+      await this.repo.lockVariants(tx, productId);
+      if (await this.repo.hasOrderHistory(tx, productId)) {
+        await this.repo.setActive(tx, productId, false);
+        return { removed: 'archived' as const };
+      }
+      await this.repo.deleteProduct(tx, productId);
+      return { removed: 'deleted' as const };
+    });
+  }
+
+  /** Puts a removed product back on sale, and offers its free sizes to anyone waiting for them. */
+  async restoreProduct(shopId: string, productId: string): Promise<ProductRow> {
+    const { product, inStock } = await withShop(this.db, shopId, async (tx) => {
+      const row = await this.repo.setActive(tx, productId, true);
+      if (!row) throw productNotFound();
+      const variants = await this.repo.listVariants(tx, productId);
+      return {
+        product: row,
+        inStock: variants.filter((v) => v.stock > v.reserved).map((v) => v.id),
+      };
+    });
+    for (const variantId of inStock) {
+      await this.events.publish('variant.restocked', { shopId, variantId });
+    }
+    return product;
+  }
+
   /** Opens a Buy link: finds the post's shop and product, and counts the tap. */
   async openPost(
     postId: string,
@@ -181,6 +216,7 @@ export class CatalogService {
     );
     return perShop
       .flat()
+      .filter((product) => product.active)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit);
   }
@@ -230,6 +266,7 @@ export class CatalogService {
     const { product, variants, postId } = await withShop(this.db, shopId, async (tx) => {
       const found = await this.repo.findProduct(tx, productId);
       if (!found) throw productNotFound();
+      if (!found.active) throw new AppError('CONFLICT', 'Restore the product before posting it');
       return {
         product: found,
         variants: await this.repo.listVariants(tx, productId),

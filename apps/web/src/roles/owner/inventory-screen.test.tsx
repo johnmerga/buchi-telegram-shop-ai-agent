@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { fakeServer, fakeTelegram, json, renderAt, session } from '../../test/fakes';
 import { OwnerApp } from './owner-app';
@@ -48,5 +48,38 @@ describe('inventory price labels', () => {
         'Asking 1,000.00 ብር in chat · lowest 800.00 ብር, never shown to customers',
       ),
     ).toBeTruthy();
+  });
+});
+
+describe('removing a product', () => {
+  it('asks first, then removes it and reloads the list', async () => {
+    fakeTelegram();
+    let removed = false;
+    const { calls } = fakeServer({
+      'POST /auth/mini-app': session,
+      [`GET /shops/${shopId}`]: () => json(200, shop),
+      [`GET /shops/${shopId}/products`]: () => json(200, [{ ...boots, active: !removed }]),
+      [`DELETE /shops/${shopId}/products/${boots.id}`]: () => {
+        removed = true;
+        return json(200, { removed: 'archived' });
+      },
+      [`POST /shops/${shopId}/products/${boots.id}/restore`]: () => {
+        removed = false;
+        return json(200, boots);
+      },
+    });
+    renderAt(`/shops/${shopId}/inventory`, <OwnerApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove · አስወግድ' }));
+    expect(screen.getByText(/Customers can no longer find or buy it/)).toBeTruthy();
+    expect(calls.some((call) => call.key.startsWith('DELETE'))).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    expect(await screen.findByText('Removed products · የተወገዱ (1)')).toBeTruthy();
+    expect(screen.getByText('No products yet · ገና ዕቃ የለም')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    expect(await screen.findByRole('button', { name: 'Remove · አስወግድ' })).toBeTruthy();
+    expect(screen.queryByText(/Removed products/)).toBeNull();
   });
 });

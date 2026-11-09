@@ -72,6 +72,26 @@ export function createCatalogRouter(deps: {
     },
   );
 
+  router.delete(
+    '/shops/:shopId/products/:productId',
+    requireAuth,
+    requireShopOwner,
+    async (req, res) => {
+      const { shopId, productId } = parseInput(productParams, req.params);
+      res.json(await catalog.removeProduct(shopId, productId));
+    },
+  );
+
+  router.post(
+    '/shops/:shopId/products/:productId/restore',
+    requireAuth,
+    requireShopOwner,
+    async (req, res) => {
+      const { shopId, productId } = parseInput(productParams, req.params);
+      res.json(await catalog.restoreProduct(shopId, productId));
+    },
+  );
+
   router.put(
     '/shops/:shopId/products/:productId/variants',
     requireAuth,

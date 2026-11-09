@@ -2,7 +2,7 @@ import { productInputSchema, type ProductInput } from '@buchi/shared';
 import { sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { connectDatabase } from '../../src/db/client';
-import { productVariants } from '../../src/db/schema';
+import { customers, orderItems, orders, productVariants } from '../../src/db/schema';
 import { withShop } from '../../src/db/with-shop';
 import { CatalogRepo } from '../../src/modules/catalog/catalog.repo';
 import { CatalogService, type ChannelPublisher } from '../../src/modules/catalog/catalog.service';
@@ -186,5 +186,86 @@ describe('CatalogService', () => {
         }),
       ),
     ).rejects.toMatchObject({ cause: { code: '23503' } });
+  });
+
+  async function productWithSize(ownerId: number) {
+    const s = await shopWithChannel(ownerId);
+    const product = await s.catalog.createProduct(s.shopId, fixed);
+    await s.catalog.setVariants(s.shopId, product.id, [{ size: '40', color: null, stock: 2 }]);
+    const [variant] = await withShop(db, s.shopId, (tx) => tx.select().from(productVariants));
+    if (!variant) throw new Error('No size');
+    return { ...s, product, variant };
+  }
+
+  it('deletes a product that no order names, with its sizes and posts', async () => {
+    const { catalog, shopId, product } = await productWithSize(9109);
+    const { postId } = await catalog.postToChannel(shopId, product.id);
+
+    expect(await catalog.removeProduct(shopId, product.id)).toEqual({ removed: 'deleted' });
+
+    expect(await catalog.listProducts(shopId)).toEqual([]);
+    expect(await catalog.openPost(postId)).toBeUndefined();
+    const left = await withShop(db, shopId, (tx) =>
+      tx.execute(sql`select (select count(*) from product_variants)::int as sizes,
+        (select count(*) from channel_posts)::int as posts`),
+    );
+    expect(left[0]).toEqual({ sizes: 0, posts: 0 });
+  });
+
+  it('switches off a product with orders, keeps the orders, and restores it', async () => {
+    const { catalog, shopId, product, variant } = await productWithSize(9110);
+    const { postId } = await catalog.postToChannel(shopId, product.id);
+    await withShop(db, shopId, async (tx) => {
+      const [customer] = await tx
+        .insert(customers)
+        .values({ shopId, telegramUserId: 9110001, name: 'Abebe' })
+        .returning({ id: customers.id });
+      const [order] = await tx
+        .insert(orders)
+        .values({
+          shopId,
+          customerId: customer?.id ?? '',
+          status: 'delivered',
+          deliveryType: 'pickup',
+          itemsTotal: '3500',
+          total: '3500',
+        })
+        .returning({ id: orders.id });
+      await tx.insert(orderItems).values({
+        shopId,
+        orderId: order?.id ?? '',
+        variantId: variant.id,
+        quantity: 1,
+        unitPrice: '3500',
+      });
+    });
+
+    expect(await catalog.removeProduct(shopId, product.id)).toEqual({ removed: 'archived' });
+
+    const [archived] = await catalog.listProducts(shopId);
+    expect(archived?.active).toBe(false);
+    expect(await catalog.search(shopId, 'Nike', 5)).toEqual([]);
+    expect(await catalog.variantForSale(shopId, variant.id)).toBeUndefined();
+    expect(await catalog.openPost(postId)).toBeUndefined();
+    await expect(catalog.postToChannel(shopId, product.id)).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    const items = await withShop(db, shopId, (tx) => tx.select().from(orderItems));
+    expect(items).toHaveLength(1);
+
+    expect((await catalog.restoreProduct(shopId, product.id)).active).toBe(true);
+    expect((await catalog.search(shopId, 'Nike', 5)).map((p) => p.id)).toEqual([product.id]);
+    expect(await catalog.openPost(postId)).toMatchObject({ product: { id: product.id } });
+  });
+
+  it('cannot remove or restore a product it does not have', async () => {
+    const { catalog, shopId } = await shopWithChannel(9111);
+    const missing = '00000000-0000-4000-8000-000000000000';
+    await expect(catalog.removeProduct(shopId, missing)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    await expect(catalog.restoreProduct(shopId, missing)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
   });
 });

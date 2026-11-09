@@ -197,6 +197,17 @@ export class CatalogRepo {
     await tx.update(channelPosts).set({ messageId }).where(eq(channelPosts.id, postId));
   }
 
+  /** The product's posts that reached the channel. */
+  postedMessages(
+    tx: Transaction,
+    productId: string,
+  ): Promise<{ chatId: number; messageId: number }[]> {
+    return tx
+      .select({ chatId: channelPosts.chatId, messageId: sql<number>`${channelPosts.messageId}` })
+      .from(channelPosts)
+      .where(and(eq(channelPosts.productId, productId), isNotNull(channelPosts.messageId)));
+  }
+
   async deletePost(tx: Transaction, postId: string): Promise<void> {
     await tx.delete(channelPosts).where(eq(channelPosts.id, postId));
   }

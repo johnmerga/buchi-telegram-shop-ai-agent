@@ -2,12 +2,14 @@ import { GrammyError, InlineKeyboard, type Api } from 'grammy';
 import type { ChannelPublisher } from '../modules/catalog/catalog.service';
 import type { ChannelVerifier } from '../modules/shops/shops.service';
 import { AppError } from '../shared/errors';
+import type { Logger } from 'pino';
 
 /** The bot's view of shop channels: checking its rights there and posting products. */
 export class TelegramChannels implements ChannelVerifier, ChannelPublisher {
   constructor(
     private readonly api: Api,
     private readonly botId: number,
+    private readonly logger: Logger,
   ) {}
 
   async verifyPostingRights(channel: string): Promise<{ chatId: number; title: string }> {
@@ -32,6 +34,26 @@ export class TelegramChannels implements ChannelVerifier, ChannelPublisher {
         );
       }
       throw err;
+    }
+  }
+
+  /**
+   * Deletes the post. Telegram refuses to delete some older posts, so then it at least removes the
+   * buy button. A failure is logged and swallowed: the product is already gone either way.
+   */
+  async unpublish(post: { chatId: number; messageId: number }): Promise<void> {
+    try {
+      await this.api.deleteMessage(post.chatId, post.messageId);
+      return;
+    } catch (err) {
+      this.logger.warn({ err, ...post }, 'could not delete channel post');
+    }
+    try {
+      await this.api.editMessageReplyMarkup(post.chatId, post.messageId, {
+        reply_markup: new InlineKeyboard(),
+      });
+    } catch (err) {
+      this.logger.warn({ err, ...post }, 'could not remove channel post button');
     }
   }
 

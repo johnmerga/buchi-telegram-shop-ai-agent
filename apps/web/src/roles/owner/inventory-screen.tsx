@@ -176,9 +176,10 @@ function RemoveConfirm({
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-destructive p-3">
       <p className="text-sm">
-        Remove <b>{product.title}</b>? Customers can no longer find or buy it, and its channel posts
-        answer that it is no longer available. If past orders include it, it is hidden instead of
-        erased, so those orders keep it, and you can restore it later.
+        Remove <b>{product.title}</b>? Customers can no longer find or buy it. If no one has ordered
+        it, it is deleted along with its channel posts. If past orders include it, it is hidden
+        instead, so those orders keep it, and you can restore it later; its channel posts stay and
+        answer that it is no longer available.
       </p>
       {remove.isError && <Alert tone="error">{remove.error.message}</Alert>}
       <div className="flex gap-2">

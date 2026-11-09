@@ -27,6 +27,7 @@ const verifier: ChannelVerifier = {
 function services(publish: ChannelPublisher['publish'] = () => Promise.resolve(42)) {
   const shops = new ShopsService(db, new ShopsRepo(db), verifier);
   const published: Parameters<ChannelPublisher['publish']>[0][] = [];
+  const unpublished: { chatId: number; messageId: number }[] = [];
   const catalog = new CatalogService(
     db,
     new CatalogRepo(),
@@ -36,12 +37,16 @@ function services(publish: ChannelPublisher['publish'] = () => Promise.resolve(4
         published.push(post);
         return publish(post);
       },
+      unpublish: (post) => {
+        unpublished.push(post);
+        return Promise.resolve();
+      },
     },
     'buchi_test_bot',
     noEmbeddings,
     noEvents,
   );
-  return { shops, catalog, published };
+  return { shops, catalog, published, unpublished };
 }
 
 const fixed: ProductInput = productInputSchema.parse({
@@ -198,10 +203,11 @@ describe('CatalogService', () => {
   }
 
   it('deletes a product that no order names, with its sizes and posts', async () => {
-    const { catalog, shopId, product } = await productWithSize(9109);
+    const { catalog, shopId, product, unpublished } = await productWithSize(9109);
     const { postId } = await catalog.postToChannel(shopId, product.id);
 
     expect(await catalog.removeProduct(shopId, product.id)).toEqual({ removed: 'deleted' });
+    expect(unpublished.map((post) => post.messageId)).toEqual([42]);
 
     expect(await catalog.listProducts(shopId)).toEqual([]);
     expect(await catalog.openPost(postId)).toBeUndefined();
@@ -213,7 +219,7 @@ describe('CatalogService', () => {
   });
 
   it('switches off a product with orders, keeps the orders, and restores it', async () => {
-    const { catalog, shopId, product, variant } = await productWithSize(9110);
+    const { catalog, shopId, product, variant, unpublished } = await productWithSize(9110);
     const { postId } = await catalog.postToChannel(shopId, product.id);
     await withShop(db, shopId, async (tx) => {
       const [customer] = await tx
@@ -241,6 +247,7 @@ describe('CatalogService', () => {
     });
 
     expect(await catalog.removeProduct(shopId, product.id)).toEqual({ removed: 'archived' });
+    expect(unpublished).toEqual([]);
 
     const [archived] = await catalog.listProducts(shopId);
     expect(archived?.active).toBe(false);

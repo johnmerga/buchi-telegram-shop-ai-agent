@@ -23,6 +23,8 @@ export interface ChannelPublisher {
     buttonText: string;
     buttonUrl: string;
   }): Promise<number>;
+  /** Takes a post down, or at least its buy button; never throws. */
+  unpublish?(post: { chatId: number; messageId: number }): Promise<void>;
 }
 
 /** Embeds a saved product's text for photo search, outside the request that saved it. */
@@ -154,17 +156,24 @@ export class CatalogService {
    * switched off, so those orders keep their item: customers can no longer find or buy it, and its
    * waitlist waits in case the owner restores it.
    */
-  removeProduct(shopId: string, productId: string): Promise<{ removed: 'deleted' | 'archived' }> {
-    return withShop(this.db, shopId, async (tx) => {
+  async removeProduct(
+    shopId: string,
+    productId: string,
+  ): Promise<{ removed: 'deleted' | 'archived' }> {
+    const { removed, posts } = await withShop(this.db, shopId, async (tx) => {
       if (!(await this.repo.findProduct(tx, productId))) throw productNotFound();
       await this.repo.lockVariants(tx, productId);
       if (await this.repo.hasOrderHistory(tx, productId)) {
         await this.repo.setActive(tx, productId, false);
-        return { removed: 'archived' as const };
+        return { removed: 'archived' as const, posts: [] };
       }
+      const posts = await this.repo.postedMessages(tx, productId);
       await this.repo.deleteProduct(tx, productId);
-      return { removed: 'deleted' as const };
+      return { removed: 'deleted' as const, posts };
     });
+    // A deleted product's channel posts would only lead to a dead end, so they go too.
+    for (const post of posts) await this.publisher.unpublish?.(post);
+    return { removed };
   }
 
   /** Puts a removed product back on sale, and offers its free sizes to anyone waiting for them. */

@@ -210,7 +210,7 @@ const timers = new TimerService(new TimersRepo(database.db), logger);
 const telegramApi = new Api(env.TELEGRAM_BOT_TOKEN);
 telegramApi.config.use(skipDemoRecipients(logger));
 const botInfo = await telegramApi.getMe();
-const channels = new TelegramChannels(telegramApi, botInfo.id);
+const channels = new TelegramChannels(telegramApi, botInfo.id, logger);
 
 const shops = new ShopsService(database.db, new ShopsRepo(database.db), channels);
 const model = new GeminiModel(

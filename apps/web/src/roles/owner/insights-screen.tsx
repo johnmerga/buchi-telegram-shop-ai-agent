@@ -2,7 +2,7 @@ import { formatBirr, type Insights, type Rate } from '@buchi/shared';
 import type { ReactNode } from 'react';
 import { QueryView } from '../../components/query-view';
 import { Card } from '../../components/ui/card';
-import { formatTime } from '../../lib/labels';
+import { useT } from '../../lib/i18n';
 import { useInsights } from './dashboard-api';
 import { useShopId } from './use-shop-id';
 
@@ -10,9 +10,10 @@ import { useShopId } from './use-shop-id';
 export default function InsightsScreen() {
   const shopId = useShopId();
   const insights = useInsights(shopId);
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Insights · ግንዛቤዎች</h2>
+      <h2 className="text-lg font-semibold">{t('nav.insights')}</h2>
       <QueryView query={insights}>{(data) => <InsightTiles insights={data} />}</QueryView>
     </div>
   );
@@ -20,60 +21,74 @@ export default function InsightsScreen() {
 
 function InsightTiles({ insights }: { insights: Insights }) {
   const { guard, delivery } = insights;
+  const { t, formatTime } = useT();
+  const target80 = t('insights.target80');
   return (
     <>
-      <p className="text-sm text-muted-foreground">The last {insights.days} days.</p>
+      <p className="text-sm text-muted-foreground">{t('insights.days', { days: insights.days })}</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Tile
-          title="Payments approved without you"
+          title={t('insights.autoApproved')}
           value={share(insights.autoApprovedPayments)}
-          target="Target: at least 80%"
+          target={target80}
+          tone="primary"
         >
-          {insights.autoApprovedPayments.count} of {insights.autoApprovedPayments.total} approved
-          payments
+          {t('insights.autoApprovedDetail', {
+            count: insights.autoApprovedPayments.count,
+            total: insights.autoApprovedPayments.total,
+          })}
         </Tile>
-        <Tile title="Fraud blocked" value={String(insights.fraudBlocked.count)}>
-          Screenshots rejected, claiming {formatBirr(insights.fraudBlocked.amount)}
+        <Tile title={t('insights.fraud')} value={String(insights.fraudBlocked.count)}>
+          {t('insights.fraudDetail', { amount: formatBirr(insights.fraudBlocked.amount) })}
         </Tile>
         <Tile
-          title="Far quotes with a driver in 10 minutes"
+          title={t('insights.farQuotes')}
           value={share(insights.farQuotesDriverFound)}
-          target="Target: at least 80%"
+          target={target80}
         >
-          {insights.farQuotesDriverFound.count} of {insights.farQuotesDriverFound.total} quotes
-          offered to drivers
+          {t('insights.farQuotesDetail', {
+            count: insights.farQuotesDriverFound.count,
+            total: insights.farQuotesDriverFound.total,
+          })}
         </Tile>
-        <Tile title="Delivery cost" value={formatBirr(delivery.cost)}>
-          {delivery.trips} trips · Saver routes saved {formatBirr(delivery.saverSavings)}
-        </Tile>
-        <Tile title="Policy guard" value={String(guard.rejected)} target="Blocked agent proposals">
-          {guard.accepted} allowed · {guard.needsOwner} sent to you
+        <Tile title={t('insights.deliveryCost')} value={formatBirr(delivery.cost)}>
+          {t('insights.deliveryCostDetail', {
+            trips: delivery.trips,
+            saved: formatBirr(delivery.saverSavings),
+          })}
         </Tile>
         <Tile
-          title="First reply time"
-          value={seconds(insights.firstReply.medianSeconds)}
-          target="Target: under 10 seconds"
+          title={t('insights.guard')}
+          value={String(guard.rejected)}
+          target={t('insights.guardTarget')}
         >
-          Median over {insights.firstReply.replies} customer messages Buchi answered
+          {t('insights.guardDetail', { allowed: guard.accepted, owner: guard.needsOwner })}
+        </Tile>
+        <Tile
+          title={t('insights.firstReply')}
+          value={seconds(insights.firstReply.medianSeconds)}
+          target={t('insights.firstReplyTarget')}
+        >
+          {t('insights.firstReplyDetail', { count: insights.firstReply.replies })}
         </Tile>
       </div>
       <Card>
-        <h3 className="mb-2 font-medium">Channel posts</h3>
+        <h3 className="mb-2 font-medium">{t('insights.posts')}</h3>
         {insights.posts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No posts in your channel yet.</p>
+          <p className="text-sm text-muted-foreground">{t('insights.noPosts')}</p>
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="text-muted-foreground">
               <tr>
-                <th className="font-normal">Product</th>
-                <th className="font-normal">Buy taps</th>
-                <th className="font-normal">Paid orders</th>
+                <th className="py-1 font-normal">{t('insights.product')}</th>
+                <th className="py-1 font-normal">{t('insights.taps')}</th>
+                <th className="py-1 font-normal">{t('insights.paidOrders')}</th>
               </tr>
             </thead>
             <tbody>
               {insights.posts.map((post) => (
-                <tr key={post.postId}>
-                  <td>
+                <tr key={post.postId} className="border-t border-border">
+                  <td className="py-2">
                     {post.productTitle}
                     <span className="block text-xs text-muted-foreground">
                       {formatTime(post.postedAt)}
@@ -95,17 +110,25 @@ function Tile({
   title,
   value,
   target,
+  tone,
   children,
 }: {
   title: string;
   value: string;
   target?: string;
+  tone?: 'primary';
   children: ReactNode;
 }) {
   return (
     <Card aria-label={title} className="flex flex-col gap-1">
       <h3 className="text-sm text-muted-foreground">{title}</h3>
-      <p className="text-2xl font-semibold">{value}</p>
+      <p
+        className={
+          tone === 'primary' ? 'text-3xl font-semibold text-primary' : 'text-3xl font-semibold'
+        }
+      >
+        {value}
+      </p>
       <p className="text-sm">{children}</p>
       {target && <p className="text-xs text-muted-foreground">{target}</p>}
     </Card>

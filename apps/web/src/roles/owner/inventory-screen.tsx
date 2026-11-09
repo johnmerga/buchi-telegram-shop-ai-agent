@@ -7,7 +7,9 @@ import { Alert } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import { Field } from '../../components/ui/field';
+import { Input } from '../../components/ui/input';
+import { InventoryIcon, SearchIcon } from '../../components/icons';
+import { useT } from '../../lib/i18n';
 import { usePostToChannel, useProducts, useRemoveProduct, useRestoreProduct } from './owner-api';
 import { useShopId } from './use-shop-id';
 
@@ -34,15 +36,16 @@ export default function InventoryScreen() {
   const shopId = useShopId();
   const products = useProducts(shopId);
   const [search, setSearch] = useState('');
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Inventory · ዕቃዎች</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">{t('nav.inventory')}</h2>
         <Link
           to="new"
           className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
         >
-          + New product
+          {t('inventory.new')}
         </Link>
       </div>
       <QueryView query={products}>
@@ -54,24 +57,28 @@ export default function InventoryScreen() {
           return (
             <>
               {list.length > 0 && (
-                <Field
-                  label="Search products · ፈልግ"
-                  type="search"
-                  placeholder="Name, size, or colour"
-                  autoComplete="off"
-                  value={search}
-                  onChange={(event) => {
-                    setSearch(event.target.value);
-                  }}
-                />
+                <div className="relative">
+                  <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    aria-label={t('inventory.search')}
+                    className="pl-10"
+                    type="search"
+                    placeholder={t('inventory.searchPlaceholder')}
+                    autoComplete="off"
+                    value={search}
+                    onChange={(event) => {
+                      setSearch(event.target.value);
+                    }}
+                  />
+                </div>
               )}
               {onSale.length === 0 && searching ? (
-                <EmptyState title="No match · አልተገኘም">
-                  No product on sale matches “{search.trim()}”.
+                <EmptyState title={t('inventory.noMatch')} icon={<SearchIcon />}>
+                  {t('inventory.noMatchHint', { search: search.trim() })}
                 </EmptyState>
               ) : onSale.length === 0 ? (
-                <EmptyState title="No products yet · ገና ዕቃ የለም">
-                  Add a product with its sizes and stock, then post it to your channel.
+                <EmptyState title={t('inventory.empty')} icon={<InventoryIcon />}>
+                  {t('inventory.emptyHint')}
                 </EmptyState>
               ) : (
                 onSale.map((product) => (
@@ -90,43 +97,50 @@ export default function InventoryScreen() {
 function ProductCard({ shopId, product }: { shopId: string; product: ProductWithVariants }) {
   const post = usePostToChannel(shopId);
   const [confirming, setConfirming] = useState(false);
+  const { t } = useT();
   const negotiable = product.pricingMode === 'negotiable';
   return (
     <Card className="flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium">{product.title}</p>
         <Badge tone={negotiable ? 'primary' : 'neutral'}>
-          {negotiable ? 'Negotiable · ድርድር' : 'Fixed price'}
+          {negotiable ? t('inventory.negotiable') : t('inventory.fixed')}
         </Badge>
       </div>
       <p className="text-sm">
         {negotiable
-          ? `Asking ${formatBirr(product.price)} in chat · lowest ${formatBirr(product.lowestPrice ?? product.price)}, never shown to customers`
+          ? t('inventory.asking', {
+              price: formatBirr(product.price),
+              lowest: formatBirr(product.lowestPrice ?? product.price),
+            })
           : formatBirr(product.price)}
       </p>
       {product.variants.length === 0 ? (
-        <p className="text-sm text-destructive">No sizes yet: customers cannot buy it.</p>
+        <p className="text-sm text-destructive">{t('inventory.noSizes')}</p>
       ) : (
-        <ul className="flex flex-wrap gap-1 text-xs" aria-label="Sizes and stock">
+        <ul className="flex flex-wrap gap-1 text-xs" aria-label={t('inventory.sizes')}>
           {product.variants.map((variant) => (
             <li key={variant.id}>
               <Badge>
                 {variant.size}
-                {variant.color ? ` ${variant.color}` : ''} · {variant.stock - variant.reserved} free
-                {variant.reserved > 0 ? `, ${String(variant.reserved)} held` : ''}
+                {variant.color ? ` ${variant.color}` : ''} ·{' '}
+                {t('inventory.free', { count: variant.stock - variant.reserved })}
+                {variant.reserved > 0
+                  ? `, ${t('inventory.held', { count: variant.reserved })}`
+                  : ''}
               </Badge>
             </li>
           ))}
         </ul>
       )}
       {post.isError && <Alert tone="error">{post.error.message}</Alert>}
-      {post.isSuccess && <Alert tone="info">Posted to your channel.</Alert>}
+      {post.isSuccess && <Alert tone="info">{t('inventory.posted')}</Alert>}
       <div className="flex gap-2">
         <Link
           to={product.id}
-          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-border text-sm font-medium"
+          className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-border text-sm font-medium hover:bg-muted"
         >
-          Edit
+          {t('inventory.edit')}
         </Link>
         <Button
           className="flex-1"
@@ -135,7 +149,7 @@ function ProductCard({ shopId, product }: { shopId: string; product: ProductWith
             post.mutate(product.id);
           }}
         >
-          {post.isPending ? 'Posting…' : 'Post to channel'}
+          {post.isPending ? t('inventory.posting') : t('inventory.post')}
         </Button>
       </div>
       {confirming ? (
@@ -155,7 +169,7 @@ function ProductCard({ shopId, product }: { shopId: string; product: ProductWith
             setConfirming(true);
           }}
         >
-          Remove · አስወግድ
+          {t('inventory.remove')}
         </Button>
       )}
     </Card>
@@ -173,18 +187,17 @@ function RemoveConfirm({
   onCancel: () => void;
 }) {
   const remove = useRemoveProduct(shopId);
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-destructive p-3">
-      <p className="text-sm">
-        Remove <b>{product.title}</b>? Customers can no longer find or buy it. If no one has ordered
-        it, it is deleted along with its channel posts. If past orders include it, it is hidden
-        instead, so those orders keep it, and you can restore it later; its channel posts stay and
-        answer that it is no longer available.
+      <p className="text-sm font-medium">
+        {t('inventory.removeQuestion', { title: product.title })}
       </p>
+      <p className="text-sm text-muted-foreground">{t('inventory.removeExplain')}</p>
       {remove.isError && <Alert tone="error">{remove.error.message}</Alert>}
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={onCancel}>
-          Keep it
+          {t('inventory.keep')}
         </Button>
         <Button
           variant="destructive"
@@ -194,7 +207,7 @@ function RemoveConfirm({
             remove.mutate(product.id);
           }}
         >
-          {remove.isPending ? 'Removing…' : 'Remove'}
+          {remove.isPending ? t('inventory.removing') : t('inventory.removeConfirm')}
         </Button>
       </div>
     </div>
@@ -210,14 +223,13 @@ function RemovedProducts({
   products: ProductWithVariants[];
 }) {
   const restore = useRestoreProduct(shopId);
+  const { t } = useT();
   return (
-    <details className="rounded-lg border border-border p-3">
+    <details className="rounded-xl border border-border bg-card p-3">
       <summary className="cursor-pointer text-sm font-medium">
-        Removed products · የተወገዱ ({products.length})
+        {t('inventory.removed', { count: products.length })}
       </summary>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Hidden from customers. Past orders still show them.
-      </p>
+      <p className="mt-2 text-xs text-muted-foreground">{t('inventory.removedHint')}</p>
       {restore.isError && <Alert tone="error">{restore.error.message}</Alert>}
       <ul className="mt-2 flex flex-col gap-2">
         {products.map((product) => (
@@ -231,7 +243,7 @@ function RemovedProducts({
                 restore.mutate(product.id);
               }}
             >
-              Restore
+              {t('inventory.restore')}
             </Button>
           </li>
         ))}

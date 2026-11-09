@@ -6,10 +6,12 @@ import { Alert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { currentLocation } from '../../lib/location';
+import { useT } from '../../lib/i18n';
 import { useDelivered, usePickedUp } from './driver-api';
 
 export function TripCard({ trip }: { trip: Trip }) {
   const pickedUp = usePickedUp();
+  const { t } = useT();
   const stops = useMemo<MapStop[]>(
     () => [
       ...(trip.shopPin ? [{ label: 'S', point: trip.shopPin }] : []),
@@ -37,7 +39,7 @@ export function TripCard({ trip }: { trip: Trip }) {
             pickedUp.mutate(trip.jobId);
           }}
         >
-          Picked up · ተቀብያለሁ
+          {t('driver.pickedUp')}
         </Button>
       )}
     </Card>
@@ -47,6 +49,7 @@ export function TripCard({ trip }: { trip: Trip }) {
 function StopRow({ stop, onTheWay }: { stop: TripStop; onTheWay: boolean }) {
   const delivered = useDelivered();
   const [locationError, setLocationError] = useState<string>();
+  const { t } = useT();
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${String(stop.pin.latitude)},${String(stop.pin.longitude)}`;
 
   const deliver = () => {
@@ -55,8 +58,8 @@ function StopRow({ stop, onTheWay }: { stop: TripStop; onTheWay: boolean }) {
       ({ coordinates }) => {
         delivered.mutate({ stopId: stop.stopId, location: coordinates });
       },
-      (err: unknown) => {
-        setLocationError(err instanceof Error ? err.message : 'No location.');
+      () => {
+        setLocationError(t('location.off'));
       },
     );
   };
@@ -65,23 +68,23 @@ function StopRow({ stop, onTheWay }: { stop: TripStop; onTheWay: boolean }) {
     <li className="flex flex-col gap-2 rounded-lg bg-muted p-3">
       <p className="text-sm font-medium">
         {stop.position}. {stop.customerName}
-        {stop.delivered && ' · delivered ✓'}
+        {stop.delivered && ` · ${t('driver.stopDelivered')} ✓`}
       </p>
       <div className="flex flex-wrap gap-3 text-sm">
         {stop.phone && (
           <a className="text-link underline" href={`tel:${stop.phone}`}>
-            Call {stop.phone}
+            {t('driver.call', { phone: stop.phone })}
           </a>
         )}
         <a className="text-link underline" href={directions} target="_blank" rel="noreferrer">
-          Directions
+          {t('driver.directions')}
         </a>
       </div>
       {locationError && <Alert tone="error">{locationError}</Alert>}
       {delivered.isError && <Alert tone="error">{delivered.error.message}</Alert>}
       {onTheWay && !stop.delivered && (
         <Button disabled={delivered.isPending} onClick={deliver}>
-          {delivered.isPending ? 'Checking your location…' : 'Delivered · ደርሷል'}
+          {delivered.isPending ? t('driver.checkingLocation') : t('driver.delivered')}
         </Button>
       )}
     </li>

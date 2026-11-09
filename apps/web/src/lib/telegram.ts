@@ -35,6 +35,8 @@ interface LocationManager {
 
 export interface WebApp {
   initData: string;
+  /** The launch data, unchecked; only for choices like the language, never for trust. */
+  initDataUnsafe?: { user?: { language_code?: string } };
   /** "unknown" when the page is open in a plain browser. */
   platform: string;
   ready(): void;

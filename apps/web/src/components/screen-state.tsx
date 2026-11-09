@@ -1,47 +1,66 @@
 import type { ReactNode } from 'react';
 import { ApiError } from '../lib/api-error';
+import { useT } from '../lib/i18n';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 
-export function Loading({ label = 'Loading…' }: { label?: string }) {
+export function Loading({ label }: { label?: string }) {
+  const { t } = useT();
   return (
-    <p role="status" className="p-6 text-center text-sm text-muted-foreground">
-      {label}
-    </p>
+    <div
+      role="status"
+      className="flex flex-col items-center gap-3 p-8 text-sm text-muted-foreground"
+    >
+      <span className="size-6 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" />
+      {label ?? t('common.loading')}
+    </div>
   );
 }
 
-export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
+export function EmptyState({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
-    <Card className="text-center">
+    <Card className="flex flex-col items-center gap-2 py-8 text-center">
+      {icon && (
+        <span className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">
+          {icon}
+        </span>
+      )}
       <p className="font-medium">{title}</p>
-      {children && <div className="mt-2 text-sm text-muted-foreground">{children}</div>}
+      {children && <div className="max-w-sm text-sm text-muted-foreground">{children}</div>}
     </Card>
   );
 }
 
 /** Shown for a 403: the screen renders no data at all, only this message. */
 export function NotAllowed() {
+  const { t } = useT();
   return (
     <Card role="alert" className="text-center">
-      <p className="text-lg font-semibold">Not allowed · አልተፈቀደም</p>
-      <p className="mt-2 text-sm text-muted-foreground">
-        This page is for the shop’s owner. Open Buchi from the account that owns the shop.
-      </p>
+      <p className="text-lg font-semibold">{t('common.notAllowed')}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{t('common.notAllowedBody')}</p>
     </Card>
   );
 }
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  const { t } = useT();
   if (error instanceof ApiError && error.code === 'FORBIDDEN') return <NotAllowed />;
-  const message = error instanceof ApiError ? error.message : 'Check your connection and retry.';
+  const message = error instanceof ApiError ? error.message : t('common.checkConnection');
   return (
     <Card role="alert" className="text-center">
-      <p className="font-medium text-destructive">Something went wrong · ችግር ተፈጥሯል</p>
+      <p className="font-medium text-destructive">{t('common.error')}</p>
       <p className="mt-1 text-sm text-muted-foreground">{message}</p>
       {onRetry && (
         <Button variant="outline" className="mt-3" onClick={onRetry}>
-          Retry · እንደገና
+          {t('common.retry')}
         </Button>
       )}
     </Card>

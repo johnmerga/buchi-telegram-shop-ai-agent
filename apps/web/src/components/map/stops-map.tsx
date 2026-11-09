@@ -2,6 +2,7 @@ import type { Coordinates } from '@buchi/shared';
 import L from 'leaflet';
 import { useEffect, useRef } from 'react';
 import { pinIcon, tileLayer } from './leaflet-setup';
+import { useT } from '../../lib/i18n';
 
 export interface MapStop {
   label: string;
@@ -10,6 +11,7 @@ export interface MapStop {
 
 /** A read-only map of labelled points, zoomed to show them all. */
 export default function StopsMap({ stops }: { stops: MapStop[] }) {
+  const { t } = useT();
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export default function StopsMap({ stops }: { stops: MapStop[] }) {
       ref={container}
       className="h-56 w-full overflow-hidden rounded-xl border border-border"
       role="img"
-      aria-label={`Map with ${String(stops.length)} points`}
+      aria-label={t('map.points', { count: stops.length })}
     />
   );
 }

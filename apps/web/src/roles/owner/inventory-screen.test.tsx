@@ -70,16 +70,16 @@ describe('removing a product', () => {
     });
     renderAt(`/shops/${shopId}/inventory`, <OwnerApp />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove · አስወግድ' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
     expect(screen.getByText(/Customers can no longer find or buy it/)).toBeTruthy();
     expect(calls.some((call) => call.key.startsWith('DELETE'))).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
-    expect(await screen.findByText('Removed products · የተወገዱ (1)')).toBeTruthy();
-    expect(screen.getByText('No products yet · ገና ዕቃ የለም')).toBeTruthy();
+    expect(await screen.findByText('Removed products (1)')).toBeTruthy();
+    expect(screen.getByText('No products yet')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
-    expect(await screen.findByRole('button', { name: 'Remove · አስወግድ' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Remove' })).toBeTruthy();
     expect(screen.queryByText(/Removed products/)).toBeNull();
   });
 });

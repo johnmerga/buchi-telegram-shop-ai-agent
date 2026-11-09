@@ -3,6 +3,7 @@ import L from 'leaflet';
 import { useEffect, useRef } from 'react';
 import { ADDIS_ABABA } from './default-center';
 import { tileLayer } from './leaflet-setup';
+import { useT } from '../../lib/i18n';
 
 /** A hexagon to shade: `shade` runs from 0 (lightest) to 1 (darkest). */
 export interface MapHexagon {
@@ -18,6 +19,7 @@ const MAX_OPACITY = 0.7;
 
 /** A read-only map of shaded hexagons, one hue from light to dark. Tapping one shows its label. */
 export default function HexMap({ hexagons }: { hexagons: MapHexagon[] }) {
+  const { t } = useT();
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function HexMap({ hexagons }: { hexagons: MapHexagon[] }) {
       ref={container}
       className="h-96 w-full overflow-hidden rounded-xl border border-border"
       role="img"
-      aria-label={`Map with ${String(hexagons.length)} zones`}
+      aria-label={t('map.zones', { count: hexagons.length })}
     />
   );
 }

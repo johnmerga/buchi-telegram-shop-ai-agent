@@ -6,15 +6,21 @@ import { Alert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
+import { LanguageButton } from '../../components/language-button';
 import { fieldErrors } from '../../lib/form';
+import { useT } from '../../lib/i18n';
 import { useCreateShop, useShops } from './owner-api';
 
 /** Opens the owner's only shop directly, lets an owner of several pick one, or creates the first. */
 export function ShopsHome() {
   const shops = useShops();
+  const { t } = useT();
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold">Your shops · ሱቆችዎ</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">{t('shops.title')}</h1>
+        <LanguageButton />
+      </div>
       <QueryView query={shops}>
         {(list) => {
           const [only] = list;
@@ -25,7 +31,7 @@ export function ShopsHome() {
                 <Link
                   key={shop.id}
                   to={`shops/${shop.id}`}
-                  className="rounded-xl border border-border bg-card p-4 font-medium"
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 font-medium transition-colors hover:bg-muted"
                 >
                   {shop.name}
                 </Link>
@@ -44,6 +50,7 @@ function CreateShopForm({ firstShop }: { firstShop: boolean }) {
   const [error, setError] = useState<string>();
   const create = useCreateShop();
   const navigate = useNavigate();
+  const { t } = useT();
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
@@ -60,14 +67,10 @@ function CreateShopForm({ firstShop }: { firstShop: boolean }) {
   return (
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
-        <CardTitle>{firstShop ? 'Open your shop · ሱቅ ይክፈቱ' : 'Add another shop'}</CardTitle>
-        {firstShop && (
-          <p className="text-sm text-muted-foreground">
-            You do not own a shop on Buchi yet. Name your shop to start.
-          </p>
-        )}
+        <CardTitle>{firstShop ? t('shops.openFirst') : t('shops.addAnother')}</CardTitle>
+        {firstShop && <p className="text-sm text-muted-foreground">{t('shops.firstHint')}</p>}
         <Field
-          label="Shop name"
+          label={t('shops.name')}
           value={name}
           onChange={(e) => {
             setName(e.target.value);
@@ -77,7 +80,7 @@ function CreateShopForm({ firstShop }: { firstShop: boolean }) {
         />
         {create.isError && <Alert tone="error">{create.error.message}</Alert>}
         <Button type="submit" disabled={create.isPending}>
-          {create.isPending ? 'Creating…' : 'Create shop'}
+          {create.isPending ? t('shops.creating') : t('shops.create')}
         </Button>
       </form>
     </Card>

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderResult } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
+import { LanguageProvider } from '../lib/i18n';
 import { vi } from 'vitest';
 import type { WebApp } from '../lib/telegram';
 
@@ -65,7 +66,9 @@ export function renderAt(path: string, ui: ReactNode): RenderResult {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>
+      <LanguageProvider>
+        <MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>
+      </LanguageProvider>
     </QueryClientProvider>,
   );
 }

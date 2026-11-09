@@ -2,6 +2,7 @@ import { placeQuerySchema, placeSchema, type Coordinates } from '@buchi/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { z } from 'zod';
+import { useT } from '../../lib/i18n';
 import { useApi } from '../api-context';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
@@ -12,6 +13,7 @@ import { Input } from '../ui/input';
  * server shares Nominatim's one request a second with every other user.
  */
 export function PlaceSearch({ onChoose }: { onChoose: (point: Coordinates) => void }) {
+  const { t } = useT();
   const api = useApi();
   const [text, setText] = useState('');
   const [query, setQuery] = useState<string>();
@@ -37,8 +39,8 @@ export function PlaceSearch({ onChoose }: { onChoose: (point: Coordinates) => vo
         }}
       >
         <Input
-          aria-label="Search for a place"
-          placeholder="Town or area, e.g. Adama · ቦታ ይፈልጉ"
+          aria-label={t('place.searchLabel')}
+          placeholder={t('place.placeholder')}
           value={text}
           maxLength={100}
           onChange={(event) => {
@@ -46,14 +48,14 @@ export function PlaceSearch({ onChoose }: { onChoose: (point: Coordinates) => vo
           }}
         />
         <Button type="submit" variant="outline" disabled={!valid.success}>
-          Search
+          {t('place.search')}
         </Button>
       </form>
-      {places.isFetching && <p className="text-sm text-muted-foreground">Searching…</p>}
+      {places.isFetching && <p className="text-sm text-muted-foreground">{t('place.searching')}</p>}
       {places.isError && <Alert tone="error">{places.error.message}</Alert>}
-      {places.data?.length === 0 && <Alert tone="info">No places found.</Alert>}
+      {places.data?.length === 0 && <Alert tone="info">{t('place.none')}</Alert>}
       {places.data && places.data.length > 0 && (
-        <ul className="flex flex-col gap-1" aria-label="Places found">
+        <ul className="flex flex-col gap-1" aria-label={t('place.found')}>
           {places.data.map((place) => (
             <li key={`${String(place.latitude)},${String(place.longitude)}`}>
               <Button

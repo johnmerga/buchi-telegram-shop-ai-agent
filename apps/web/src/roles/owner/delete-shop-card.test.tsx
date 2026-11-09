@@ -49,7 +49,7 @@ describe('deleting a shop', () => {
     expect(button).toHaveProperty('disabled', false);
     fireEvent.click(button);
 
-    expect(await screen.findByText('Open your shop · ሱቅ ይክፈቱ')).toBeTruthy();
+    expect(await screen.findByText('Open your shop')).toBeTruthy();
     const removal = calls.find((call) => call.key === `DELETE /shops/${shopId}`);
     expect(removal?.init?.body).toBe(JSON.stringify({ name: 'Selam Shoes' }));
   });

@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { QueryView } from '../../components/query-view';
 import { Card } from '../../components/ui/card';
+import { useT, type MessageKey } from '../../lib/i18n';
 import { ChannelStep } from './channel-step';
 import { LocationStep } from './location-step';
 import { useDeliverySettings, useDrivers, useProducts, useShop } from './owner-api';
@@ -15,39 +16,37 @@ export default function SetupScreen() {
   const delivery = useDeliverySettings(shopId);
   const products = useProducts(shopId);
   const drivers = useDrivers(shopId);
+  const { t } = useT();
 
   return (
     <QueryView query={shop}>
       {(details) => (
         <div className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold">Set up your shop · ሱቅዎን ያዋቅሩ</h2>
+          <h2 className="text-lg font-semibold">{t('setup.title')}</h2>
           <ChannelStep shopId={shopId} channelTitle={details.channelTitle} />
           <LocationStep shopId={shopId} shop={details} />
           <PaymentAccountsStep shopId={shopId} saved={details.paymentAccounts} />
           <LinkStep
-            title="4. Delivery prices"
+            title="setup.delivery"
             done={delivery.data?.settings != null}
             to="../settings"
-            action="Set delivery prices"
-          >
-            Without them, customers can only pick up at the shop.
-          </LinkStep>
+            action="setup.deliveryAction"
+            body="setup.deliveryHint"
+          />
           <LinkStep
-            title="5. Products"
+            title="setup.products"
             done={(products.data?.length ?? 0) > 0}
             to="../inventory/new"
-            action="Add a product"
-          >
-            Add products with sizes and stock, then post them to your channel.
-          </LinkStep>
+            action="setup.productsAction"
+            body="setup.productsHint"
+          />
           <LinkStep
-            title="6. Drivers"
+            title="setup.drivers"
             done={(drivers.data?.length ?? 0) > 0}
             to="../drivers"
-            action="Invite a driver"
-          >
-            Drivers join with a one-time link that you send them.
-          </LinkStep>
+            action="drivers.invite"
+            body="setup.driversHint"
+          />
         </div>
       )}
     </QueryView>
@@ -55,18 +54,19 @@ export default function SetupScreen() {
 }
 
 function LinkStep(props: {
-  title: string;
+  title: MessageKey;
   done: boolean;
   to: string;
-  action: string;
-  children: string;
+  action: MessageKey;
+  body: MessageKey;
 }) {
+  const { t } = useT();
   return (
     <Card className="flex flex-col gap-2">
-      <StepTitle title={props.title} done={props.done} />
-      <p className="text-sm text-muted-foreground">{props.children}</p>
+      <StepTitle title={t(props.title)} done={props.done} />
+      <p className="text-sm text-muted-foreground">{t(props.body)}</p>
       <Link to={props.to} relative="path" className="text-sm font-medium text-link underline">
-        {props.action}
+        {t(props.action)}
       </Link>
     </Card>
   );

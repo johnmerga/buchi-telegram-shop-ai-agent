@@ -47,7 +47,7 @@ describe('drivers screen', () => {
 
     expect(await screen.findByText('Delivering #3F0059')).toBeTruthy();
     expect(screen.getByText('Heading to the shop for #7B1D4E')).toBeTruthy();
-    expect(screen.getByText('Free · ነጻ')).toBeTruthy();
+    expect(screen.getByText('Free')).toBeTruthy();
     expect(screen.getAllByText('On duty')).toHaveLength(3);
     expect(screen.getByText(/switched themselves on for work/)).toBeTruthy();
   });

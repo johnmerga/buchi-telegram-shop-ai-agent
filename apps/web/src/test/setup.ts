@@ -5,4 +5,5 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   delete window.Telegram;
+  localStorage.clear();
 });

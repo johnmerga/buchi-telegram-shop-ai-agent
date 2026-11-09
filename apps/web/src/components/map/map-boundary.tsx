@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { useT } from '../../lib/i18n';
 
 /**
  * Keeps a screen working when its map fails, for example when the Leaflet bundle cannot load on a
@@ -13,12 +14,17 @@ export class MapBoundary extends Component<{ children: ReactNode }, { failed: bo
 
   override render() {
     if (this.state.failed) {
-      return (
-        <p role="alert" className="p-6 text-center text-sm text-muted-foreground">
-          The map could not load · ካርታው አልተጫነም
-        </p>
-      );
+      return <MapFailed />;
     }
     return this.props.children;
   }
+}
+
+function MapFailed() {
+  const { t } = useT();
+  return (
+    <p role="alert" className="p-6 text-center text-sm text-muted-foreground">
+      {t('map.failed')}
+    </p>
+  );
 }

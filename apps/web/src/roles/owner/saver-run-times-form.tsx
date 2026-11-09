@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/form';
+import { useT } from '../../lib/i18n';
 import { useSaveSaverRunTimes } from './owner-api';
 
 /** Saver run times as one comma-separated line, such as "10:00, 14:00". */
@@ -20,6 +21,7 @@ export function SaverRunTimesForm({
   const [text, setText] = useState(saved.join(', '));
   const [error, setError] = useState<string>();
   const save = useSaveSaverRunTimes(shopId);
+  const { t } = useT();
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
@@ -35,14 +37,11 @@ export function SaverRunTimesForm({
   return (
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
-        <CardTitle>Saver runs · የቁጠባ ጉዞዎች</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Saver orders wait and go out together at these Addis Ababa times. Leave it empty to stop
-          Saver runs.
-        </p>
-        {!enabled && <Alert tone="info">Save the delivery prices first.</Alert>}
+        <CardTitle>{t('saver.title')}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t('saver.hint')}</p>
+        {!enabled && <Alert tone="info">{t('saver.pricesFirst')}</Alert>}
         <Field
-          label="Run times (24-hour)"
+          label={t('saver.times')}
           placeholder="10:00, 14:00"
           value={text}
           onChange={(e) => {
@@ -52,9 +51,9 @@ export function SaverRunTimesForm({
           disabled={!enabled}
         />
         {save.isError && <Alert tone="error">{save.error.message}</Alert>}
-        {save.isSuccess && <Alert tone="info">Saver run times saved.</Alert>}
+        {save.isSuccess && <Alert tone="info">{t('saver.saved')}</Alert>}
         <Button type="submit" disabled={!enabled || save.isPending}>
-          Save run times
+          {t('saver.save')}
         </Button>
       </form>
     </Card>

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
+import { LanguageProvider } from '../lib/i18n';
 import { startMiniApp } from '../lib/telegram';
 import '../styles.css';
 
@@ -16,7 +17,9 @@ export function mount(role: 'owner' | 'driver' | 'customer', app: ReactNode): vo
   createRoot(root).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter basename={`/app/${role}`}>{app}</BrowserRouter>
+        <LanguageProvider>
+          <BrowserRouter basename={`/app/${role}`}>{app}</BrowserRouter>
+        </LanguageProvider>
       </QueryClientProvider>
     </StrictMode>,
   );

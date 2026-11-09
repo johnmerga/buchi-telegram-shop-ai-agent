@@ -151,7 +151,7 @@ describe('payment review screen', () => {
     expect(await screen.findByText(/Nothing to review/)).toBeTruthy();
     const history = screen.getByRole('region', { name: 'Recent decisions' });
     await waitFor(() => {
-      expect(history.textContent).toContain('Approved · ጸድቋል');
+      expect(history.textContent).toContain('Approved');
     });
     expect(history.textContent).toContain('3,630.00 ብር · Telebirr · bank page: UNAVAILABLE');
     expect(history.textContent).toContain('Decided by You · receiver_unconfirmed');

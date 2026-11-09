@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/form';
+import { useT, type MessageKey } from '../../lib/i18n';
 import { useSaveDeliverySettings } from './owner-api';
 
 type Draft = Record<keyof DeliverySettings, string>;
@@ -21,25 +22,30 @@ const suggested: Draft = {
   saverDiscountPercent: '20',
 };
 
-const fields: { key: keyof DeliverySettings; label: string; hint?: string; numeric: boolean }[] = [
-  { key: 'baseFee', label: 'Base fee (birr)', numeric: false },
-  { key: 'ratePerKm', label: 'Rate per km (birr)', numeric: false },
-  { key: 'ratePerMinute', label: 'Rate per minute (birr)', numeric: false },
-  { key: 'freeRadiusKm', label: 'Free delivery up to (km)', numeric: true },
-  { key: 'standardRangeKm', label: 'Express and Saver up to (km)', numeric: true },
+const fields: {
+  key: keyof DeliverySettings;
+  label: MessageKey;
+  hint?: MessageKey;
+  numeric: boolean;
+}[] = [
+  { key: 'baseFee', label: 'deliverySettings.baseFee', numeric: false },
+  { key: 'ratePerKm', label: 'deliverySettings.ratePerKm', numeric: false },
+  { key: 'ratePerMinute', label: 'deliverySettings.ratePerMinute', numeric: false },
+  { key: 'freeRadiusKm', label: 'deliverySettings.freeRadius', numeric: true },
+  { key: 'standardRangeKm', label: 'deliverySettings.standardRange', numeric: true },
   {
     key: 'farRangeKm',
-    label: 'Far-area quotes up to (km)',
-    hint: 'Beyond this, customers pick up at the shop.',
+    label: 'deliverySettings.farRange',
+    hint: 'deliverySettings.farRangeHint',
     numeric: true,
   },
   {
     key: 'farCap',
-    label: 'Far-area price cap (birr)',
-    hint: 'Above it, you approve the price yourself.',
+    label: 'deliverySettings.farCap',
+    hint: 'deliverySettings.farCapHint',
     numeric: false,
   },
-  { key: 'saverDiscountPercent', label: 'Saver discount (%)', numeric: true },
+  { key: 'saverDiscountPercent', label: 'deliverySettings.saverDiscount', numeric: true },
 ];
 
 function toDraft(settings: DeliverySettings): Draft {
@@ -65,6 +71,7 @@ export function DeliverySettingsForm({
   const [draft, setDraft] = useState<Draft>(saved ? toDraft(saved) : suggested);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const save = useSaveDeliverySettings(shopId);
+  const { t } = useT();
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
@@ -79,22 +86,15 @@ export function DeliverySettingsForm({
   return (
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
-        <CardTitle>Delivery prices · የማድረሻ ዋጋ</CardTitle>
-        {!saved && (
-          <Alert tone="info">
-            Your shop offers pickup only until you save these. The values below are suggestions.
-          </Alert>
-        )}
-        <p className="text-sm text-muted-foreground">
-          Driver payout = base fee + rate per km × road km + rate per minute × minutes. Express is
-          the payout rounded up to 10 birr; Saver takes the discount off.
-        </p>
+        <CardTitle>{t('deliverySettings.title')}</CardTitle>
+        {!saved && <Alert tone="info">{t('deliverySettings.unsaved')}</Alert>}
+        <p className="text-sm text-muted-foreground">{t('deliverySettings.formula')}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {fields.map(({ key, label, hint }) => (
             <Field
               key={key}
-              label={label}
-              {...(hint ? { hint } : {})}
+              label={t(label)}
+              {...(hint ? { hint: t(hint) } : {})}
               inputMode="decimal"
               value={draft[key]}
               onChange={(e) => {
@@ -105,9 +105,9 @@ export function DeliverySettingsForm({
           ))}
         </div>
         {save.isError && <Alert tone="error">{save.error.message}</Alert>}
-        {save.isSuccess && <Alert tone="info">Delivery prices saved.</Alert>}
+        {save.isSuccess && <Alert tone="info">{t('deliverySettings.saved')}</Alert>}
         <Button type="submit" disabled={save.isPending}>
-          Save delivery prices
+          {t('deliverySettings.save')}
         </Button>
       </form>
     </Card>

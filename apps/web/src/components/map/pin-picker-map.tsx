@@ -2,6 +2,7 @@ import type { Coordinates } from '@buchi/shared';
 import L from 'leaflet';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { pinIcon, tileLayer } from './leaflet-setup';
+import { useT } from '../../lib/i18n';
 
 const START_ZOOM = 16;
 
@@ -13,6 +14,7 @@ export default function PinPickerMap({
   value: Coordinates;
   onChange: (point: Coordinates) => void;
 }) {
+  const { t } = useT();
   const container = useRef<HTMLDivElement>(null);
   const view = useRef<{ map: L.Map; pin: L.Marker }>(null);
   const [start] = useState(value);
@@ -55,7 +57,7 @@ export default function PinPickerMap({
     <div
       ref={container}
       className="h-80 w-full overflow-hidden rounded-xl border border-border"
-      aria-label="Map. Drag the pin or tap the map to move it."
+      aria-label={t('map.pinPicker')}
       role="application"
     />
   );

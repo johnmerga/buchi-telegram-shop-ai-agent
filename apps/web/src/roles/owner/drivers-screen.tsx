@@ -8,7 +8,8 @@ import { Button } from '../../components/ui/button';
 import { Card, CardTitle } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/form';
-import { formatTime } from '../../lib/labels';
+import { DriverIcon } from '../../components/icons';
+import { useT, type MessageKey, type Translate } from '../../lib/i18n';
 import { telegramWebApp } from '../../lib/telegram';
 import { useDrivers, useInviteDriver } from './owner-api';
 import { useShopId } from './use-shop-id';
@@ -16,19 +17,17 @@ import { useShopId } from './use-shop-id';
 export default function DriversScreen() {
   const shopId = useShopId();
   const drivers = useDrivers(shopId);
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Drivers · ሹፌሮች</h2>
+      <h2 className="text-lg font-semibold">{t('nav.drivers')}</h2>
       <InviteForm shopId={shopId} />
-      <p className="text-xs text-muted-foreground">
-        On duty means the driver switched themselves on for work in their chat. The line under each
-        name shows the job they have now.
-      </p>
+      <p className="text-xs text-muted-foreground">{t('drivers.dutyHint')}</p>
       <QueryView query={drivers}>
         {(list) =>
           list.length === 0 ? (
-            <EmptyState title="No drivers yet · ገና ሹፌር የለም">
-              Invite a driver by their Telegram username.
+            <EmptyState title={t('drivers.empty')} icon={<DriverIcon />}>
+              {t('drivers.emptyHint')}
             </EmptyState>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -43,17 +42,18 @@ export default function DriversScreen() {
   );
 }
 
-const stages: Record<DriverWork['stage'], string> = {
-  to_pickup: 'Heading to the shop for',
-  delivering: 'Delivering',
+const stages: Record<DriverWork['stage'], MessageKey> = {
+  to_pickup: 'drivers.toPickup',
+  delivering: 'drivers.delivering',
 };
 
 /** What a linked driver is doing now, or that they are free for a job. */
-function workLabel(work: DriverWork | null): string {
-  return work === null ? 'Free · ነጻ' : `${stages[work.stage]} ${work.orderReference}`;
+function workLabel(work: DriverWork | null, t: Translate): string {
+  return work === null ? t('drivers.free') : t(stages[work.stage], { order: work.orderReference });
 }
 
 function DriverRow({ driver }: { driver: DriverListItem }) {
+  const { t, formatTime } = useT();
   return (
     <li className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card p-3">
       <div>
@@ -62,16 +62,16 @@ function DriverRow({ driver }: { driver: DriverListItem }) {
           @{driver.username}
           {!driver.linked &&
             driver.inviteExpiresAt &&
-            ` · invite valid until ${formatTime(driver.inviteExpiresAt)}`}
+            ` · ${t('drivers.inviteUntil', { time: formatTime(driver.inviteExpiresAt) })}`}
         </p>
-        {driver.linked && <p className="text-sm">{workLabel(driver.work)}</p>}
+        {driver.linked && <p className="text-sm">{workLabel(driver.work, t)}</p>}
       </div>
       {driver.linked ? (
         <Badge tone={driver.available ? 'primary' : 'neutral'}>
-          {driver.available ? 'On duty' : 'Off duty'}
+          {driver.available ? t('drivers.onDuty') : t('drivers.offDuty')}
         </Badge>
       ) : (
-        <Badge>Invited</Badge>
+        <Badge>{t('drivers.invited')}</Badge>
       )}
     </li>
   );
@@ -81,6 +81,7 @@ function InviteForm({ shopId }: { shopId: string }) {
   const [username, setUsername] = useState('');
   const [error, setError] = useState<string>();
   const invite = useInviteDriver(shopId);
+  const { t } = useT();
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
@@ -97,12 +98,10 @@ function InviteForm({ shopId }: { shopId: string }) {
   return (
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
-        <CardTitle>Invite a driver</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Telegram does not let a bot message someone first, so you send the driver a one-time link.
-        </p>
+        <CardTitle>{t('drivers.invite')}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t('drivers.inviteHint')}</p>
         <Field
-          label="Driver’s Telegram username"
+          label={t('drivers.username')}
           placeholder="@abebe_rides"
           value={username}
           onChange={(e) => {
@@ -113,7 +112,7 @@ function InviteForm({ shopId }: { shopId: string }) {
         />
         {invite.isError && <Alert tone="error">{invite.error.message}</Alert>}
         <Button type="submit" disabled={invite.isPending}>
-          Create invite link
+          {t('drivers.createLink')}
         </Button>
         {invite.isSuccess && (
           <InviteLink link={invite.data.link} expiresAt={invite.data.expiresAt} />
@@ -125,9 +124,10 @@ function InviteForm({ shopId }: { shopId: string }) {
 
 function InviteLink({ link, expiresAt }: { link: string; expiresAt: string }) {
   const [copied, setCopied] = useState(false);
+  const { t, formatTime } = useT();
   const webApp = telegramWebApp();
   const share = () => {
-    const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join my shop on Buchi as a driver')}`;
+    const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t('drivers.shareText'))}`;
     if (webApp) webApp.openTelegramLink(url);
     else window.open(url, '_blank', 'noopener');
   };
@@ -139,13 +139,15 @@ function InviteLink({ link, expiresAt }: { link: string; expiresAt: string }) {
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-muted p-3">
       <p className="text-xs break-all">{link}</p>
-      <p className="text-xs text-muted-foreground">It works once, until {formatTime(expiresAt)}.</p>
+      <p className="text-xs text-muted-foreground">
+        {t('drivers.worksOnce', { time: formatTime(expiresAt) })}
+      </p>
       <div className="flex gap-2">
         <Button className="flex-1" onClick={share}>
-          Send in Telegram
+          {t('drivers.send')}
         </Button>
         <Button variant="outline" className="flex-1" onClick={copy}>
-          {copied ? 'Copied' : 'Copy link'}
+          {copied ? t('drivers.copied') : t('drivers.copy')}
         </Button>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { LazyPinPickerMap } from '../../components/map/lazy-maps';
 import { MainAction } from '../../components/telegram-buttons';
 import { Alert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
+import { useT, type Translate } from '../../lib/i18n';
 import { approximateKm, currentLocation } from '../../lib/location';
 import { telegramWebApp } from '../../lib/telegram';
 
@@ -28,16 +29,17 @@ export default function PinPickerScreen() {
   const [pin, setPin] = useState<Coordinates>(suggested ?? ADDIS_ABABA);
   const [notice, setNotice] = useState<string>();
   const webApp = telegramWebApp();
+  const { t } = useT();
 
   const useMine = () => {
-    setNotice('Finding your location…');
+    setNotice(t('location.finding'));
     currentLocation().then(
       (location) => {
         setPin(location.coordinates);
-        setNotice(approximateNotice(approximateKm(location)));
+        setNotice(approximateNotice(approximateKm(location), t));
       },
-      (err: unknown) => {
-        setNotice(err instanceof Error ? err.message : 'Location is not available.');
+      () => {
+        setNotice(t('location.off'));
       },
     );
   };
@@ -49,27 +51,25 @@ export default function PinPickerScreen() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold">Where should we deliver? · የት እናድርስ?</h1>
+      <h1 className="text-xl font-semibold">{t('pin.title')}</h1>
       <p className="text-sm text-muted-foreground">
-        Drag the pin, or tap the map, where the order should arrive.
-        {suggested && ' It starts at the place you named.'}
+        {t('pin.hint')}
+        {suggested && ` ${t('pin.startsAtNamed')}`}
       </p>
       <LazyPinPickerMap value={pin} onChange={setPin} />
       {notice && <Alert tone="info">{notice}</Alert>}
       <Button variant="outline" onClick={useMine}>
-        📍 Use my location · አሁን ያለሁበት
+        📍 {t('location.useMine')}
       </Button>
       {webApp ? (
-        <MainAction text="Deliver here · እዚህ ያድርሱ" onClick={send} />
+        <MainAction text={t('pin.deliverHere')} onClick={send} />
       ) : (
-        <Alert tone="info">Open the map from the chat’s “Pick on the map” button to send it.</Alert>
+        <Alert tone="info">{t('pin.openFromChat')}</Alert>
       )}
     </>
   );
 }
 
-function approximateNotice(km: number | undefined): string | undefined {
-  return km === undefined
-    ? undefined
-    : `This location is approximate (about ${String(km)} km). Drag the pin to where the order should arrive.`;
+function approximateNotice(km: number | undefined, t: Translate): string | undefined {
+  return km === undefined ? undefined : t('pin.approximate', { km });
 }

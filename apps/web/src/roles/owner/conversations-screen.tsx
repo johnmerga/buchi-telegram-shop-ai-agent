@@ -5,7 +5,8 @@ import { Alert } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import { formatTime } from '../../lib/labels';
+import { ChatIcon } from '../../components/icons';
+import { useT } from '../../lib/i18n';
 import { useConversations, useSwitchConversation } from './review-api';
 import { useShopId } from './use-shop-id';
 
@@ -13,17 +14,15 @@ import { useShopId } from './use-shop-id';
 export default function ConversationsScreen() {
   const shopId = useShopId();
   const conversations = useConversations(shopId);
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Conversations · ውይይቶች</h2>
-      <p className="text-sm text-muted-foreground">
-        While you answer a chat, Buchi stays quiet and relays the customer to your Telegram. It
-        answers again when you hand back or after two hours without your reply.
-      </p>
+      <h2 className="text-lg font-semibold">{t('chats.title')}</h2>
+      <p className="text-sm text-muted-foreground">{t('chats.intro')}</p>
       <QueryView query={conversations}>
         {(items) =>
           items.length === 0 ? (
-            <EmptyState title="No chats yet · ገና ውይይት የለም" />
+            <EmptyState title={t('chats.empty')} icon={<ChatIcon />} />
           ) : (
             items.map((item) => (
               <ConversationCard key={item.id} shopId={shopId} conversation={item} />
@@ -44,14 +43,20 @@ function ConversationCard({
 }) {
   const switchMode = useSwitchConversation(shopId);
   const human = conversation.mode === 'human';
+  const { t, formatTime } = useT();
   return (
-    <Card aria-label={`Chat with ${conversation.customerName}`} className="flex flex-col gap-2">
+    <Card
+      aria-label={t('chats.with', { name: conversation.customerName })}
+      className="flex flex-col gap-2"
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-medium">{conversation.customerName}</p>
           <p className="text-xs text-muted-foreground">{formatTime(conversation.updatedAt)}</p>
         </div>
-        <Badge tone={human ? 'primary' : 'neutral'}>{human ? 'You answer' : 'Buchi answers'}</Badge>
+        <Badge tone={human ? 'primary' : 'neutral'}>
+          {human ? t('chats.youAnswer') : t('chats.buchiAnswers')}
+        </Badge>
       </div>
       {conversation.lastTurns.length > 0 && (
         <ul className="flex flex-col gap-1 text-sm">
@@ -67,7 +72,7 @@ function ConversationCard({
       )}
       {human && conversation.handBackAt && (
         <p className="text-xs text-muted-foreground">
-          Buchi takes over again at {formatTime(conversation.handBackAt)} unless you reply.
+          {t('chats.handBackAt', { time: formatTime(conversation.handBackAt) })}
         </p>
       )}
       {switchMode.isError && <Alert tone="error">{switchMode.error.message}</Alert>}
@@ -81,7 +86,7 @@ function ConversationCard({
           });
         }}
       >
-        {human ? 'Hand back · መልስ' : 'Take over · ተረከብ'}
+        {human ? t('chats.handBack') : t('chats.takeOver')}
       </Button>
     </Card>
   );

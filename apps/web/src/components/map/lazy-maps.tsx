@@ -1,4 +1,5 @@
 import { lazy, Suspense, type ComponentProps, type ReactNode } from 'react';
+import { useT } from '../../lib/i18n';
 import { Loading } from '../screen-state';
 import { MapBoundary } from './map-boundary';
 
@@ -9,9 +10,10 @@ const RoutesMap = lazy(() => import('./routes-map'));
 const HexMap = lazy(() => import('./hex-map'));
 
 function MapFrame({ children }: { children: ReactNode }) {
+  const { t } = useT();
   return (
     <MapBoundary>
-      <Suspense fallback={<Loading label="Loading the map…" />}>{children}</Suspense>
+      <Suspense fallback={<Loading label={t('map.loading')} />}>{children}</Suspense>
     </MapBoundary>
   );
 }

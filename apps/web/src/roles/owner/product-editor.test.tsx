@@ -134,7 +134,7 @@ describe('product editor', () => {
     });
     renderAt(`/shops/${shopId}/inventory/new`, <OwnerApp />);
 
-    expect(await screen.findByText('New product · አዲስ ዕቃ')).toBeTruthy();
+    expect(await screen.findByText('New product')).toBeTruthy();
     expect(screen.queryByLabelText('+ Add photo')).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ const ConversationsScreen = lazy(() => import('./conversations-screen'));
 const AiDecisionsScreen = lazy(() => import('./ai-decisions-screen'));
 const ZonesScreen = lazy(() => import('./zones-screen'));
 const InsightsScreen = lazy(() => import('./insights-screen'));
+const MoreScreen = lazy(() => import('./more-screen'));
 
 /** The owner Mini App, which is also the browser dashboard with the Login Widget. */
 export function OwnerApp() {
@@ -40,6 +41,7 @@ export function OwnerApp() {
             <Route path="zones" element={<ZonesScreen />} />
             <Route path="insights" element={<InsightsScreen />} />
             <Route path="settings" element={<SettingsScreen />} />
+            <Route path="more" element={<MoreScreen />} />
           </Route>
         </Routes>
       </Suspense>

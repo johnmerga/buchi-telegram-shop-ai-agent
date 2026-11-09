@@ -6,7 +6,7 @@ import { QueryView } from '../../components/query-view';
 import { Badge } from '../../components/ui/badge';
 import { Card } from '../../components/ui/card';
 import { cn } from '../../lib/cn';
-import { deliveryLabels, formatTime, statusLabels } from '../../lib/labels';
+import { useT } from '../../lib/i18n';
 
 /** A customer checks back now and then, so a minute is fresh enough and spares their data. */
 const REFRESH_MS = 60_000;
@@ -50,43 +50,63 @@ function Tracking({ order }: { order: TrackedOrder }) {
   // Review is a detour of the payment check, so it lights the same step.
   const current = steps.indexOf(order.status === 'needs_review' ? 'verifying' : order.status);
   const closed = ['expired', 'cancelled', 'payment_rejected'].includes(order.status);
+  const { t, formatTime } = useT();
   return (
     <>
-      <h1 className="text-xl font-semibold">Your order · ትዕዛዝዎ</h1>
+      <h1 className="text-xl font-semibold">{t('tracking.title')}</h1>
       <Card className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <p className="font-medium">{order.shopName}</p>
-          <Badge tone={closed ? 'warning' : 'primary'}>{statusLabels[order.status]}</Badge>
+          <Badge tone={closed ? 'warning' : 'primary'}>{t(`status.${order.status}`)}</Badge>
         </div>
         <ul className="text-sm">
           {order.lines.map((line, index) => (
             <li key={index}>
-              {line.quantity} × {line.title} · size {line.size}
+              {line.quantity} × {line.title} · {t('orders.size', { size: line.size })}
             </li>
           ))}
         </ul>
         <p className="text-sm">
           <span className="font-semibold">{formatBirr(order.total)}</span> ·{' '}
-          {deliveryLabels[order.deliveryType]}
+          {t(`delivery.${order.deliveryType}`)}
         </p>
         {order.status === 'awaiting_payment' && order.paymentDeadline && (
-          <p className="text-sm">Pay by {formatTime(order.paymentDeadline)}.</p>
+          <p className="text-sm">
+            {t('tracking.payBy', { time: formatTime(order.paymentDeadline) })}
+          </p>
         )}
       </Card>
       {!closed && (
-        <ol aria-label="Progress" className="flex flex-col gap-1">
+        <ol aria-label={t('tracking.progress')} className="flex flex-col">
           {steps.map((step, index) => (
             <li
               key={step}
               aria-current={index === current ? 'step' : undefined}
-              className={cn(
-                'rounded-lg px-3 py-2 text-sm',
-                index < current && 'text-muted-foreground line-through',
-                index === current && 'bg-primary font-semibold text-primary-foreground',
-                index > current && 'text-muted-foreground',
-              )}
+              className="flex items-stretch gap-3"
             >
-              {statusLabels[step]}
+              <span className="flex w-5 flex-col items-center">
+                <span
+                  className={cn(
+                    'mt-2.5 size-3 shrink-0 rounded-full border-2',
+                    index < current && 'border-primary bg-primary',
+                    index === current && 'border-primary bg-primary ring-4 ring-primary/20',
+                    index > current && 'border-border bg-background',
+                  )}
+                />
+                {index < steps.length - 1 && (
+                  <span
+                    className={cn('w-0.5 flex-1', index < current ? 'bg-primary' : 'bg-border')}
+                  />
+                )}
+              </span>
+              <span
+                className={cn(
+                  'py-1.5 text-sm',
+                  index === current ? 'font-semibold text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {t(`status.${step}`)}
+              </span>
             </li>
           ))}
         </ol>

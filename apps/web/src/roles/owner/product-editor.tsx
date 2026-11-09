@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/form';
+import { useT } from '../../lib/i18n';
 import { useProducts, useSaveProduct } from './owner-api';
 import { ProductPhotos } from './product-photos';
 import { useShopId } from './use-shop-id';
@@ -23,14 +24,14 @@ export default function ProductEditor() {
   const { productId } = useParams();
   const products = useProducts(shopId);
   const navigate = useNavigate();
+  const { t } = useT();
   useBackButton(useCallback(() => void navigate('..', { relative: 'path' }), [navigate]));
 
   return (
     <QueryView query={products}>
       {(list) => {
         const product = list.find((p) => p.id === productId);
-        if (productId && !product)
-          return <Alert tone="error">This product no longer exists.</Alert>;
+        if (productId && !product) return <Alert tone="error">{t('product.gone')}</Alert>;
         return <ProductForm key={productId ?? 'new'} shopId={shopId} product={product} />;
       }}
     </QueryView>
@@ -59,6 +60,7 @@ function ProductForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const save = useSaveProduct(shopId, product?.id);
   const navigate = useNavigate();
+  const { t } = useT();
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
@@ -88,11 +90,9 @@ function ProductForm({
   return (
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
-        <h2 className="text-lg font-semibold">
-          {product ? 'Edit product' : 'New product · አዲስ ዕቃ'}
-        </h2>
+        <h2 className="text-lg font-semibold">{product ? t('product.edit') : t('product.new')}</h2>
         <Field
-          label="Title"
+          label={t('product.title')}
           value={title}
           onChange={(e) => {
             setTitle(e.target.value);
@@ -100,7 +100,7 @@ function ProductForm({
           error={errors.title}
         />
         <Field
-          label="Description"
+          label={t('product.description')}
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);
@@ -108,9 +108,12 @@ function ProductForm({
           error={errors.description}
         />
         <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">Pricing · ዋጋ</legend>
+          <legend className="text-sm font-medium">{t('product.pricing')}</legend>
           {(['fixed', 'negotiable'] as const).map((mode) => (
-            <label key={mode} className="flex min-h-11 items-center gap-2 text-sm">
+            <label
+              key={mode}
+              className="flex min-h-11 items-center gap-3 rounded-lg border border-border px-3 text-sm has-checked:border-primary has-checked:bg-primary/5"
+            >
               <input
                 type="radio"
                 name="pricingMode"
@@ -120,18 +123,12 @@ function ProductForm({
                   setPricingMode(mode);
                 }}
               />
-              {mode === 'fixed'
-                ? 'Fixed: the post shows the price'
-                : 'Negotiable: the post hides it, and Buchi negotiates'}
+              {mode === 'fixed' ? t('product.fixedMode') : t('product.negotiableMode')}
             </label>
           ))}
         </fieldset>
         <Field
-          label={
-            pricingMode === 'fixed'
-              ? 'Price (birr)'
-              : 'Asking price (birr, said in chat, not on the post)'
-          }
+          label={pricingMode === 'fixed' ? t('product.price') : t('product.askingPrice')}
           inputMode="decimal"
           value={price}
           onChange={(e) => {
@@ -141,8 +138,8 @@ function ProductForm({
         />
         {pricingMode === 'negotiable' && (
           <Field
-            label="Lowest price (birr, never shown to customers)"
-            hint="Buchi never sells below it and never tells customers what it is."
+            label={t('product.lowestPrice')}
+            hint={t('product.lowestHint')}
             inputMode="decimal"
             value={lowestPrice}
             onChange={(e) => {
@@ -166,7 +163,7 @@ function ProductForm({
         />
         {save.isError && <Alert tone="error">{save.error.message}</Alert>}
         <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? 'Saving…' : 'Save product'}
+          {save.isPending ? t('common.saving') : t('product.save')}
         </Button>
       </form>
     </Card>

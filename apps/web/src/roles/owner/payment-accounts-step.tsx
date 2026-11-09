@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/form';
-import { providerLabels } from '../../lib/labels';
+import { useT } from '../../lib/i18n';
 import { useSetPaymentAccounts } from './owner-api';
 import { StepTitle } from './step-title';
 
@@ -22,6 +22,7 @@ export function PaymentAccountsStep({
   const [accounts, setAccounts] = useState(saved.length > 0 ? saved : [emptyAccount]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const save = useSetPaymentAccounts(shopId);
+  const { t } = useT();
 
   const change = (index: number, patch: Partial<PaymentAccount>) => {
     setAccounts((list) =>
@@ -39,10 +40,8 @@ export function PaymentAccountsStep({
   return (
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
-        <StepTitle title="3. Payment accounts · የክፍያ መለያዎች" done={saved.length > 0} />
-        <p className="text-sm text-muted-foreground">
-          Customers pay into these. Buchi checks every receipt’s receiver against them.
-        </p>
+        <StepTitle title={t('setup.accounts')} done={saved.length > 0} />
+        <p className="text-sm text-muted-foreground">{t('setup.accountsHint')}</p>
         {accounts.map((account, index) => (
           <AccountRow
             key={index}
@@ -68,13 +67,13 @@ export function PaymentAccountsStep({
               setAccounts((list) => [...list, emptyAccount]);
             }}
           >
-            + Add an account
+            {t('setup.addAccount')}
           </Button>
         )}
         {save.isError && <Alert tone="error">{save.error.message}</Alert>}
-        {save.isSuccess && <Alert tone="info">Payment accounts saved.</Alert>}
+        {save.isSuccess && <Alert tone="info">{t('setup.accountsSaved')}</Alert>}
         <Button type="submit" disabled={save.isPending}>
-          Save accounts
+          {t('setup.saveAccounts')}
         </Button>
       </form>
     </Card>
@@ -90,11 +89,14 @@ function AccountRow(props: {
 }) {
   const { account, errors, index, onChange, onRemove } = props;
   const providerId = useId();
+  const { t } = useT();
   return (
     <fieldset className="flex flex-col gap-2 rounded-lg border border-border p-3">
-      <legend className="px-1 text-sm font-medium">Account {index + 1}</legend>
+      <legend className="px-1 text-sm font-medium">
+        {t('setup.account', { number: index + 1 })}
+      </legend>
       <label htmlFor={providerId} className="text-sm font-medium">
-        Provider
+        {t('setup.provider')}
       </label>
       <select
         id={providerId}
@@ -107,12 +109,12 @@ function AccountRow(props: {
       >
         {paymentProviders.map((provider) => (
           <option key={provider} value={provider}>
-            {providerLabels[provider]}
+            {t(`provider.${provider}`)}
           </option>
         ))}
       </select>
       <Field
-        label="Account name"
+        label={t('setup.accountName')}
         value={account.accountName}
         onChange={(e) => {
           onChange({ accountName: e.target.value });
@@ -120,7 +122,7 @@ function AccountRow(props: {
         error={errors[`${String(index)}.accountName`]}
       />
       <Field
-        label="Account or phone number"
+        label={t('setup.accountNumber')}
         inputMode="numeric"
         value={account.accountNumber}
         onChange={(e) => {
@@ -130,7 +132,7 @@ function AccountRow(props: {
       />
       {onRemove && (
         <Button variant="destructive" size="sm" onClick={onRemove}>
-          Remove
+          {t('inventory.remove')}
         </Button>
       )}
     </fieldset>

@@ -1,8 +1,10 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Api } from '../lib/api';
 import { Auth, exchange } from '../lib/auth';
+import { useT } from '../lib/i18n';
 import { telegramWebApp } from '../lib/telegram';
 import { ApiProvider } from './api-context';
+import { LanguageButton } from './language-button';
 import { LoginWidget, type TelegramLoginData } from './login-widget';
 import { Card } from './ui/card';
 
@@ -18,6 +20,7 @@ export function SignInGate({
   browserSignIn: boolean;
   children: ReactNode;
 }) {
+  const { t } = useT();
   const initData = telegramWebApp()?.initData ?? '';
   const [widgetData, setWidgetData] = useState<TelegramLoginData>();
 
@@ -30,19 +33,18 @@ export function SignInGate({
   if (api) return <ApiProvider api={api}>{children}</ApiProvider>;
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-4">
-      <h1 className="text-center text-2xl font-semibold">ቡቺ Buchi</h1>
+      <div className="flex justify-end">
+        <LanguageButton />
+      </div>
+      <h1 className="text-center text-2xl font-semibold">{t('common.brand')}</h1>
       <Card className="flex flex-col gap-3 text-center">
         {browserSignIn ? (
           <>
-            <p className="text-sm text-muted-foreground">
-              Sign in with the Telegram account that owns your shop · በቴሌግራም ይግቡ
-            </p>
+            <p className="text-sm text-muted-foreground">{t('signIn.owner')}</p>
             <LoginWidget onAuth={setWidgetData} />
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Open this page from the Buchi bot in Telegram · ከቴሌግራም ቦቱ ይክፈቱ
-          </p>
+          <p className="text-sm text-muted-foreground">{t('signIn.openFromTelegram')}</p>
         )}
       </Card>
     </main>

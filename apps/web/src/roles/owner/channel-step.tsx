@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Field } from '../../components/ui/field';
 import { fieldErrors } from '../../lib/form';
+import { useT } from '../../lib/i18n';
 import { useConnectChannel } from './owner-api';
 import { StepTitle } from './step-title';
 
@@ -18,6 +19,7 @@ export function ChannelStep({
   const [channel, setChannel] = useState('');
   const [error, setError] = useState<string>();
   const connect = useConnectChannel(shopId);
+  const { t } = useT();
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
@@ -29,14 +31,13 @@ export function ChannelStep({
   return (
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
-        <StepTitle title="1. Channel · ቻናል" done={channelTitle !== null} />
-        {channelTitle && <p className="text-sm">Connected to {channelTitle}.</p>}
-        <p className="text-sm text-muted-foreground">
-          Add the Buchi bot to your channel as an admin that can post messages, then enter the
-          channel here.
-        </p>
+        <StepTitle title={t('setup.channel')} done={channelTitle !== null} />
+        {channelTitle && (
+          <p className="text-sm">{t('setup.connectedTo', { title: channelTitle })}</p>
+        )}
+        <p className="text-sm text-muted-foreground">{t('setup.channelHint')}</p>
         <Field
-          label="Channel"
+          label={t('setup.channelField')}
           placeholder="@selamshoes"
           value={channel}
           onChange={(e) => {
@@ -46,9 +47,11 @@ export function ChannelStep({
           autoCapitalize="none"
         />
         {connect.isError && <Alert tone="error">{connect.error.message}</Alert>}
-        {connect.isSuccess && <Alert tone="info">Connected to {connect.data.title}.</Alert>}
+        {connect.isSuccess && (
+          <Alert tone="info">{t('setup.connectedTo', { title: connect.data.title })}</Alert>
+        )}
         <Button type="submit" disabled={connect.isPending}>
-          {connect.isPending ? 'Checking the bot’s rights…' : 'Connect channel'}
+          {connect.isPending ? t('setup.checkingRights') : t('setup.connect')}
         </Button>
       </form>
     </Card>

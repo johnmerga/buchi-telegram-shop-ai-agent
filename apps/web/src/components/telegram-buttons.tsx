@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useT } from '../lib/i18n';
 import { telegramWebApp } from '../lib/telegram';
 import { Button } from './ui/button';
 
@@ -31,6 +32,7 @@ export function MainAction({
   disabled?: boolean;
   busy?: boolean;
 }) {
+  const { t } = useT();
   const main = telegramWebApp()?.MainButton;
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export function MainAction({
   if (main) return null;
   return (
     <Button className="w-full" onClick={onClick} disabled={disabled || busy}>
-      {busy ? 'Please wait…' : text}
+      {busy ? t('common.wait') : text}
     </Button>
   );
 }

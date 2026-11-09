@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { ADDIS_ABABA } from './default-center';
 import { pinIcon, tileLayer } from './leaflet-setup';
 import type { MapStop } from './stops-map';
+import { useT } from '../../lib/i18n';
 
 /** One delivery's way: from the shop through its stops in order. */
 export interface MapRoute {
@@ -14,6 +15,7 @@ const CITY_ZOOM = 12;
 
 /** A read-only map of routes, each drawn as a line through its labelled stops. */
 export default function RoutesMap({ routes }: { routes: MapRoute[] }) {
+  const { t } = useT();
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function RoutesMap({ routes }: { routes: MapRoute[] }) {
       ref={container}
       className="h-80 w-full overflow-hidden rounded-xl border border-border"
       role="img"
-      aria-label={`Map with ${String(routes.length)} deliveries`}
+      aria-label={t('map.routes', { count: routes.length })}
     />
   );
 }

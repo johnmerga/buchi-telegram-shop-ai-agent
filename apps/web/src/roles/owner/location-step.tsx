@@ -7,6 +7,7 @@ import { Alert } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { approximateKm, currentLocation } from '../../lib/location';
+import { useT, type Translate } from '../../lib/i18n';
 import { useSetLocation } from './owner-api';
 import { StepTitle } from './step-title';
 
@@ -18,26 +19,25 @@ export function LocationStep({ shopId, shop }: { shopId: string; shop: Shop }) {
   const [pin, setPin] = useState<Coordinates>(saved ?? ADDIS_ABABA);
   const [locating, setLocating] = useState<string>();
   const save = useSetLocation(shopId);
+  const { t } = useT();
 
   const useMine = () => {
-    setLocating('Finding your location…');
+    setLocating(t('location.finding'));
     currentLocation().then(
       (location) => {
         setPin(location.coordinates);
-        setLocating(approximateNotice(approximateKm(location)));
+        setLocating(approximateNotice(approximateKm(location), t));
       },
-      (err: unknown) => {
-        setLocating(err instanceof Error ? err.message : 'Location is not available.');
+      () => {
+        setLocating(t('location.off'));
       },
     );
   };
 
   return (
     <Card className="flex flex-col gap-3">
-      <StepTitle title="2. Shop location · የሱቅ ቦታ" done={saved !== undefined} />
-      <p className="text-sm text-muted-foreground">
-        Drag the pin to your shop’s door. Drivers start here, and delivery prices count from here.
-      </p>
+      <StepTitle title={t('setup.location')} done={saved !== undefined} />
+      <p className="text-sm text-muted-foreground">{t('setup.locationHint')}</p>
       <PlaceSearch onChoose={setPin} />
       <LazyPinPickerMap value={pin} onChange={setPin} />
       <p className="text-xs text-muted-foreground">
@@ -45,10 +45,10 @@ export function LocationStep({ shopId, shop }: { shopId: string; shop: Shop }) {
       </p>
       {locating && <Alert tone="info">{locating}</Alert>}
       {save.isError && <Alert tone="error">{save.error.message}</Alert>}
-      {save.isSuccess && <Alert tone="info">Location saved.</Alert>}
+      {save.isSuccess && <Alert tone="info">{t('setup.locationSaved')}</Alert>}
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={useMine}>
-          Use my location
+          {t('location.useMine')}
         </Button>
         <Button
           className="flex-1"
@@ -57,15 +57,13 @@ export function LocationStep({ shopId, shop }: { shopId: string; shop: Shop }) {
             save.mutate(pin);
           }}
         >
-          Save location
+          {t('setup.saveLocation')}
         </Button>
       </div>
     </Card>
   );
 }
 
-function approximateNotice(km: number | undefined): string | undefined {
-  return km === undefined
-    ? undefined
-    : `This location is approximate (about ${String(km)} km). Search your area or drag the pin.`;
+function approximateNotice(km: number | undefined, t: Translate): string | undefined {
+  return km === undefined ? undefined : t('location.approximate', { km });
 }

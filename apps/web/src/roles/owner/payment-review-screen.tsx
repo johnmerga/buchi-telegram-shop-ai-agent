@@ -5,47 +5,49 @@ import { Alert } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import { formatTime } from '../../lib/labels';
+import { PaymentsIcon } from '../../components/icons';
+import { useT, type MessageKey } from '../../lib/i18n';
 import { PaymentDecisions } from './payment-decisions';
 import { useDecidePayment, usePaymentReviews } from './review-api';
 import { Screenshot } from './screenshot';
 import { useLiveReload } from './use-live-reload';
 import { useShopId } from './use-shop-id';
 
-const fields: { key: keyof ReceiptFields; label: string }[] = [
-  { key: 'layout', label: 'Layout' },
-  { key: 'transactionRef', label: 'Transaction ref' },
-  { key: 'amount', label: 'Amount' },
-  { key: 'receiverName', label: 'Receiver' },
-  { key: 'receiverAccount', label: 'Receiver account' },
-  { key: 'payerName', label: 'Payer' },
-  { key: 'payerAccount', label: 'Payer account' },
-  { key: 'paidAt', label: 'Paid at' },
-  { key: 'status', label: 'Status' },
+const fields: { key: keyof ReceiptFields; label: MessageKey }[] = [
+  { key: 'layout', label: 'review.field.layout' },
+  { key: 'transactionRef', label: 'review.field.transactionRef' },
+  { key: 'amount', label: 'review.field.amount' },
+  { key: 'receiverName', label: 'review.field.receiver' },
+  { key: 'receiverAccount', label: 'review.field.receiverAccount' },
+  { key: 'payerName', label: 'review.field.payer' },
+  { key: 'payerAccount', label: 'review.field.payerAccount' },
+  { key: 'paidAt', label: 'review.field.paidAt' },
+  { key: 'status', label: 'review.field.status' },
 ];
 
-const ruleLabels: Record<string, string> = {
-  r1: 'R1 readable',
-  r2: 'R2 known layout',
-  r3: 'R3 amount',
-  r4: 'R4 receiver',
-  r5: 'R5 time',
-  r6: 'R6 new reference',
+const ruleLabels: Record<string, MessageKey> = {
+  r1: 'review.rule.r1',
+  r2: 'review.rule.r2',
+  r3: 'review.rule.r3',
+  r4: 'review.rule.r4',
+  r5: 'review.rule.r5',
+  r6: 'review.rule.r6',
 };
 
 /** Payment screenshots that Buchi could not decide, with everything it checked, then the history. */
 export default function PaymentReviewScreen() {
   const shopId = useShopId();
   const reviews = usePaymentReviews(shopId);
+  const { t } = useT();
   useLiveReload(shopId, 'payment-reviews');
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Payment review · የክፍያ ግምገማ</h2>
+      <h2 className="text-lg font-semibold">{t('review.title')}</h2>
       <QueryView query={reviews}>
         {(items) =>
           items.length === 0 ? (
-            <EmptyState title="Nothing to review · የሚገመገም የለም">
-              Payments that Buchi cannot approve on its own appear here and in your chat.
+            <EmptyState title={t('review.empty')} icon={<PaymentsIcon />}>
+              {t('review.emptyHint')}
             </EmptyState>
           ) : (
             items.map((item) => <ReviewCard key={item.proofId} shopId={shopId} item={item} />)
@@ -59,8 +61,12 @@ export default function PaymentReviewScreen() {
 
 function ReviewCard({ shopId, item }: { shopId: string; item: PaymentReviewItem }) {
   const decide = useDecidePayment(shopId);
+  const { t, formatTime } = useT();
   return (
-    <Card aria-label={`Payment of ${item.customerName}`} className="flex flex-col gap-3">
+    <Card
+      aria-label={t('review.paymentOf', { name: item.customerName })}
+      className="flex flex-col gap-3"
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-medium">{item.customerName}</p>
@@ -76,35 +82,29 @@ function ReviewCard({ shopId, item }: { shopId: string; item: PaymentReviewItem 
           {item.extraction ? (
             <ExtractedFields extraction={item.extraction} />
           ) : (
-            <p className="text-muted-foreground">Buchi could not read this screenshot.</p>
+            <p className="text-muted-foreground">{t('review.unread')}</p>
           )}
-          <ul aria-label="Rule results" className="flex flex-wrap gap-1">
+          <ul aria-label={t('review.rules')} className="flex flex-wrap gap-1">
             {Object.entries(item.rules).map(([rule, result]) => (
               <li key={rule}>
                 <Badge tone={result === 'fail' || result === 'underpaid' ? 'warning' : 'neutral'}>
-                  {ruleLabels[rule] ?? rule}: {result}
+                  {ruleLabels[rule] ? t(ruleLabels[rule]) : rule}: {result}
                 </Badge>
               </li>
             ))}
           </ul>
           <p>
-            <span className="text-muted-foreground">Bank page: </span>
-            {item.bankCheck ?? 'not checked'}
+            <span className="text-muted-foreground">{t('review.bankPage')} </span>
+            {item.bankCheck ?? t('review.notChecked')}
           </p>
           {item.reasons.length > 0 && (
             <p>
-              <span className="text-muted-foreground">Why it waits: </span>
+              <span className="text-muted-foreground">{t('review.whyWaits')} </span>
               {item.reasons.join(', ')}
             </p>
           )}
-          {item.customerReported && (
-            <Badge tone="warning">
-              Reported by the customer · ደንበኛው ሪፖርት አድርጓል. Buchi rejected this payment.
-            </Badge>
-          )}
-          {item.payerHighRisk && (
-            <Badge tone="warning">High risk: other shops flagged this payer</Badge>
-          )}
+          {item.customerReported && <Badge tone="warning">{t('review.reported')}</Badge>}
+          {item.payerHighRisk && <Badge tone="warning">{t('review.highRisk')}</Badge>}
         </div>
       </div>
       {decide.isError && <Alert tone="error">{decide.error.message}</Alert>}
@@ -115,7 +115,7 @@ function ReviewCard({ shopId, item }: { shopId: string; item: PaymentReviewItem 
             decide.mutate({ proofId: item.proofId, action: 'approve' });
           }}
         >
-          Approve · አጽድቅ
+          {t('review.approve')}
         </Button>
         <Button
           variant="destructive"
@@ -124,7 +124,7 @@ function ReviewCard({ shopId, item }: { shopId: string; item: PaymentReviewItem 
             decide.mutate({ proofId: item.proofId, action: 'reject' });
           }}
         >
-          Reject · ውድቅ
+          {t('review.reject')}
         </Button>
       </div>
     </Card>
@@ -132,13 +132,14 @@ function ReviewCard({ shopId, item }: { shopId: string; item: PaymentReviewItem 
 }
 
 function ExtractedFields({ extraction }: { extraction: ReceiptFields }) {
+  const { t } = useT();
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
       {fields.map(({ key, label }) => {
         const read = extraction[key];
         return (
           <div key={key} className="contents">
-            <dt className="text-muted-foreground">{label}</dt>
+            <dt className="text-muted-foreground">{t(label)}</dt>
             <dd>
               {read.value ?? '—'}
               {read.value !== null && (

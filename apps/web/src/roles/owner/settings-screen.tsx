@@ -1,4 +1,5 @@
 import { QueryView } from '../../components/query-view';
+import { useT } from '../../lib/i18n';
 import { useLedger } from './dashboard-api';
 import { DeleteShopCard } from './delete-shop-card';
 import { DeliverySettingsForm } from './delivery-settings-form';
@@ -13,9 +14,10 @@ export default function SettingsScreen() {
   const delivery = useDeliverySettings(shopId);
   const ledger = useLedger(shopId);
   const shop = useShop(shopId);
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Settings · ማስተካከያ</h2>
+      <h2 className="text-lg font-semibold">{t('nav.settings')}</h2>
       <QueryView query={delivery}>
         {(view) => (
           <>

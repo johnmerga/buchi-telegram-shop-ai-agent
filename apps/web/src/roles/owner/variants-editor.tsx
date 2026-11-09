@@ -1,5 +1,6 @@
 import { Button } from '../../components/ui/button';
 import { Field } from '../../components/ui/field';
+import { useT } from '../../lib/i18n';
 
 /** A size row as typed, before the shared schema turns stock into a number. */
 export interface VariantDraft {
@@ -25,25 +26,22 @@ export function VariantsEditor({
   onChange: (variants: VariantDraft[]) => void;
   errors: Record<string, string>;
 }) {
+  const { t } = useT();
   const update = (index: number, patch: Partial<VariantDraft>) => {
     onChange(variants.map((variant, i) => (i === index ? { ...variant, ...patch } : variant)));
   };
 
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="text-sm font-medium">Sizes and stock · መጠንና ብዛት</legend>
-      {savedCount > 0 && (
-        <p className="text-xs text-muted-foreground">
-          To stop selling a saved size, set its stock to 0.
-        </p>
-      )}
+      <legend className="text-sm font-medium">{t('inventory.sizes')}</legend>
+      {savedCount > 0 && <p className="text-xs text-muted-foreground">{t('variants.stopHint')}</p>}
       {errors.variants && <p className="text-xs text-destructive">{errors.variants}</p>}
       {variants.map((variant, index) => {
         const error = (field: string) => errors[`variants.${String(index)}.${field}`];
         return (
           <div key={index} className="grid grid-cols-[1fr_1fr_5rem] items-start gap-2">
             <Field
-              label="Size"
+              label={t('variants.size')}
               value={variant.size}
               readOnly={index < savedCount}
               onChange={(e) => {
@@ -52,7 +50,7 @@ export function VariantsEditor({
               error={error('size')}
             />
             <Field
-              label="Colour"
+              label={t('variants.colour')}
               value={variant.color}
               readOnly={index < savedCount}
               onChange={(e) => {
@@ -61,7 +59,7 @@ export function VariantsEditor({
               error={error('color')}
             />
             <Field
-              label="Stock"
+              label={t('variants.stock')}
               inputMode="numeric"
               value={variant.stock}
               onChange={(e) => {
@@ -80,7 +78,7 @@ export function VariantsEditor({
               onChange([...variants, { size: '', color: '', stock: '1' }]);
             }}
           >
-            + Add a size
+            {t('variants.add')}
           </Button>
         )}
         {variants.length > Math.max(1, savedCount) && (
@@ -90,7 +88,7 @@ export function VariantsEditor({
               onChange(variants.slice(0, -1));
             }}
           >
-            Remove the last new size
+            {t('variants.removeLast')}
           </Button>
         )}
       </div>

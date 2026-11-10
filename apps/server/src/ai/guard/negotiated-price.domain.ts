@@ -51,7 +51,11 @@ export function checkNegotiatedPrice(
   if (limits.lowest.compare(limits.asking) > 0) {
     throw new RangeError('The lowest price is above the asking price');
   }
-  const standing = standingOffer(limits, state.lastOffer);
+  // A last offer the owner's current prices no longer allow belongs to an old negotiation, so its
+  // concessions do not count either: the talk starts over from the new asking price.
+  const lastOfferStands = withinLimits(limits, state.lastOffer);
+  const standing = lastOfferStands && state.lastOffer ? state.lastOffer : limits.asking;
+  const concessionsMade = lastOfferStands ? state.concessionsMade : 0;
   if (proposed.compare(limits.asking) > 0) {
     return { result: 'rejected', reason: 'above_asking', counteroffer: standing };
   }
@@ -59,7 +63,7 @@ export function checkNegotiatedPrice(
     return { result: 'rejected', reason: 'above_last_offer', counteroffer: standing };
   }
   const concession = proposed.compare(standing) < 0;
-  if (concession && state.concessionsMade >= MAX_CONCESSIONS) {
+  if (concession && concessionsMade >= MAX_CONCESSIONS) {
     return { result: 'rejected', reason: 'no_concessions_left', counteroffer: standing };
   }
   if (proposed.compare(limits.lowest) < 0) {
@@ -76,13 +80,13 @@ export function checkNegotiatedPrice(
   };
 }
 
-/** The price the agent stands on now: its last offer while that is still within the limits. */
-function standingOffer(limits: PriceLimits, lastOffer: Money | null): Money {
-  const withinLimits =
+/** Whether the agent's last offer is still within the owner's current limits. */
+function withinLimits(limits: PriceLimits, lastOffer: Money | null): boolean {
+  return (
     lastOffer !== null &&
     lastOffer.compare(limits.lowest) >= 0 &&
-    lastOffer.compare(limits.asking) <= 0;
-  return withinLimits ? lastOffer : limits.asking;
+    lastOffer.compare(limits.asking) <= 0
+  );
 }
 
 /**

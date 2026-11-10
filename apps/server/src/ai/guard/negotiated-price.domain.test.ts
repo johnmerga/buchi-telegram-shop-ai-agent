@@ -118,6 +118,16 @@ describe('checkNegotiatedPrice', () => {
     expect(check('600', state)).toMatchObject({ counteroffer: '850.00' });
   });
 
+  it('starts over when the owner moved the prices below the last offer', () => {
+    const range = { asking: birr('150'), lowest: birr('80') };
+    const state = { lastOffer: birr('165'), concessionsMade: 2 };
+    expect(check('140', state, range)).toEqual({
+      result: 'accepted',
+      reason: 'concession',
+      value: '140.00',
+    });
+  });
+
   it('refuses limits where the lowest price is above the asking price', () => {
     const range = { asking: birr('800'), lowest: birr('900') };
     expect(() => checkNegotiatedPrice(birr('850'), range, opening)).toThrow(RangeError);

@@ -77,7 +77,13 @@ export function createPurchaseHandlers(deps: PurchaseDeps): Composer<BuchiContex
       await ctx.reply(`${chosen}\n💬 ዋጋ ይንገሩኝ / Tell me your offer, and we will agree the price.`);
       return;
     }
-    await ctx.reply(`${chosen} · ${formatBirr(price.toString())}`, {
+    // A negotiable product only has a price here once the customer agreed it in chat, so say so:
+    // otherwise it reads like a fixed price that skipped the negotiation.
+    const priceLine =
+      product.pricingMode === 'negotiable'
+        ? `${chosen}\n💬 በውይይታችን የተስማማንበት ዋጋ / The price we agreed in chat: ${formatBirr(price.toString())}\nሌላ ዋጋ ለመነጋገር ይጻፉልኝ / To talk price again, just write to me.`
+        : `${chosen} · ${formatBirr(price.toString())}`;
+    await ctx.reply(priceLine, {
       reply_markup: new InlineKeyboard()
         .text('✅ አረጋግጥ / Confirm', `buy:${variant.id}`)
         .text('ሰርዝ / Cancel', 'purchase:cancel'),

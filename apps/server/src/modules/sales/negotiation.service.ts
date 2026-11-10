@@ -17,7 +17,12 @@ export function concessionsInPlay(
   row: { concessionsMade: number; updatedAt: Date },
   now: Date,
 ): number {
-  return now.getTime() - row.updatedAt.getTime() >= NEGOTIATION_RESET_MS ? 0 : row.concessionsMade;
+  return isRecent(row, now) ? row.concessionsMade : 0;
+}
+
+/** Whether the price talk is recent enough to still count as the same negotiation. */
+export function isRecent(row: { updatedAt: Date }, now: Date): boolean {
+  return now.getTime() - row.updatedAt.getTime() < NEGOTIATION_RESET_MS;
 }
 
 interface NegotiationKey {
@@ -65,13 +70,24 @@ export class NegotiationService implements AgreedPrices {
     return withShop(this.db, shopId, (tx) => this.repo.countCustomersSince(tx, productId, since));
   }
 
-  async find(tx: Transaction, customerId: string, productId: string): Promise<Money | undefined> {
+  /** The price the agent offered, while the talk is recent: an old offer no longer binds the shop. */
+  async find(
+    tx: Transaction,
+    customerId: string,
+    productId: string,
+    now = new Date(),
+  ): Promise<Money | undefined> {
     const row = await this.repo.find(tx, customerId, productId);
-    return row ? Money.of(row.agreedPrice) : undefined;
+    return row && isRecent(row, now) ? Money.of(row.agreedPrice) : undefined;
   }
 
-  async take(tx: Transaction, customerId: string, productId: string): Promise<Money | undefined> {
-    const price = await this.repo.take(tx, customerId, productId);
-    return price === undefined ? undefined : Money.of(price);
+  async take(
+    tx: Transaction,
+    customerId: string,
+    productId: string,
+    now = new Date(),
+  ): Promise<Money | undefined> {
+    const row = await this.repo.take(tx, customerId, productId);
+    return row && isRecent(row, now) ? Money.of(row.agreedPrice) : undefined;
   }
 }

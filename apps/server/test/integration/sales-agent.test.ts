@@ -461,4 +461,40 @@ describe('without the model', () => {
     expect(lastTo(amanuel.id)?.text).not.toContain('1,000');
     expect((await customers.sessionOf(amanuel.id))?.pendingVariantId).toBe(ids.bootsSize40);
   });
+
+  async function agreeEarlier(telegramUserId: number, hoursAgo: number) {
+    const customer = await customers.byTelegramUser(shopId, telegramUserId);
+    const updatedAt = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+    await shopRows((tx) =>
+      tx.insert(negotiations).values({
+        shopId,
+        customerId: customer.id,
+        productId: ids.boots,
+        agreedPrice: '900.00',
+        concessionsMade: 1,
+        updatedAt,
+      }),
+    );
+  }
+
+  it('names a price agreed in chat as agreed, not as a fixed price', async () => {
+    const hana = userOf(425022, 'Hana');
+    await bot.handleUpdate(start(hana, bootsLink));
+    await agreeEarlier(hana.id, 1);
+
+    await bot.handleUpdate(tap(hana, `size:${ids.bootsSize40}`));
+
+    expect(lastTo(hana.id)?.text).toContain('The price we agreed in chat: 900.00 ብር');
+    expect(lastTo(hana.id)?.text).toContain('To talk price again');
+  });
+
+  it('asks for a new offer once an agreed price is old', async () => {
+    const kidist = userOf(425023, 'Kidist');
+    await bot.handleUpdate(start(kidist, bootsLink));
+    await agreeEarlier(kidist.id, 7);
+
+    await bot.handleUpdate(tap(kidist, `size:${ids.bootsSize40}`));
+
+    expect(lastTo(kidist.id)?.text).toContain('Tell me your offer');
+  });
 });

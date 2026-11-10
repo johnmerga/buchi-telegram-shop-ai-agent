@@ -45,12 +45,12 @@ export class NegotiationsRepo {
     tx: Transaction,
     customerId: string,
     productId: string,
-  ): Promise<MoneyString | undefined> {
+  ): Promise<{ agreedPrice: MoneyString; updatedAt: Date } | undefined> {
     const [row] = await tx
       .delete(negotiations)
       .where(and(eq(negotiations.customerId, customerId), eq(negotiations.productId, productId)))
-      .returning({ agreedPrice: negotiations.agreedPrice });
-    return row?.agreedPrice;
+      .returning({ agreedPrice: negotiations.agreedPrice, updatedAt: negotiations.updatedAt });
+    return row;
   }
 
   async countCustomersSince(tx: Transaction, productId: string, since: Date): Promise<number> {

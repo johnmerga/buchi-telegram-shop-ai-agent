@@ -76,13 +76,26 @@ describe('checkNegotiatedPrice', () => {
   });
 
   it('rounds the counteroffer up to the next 50 birr', () => {
-    const range = { asking: birr('1000'), lowest: birr('810') };
+    const range = { asking: birr('1100'), lowest: birr('810') };
     expect(check('500', opening, range)).toMatchObject({ counteroffer: '900.00' });
   });
 
+  it('rounds to a smaller step on a cheap product, so it still comes down', () => {
+    const range = { asking: birr('140'), lowest: birr('120') };
+    expect(check('115', opening, range)).toMatchObject({
+      reason: 'too_low',
+      counteroffer: '125.00',
+    });
+  });
+
+  it('rounds to a single birr on a range of a few birr', () => {
+    const range = { asking: birr('30'), lowest: birr('22') };
+    expect(check('15', opening, range)).toMatchObject({ counteroffer: '24.00' });
+  });
+
   it('caps the counteroffer at the asking price', () => {
-    const range = { asking: birr('820'), lowest: birr('810') };
-    expect(check('500', opening, range)).toMatchObject({ counteroffer: '820.00' });
+    const range = { asking: birr('810.50'), lowest: birr('810') };
+    expect(check('500', opening, range)).toMatchObject({ counteroffer: '810.50' });
   });
 
   it('never counters above the price the agent already offered', () => {
@@ -154,6 +167,17 @@ describe('checkNegotiatedPrice for any input', () => {
       if (decision.result !== 'rejected') continue;
       const retry = checkNegotiatedPrice(decision.counteroffer, range, state);
       expect(retry.result).toBe('accepted');
+    }
+  });
+
+  it('counters a too-low price with a real concession when the range allows one', () => {
+    for (const { limits: range, state, proposed } of cases) {
+      const decision = checkNegotiatedPrice(proposed, range, state);
+      if (decision.result !== 'rejected' || decision.reason !== 'too_low') continue;
+      if (range.asking.subtract(range.lowest).compare(Money.of('4')) < 0) continue;
+      const standing = state.lastOffer ?? range.asking;
+      const fresh = state.lastOffer === null || standing.compare(range.asking) > 0;
+      if (fresh) expect(decision.counteroffer.compare(range.asking)).toBeLessThan(0);
     }
   });
 

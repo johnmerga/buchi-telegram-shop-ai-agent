@@ -21,7 +21,21 @@ export type PriceDecision =
     };
 
 const MAX_CONCESSIONS = 2;
-const PRICE_STEP = Money.of('50');
+
+/**
+ * The step a counteroffer is rounded up to, sized to the owner's range so that rounding never eats
+ * the concession: 50 birr on a range of hundreds, down to 1 birr on a range of a few birr. With a
+ * fixed 50, a 140-birr product whose lowest price was 100 could only ever be countered at 140.
+ */
+function priceStep(range: Money): Money {
+  const steps = [
+    { atLeast: '200', step: '50' },
+    { atLeast: '40', step: '10' },
+    { atLeast: '20', step: '5' },
+  ];
+  const fit = steps.find(({ atLeast }) => range.compare(Money.of(atLeast)) >= 0);
+  return Money.of(fit?.step ?? '1');
+}
 
 /**
  * Checks a price the sales agent wants to offer. An accepted price is always within
@@ -73,14 +87,15 @@ function standingOffer(limits: PriceLimits, lastOffer: Money | null): Money {
 
 /**
  * The counteroffer to a price below the lowest: a quarter of the way from the lowest price to the
- * asking price, rounded up to the next 50 birr, and never above the asking price. It stays strictly
- * above the lowest price whenever the asking price is, so the agent never learns the lowest price,
- * and the 50-birr rounding hides its exact digits. The quarter keeps most of the range for the
- * owner while giving the agent a real concession to offer.
+ * asking price, rounded up to a step that suits the range, and never above the asking price. It
+ * stays strictly above the lowest price whenever the asking price is, so the agent never learns the
+ * lowest price, and the rounding hides its exact digits. The quarter keeps most of the range for
+ * the owner while giving the agent a real concession to offer.
  */
 function floorOffer({ asking, lowest }: PriceLimits): Money {
-  const quarterOfRange = asking.subtract(lowest).divideRoundingUp(4);
-  return min(asking, lowest.add(quarterOfRange).roundUpTo(PRICE_STEP));
+  const range = asking.subtract(lowest);
+  const quarterOfRange = range.divideRoundingUp(4);
+  return min(asking, lowest.add(quarterOfRange).roundUpTo(priceStep(range)));
 }
 
 function min(a: Money, b: Money): Money {

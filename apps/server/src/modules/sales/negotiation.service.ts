@@ -5,6 +5,21 @@ import { withShop } from '../../db/with-shop';
 import type { AgreedPrices } from '../orders/orders.service';
 import type { NegotiationsRepo } from './negotiations.repo';
 
+/**
+ * How long price talk counts as one negotiation. A customer who comes back later starts a new one
+ * with fresh concessions, still from the agent's last offer and never below the owner's lowest
+ * price; without this, two concessions made once left the agent unable to move for good.
+ */
+export const NEGOTIATION_RESET_MS = 6 * 60 * 60 * 1000;
+
+/** The concessions that still count: none once the talk has been quiet for the reset time. */
+export function concessionsInPlay(
+  row: { concessionsMade: number; updatedAt: Date },
+  now: Date,
+): number {
+  return now.getTime() - row.updatedAt.getTime() >= NEGOTIATION_RESET_MS ? 0 : row.concessionsMade;
+}
+
 interface NegotiationKey {
   shopId: string;
   customerId: string;
@@ -19,19 +34,28 @@ export class NegotiationService implements AgreedPrices {
   ) {}
 
   /** What the agent already offered, which the policy guard holds it to. */
-  async state({ shopId, customerId, productId }: NegotiationKey): Promise<NegotiationState> {
+  async state(
+    { shopId, customerId, productId }: NegotiationKey,
+    now = new Date(),
+  ): Promise<NegotiationState> {
     const row = await withShop(this.db, shopId, (tx) => this.repo.find(tx, customerId, productId));
     return {
       lastOffer: row ? Money.of(row.agreedPrice) : null,
-      concessionsMade: row?.concessionsMade ?? 0,
+      concessionsMade: row ? concessionsInPlay(row, now) : 0,
     };
   }
 
   /** Stores a price the policy guard accepted. The customer buys at it by confirming the order. */
-  async recordOffer(key: NegotiationKey, price: Money, concession: boolean): Promise<void> {
+  async recordOffer(
+    key: NegotiationKey,
+    price: Money,
+    concession: boolean,
+    now = new Date(),
+  ): Promise<void> {
     await withShop(this.db, key.shopId, async (tx) => {
       const current = await this.repo.find(tx, key.customerId, key.productId);
-      const concessionsMade = (current?.concessionsMade ?? 0) + (concession ? 1 : 0);
+      const concessionsMade =
+        (current ? concessionsInPlay(current, now) : 0) + (concession ? 1 : 0);
       await this.repo.saveOffer(tx, { ...key, agreedPrice: price.toString(), concessionsMade });
     });
   }

@@ -54,8 +54,12 @@ export class ConversationService {
     return withShop(this.db, shopId, (tx) => this.upsert(tx, shopId, customer));
   }
 
-  list(shopId: string): Promise<Conversation[]> {
-    return withShop(this.db, shopId, (tx) => this.repo.recent(tx, LISTED_CONVERSATIONS));
+  /** The latest chats, newest first; the query keeps every owner-run one in the list. */
+  async list(shopId: string): Promise<Conversation[]> {
+    const rows = await withShop(this.db, shopId, (tx) =>
+      this.repo.recent(tx, LISTED_CONVERSATIONS),
+    );
+    return rows.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
 
   /** The customer's conversation with the shop, if an owner is answering it. */

@@ -19,9 +19,15 @@ export class DecisionLog {
     private readonly approvals: Pick<OwnerApprovals, 'canRun'>,
   ) {}
 
+  /**
+   * The latest decisions, newest first. The query keeps every pending one in the list however old,
+   * and the screen counts them at the top.
+   */
   async recent(shopId: string): Promise<AiDecision[]> {
     const rows = await withShop(this.db, shopId, (tx) => this.repo.recent(tx, LISTED_DECISIONS));
-    return rows.map((row) => this.toItem(row));
+    return rows
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map((row) => this.toItem(row));
   }
 
   private toItem(row: DecisionRow): AiDecision {

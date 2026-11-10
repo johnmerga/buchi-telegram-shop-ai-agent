@@ -177,6 +177,7 @@ describe('AI decisions screen', () => {
 
     const bonus = screen.getByRole('region', { name: 'Decision propose_bonus' });
     expect(within(bonus).getByRole('button', { name: /Decline/ })).toBeTruthy();
+    expect(screen.getByText('2 waiting for you')).toBeTruthy();
   });
 
   it('approves a held action and says when it could not run', async () => {

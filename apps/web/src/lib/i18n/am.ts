@@ -156,6 +156,7 @@ export const am: Record<MessageKey, string> = {
   'chats.handBack': 'ለቡቺ መልስ',
   'chats.takeOver': 'ተረከብ',
   'ai.intro': 'የቡቺ ወኪሎች ያቀረቧቸው ተግባሮች፣ የፖሊሲ ጠባቂው ውሳኔ እና ምክንያቱ።',
+  'ai.waiting': '{count} እርስዎን በመጠበቅ ላይ',
   'ai.empty': 'ገና ውሳኔ የለም',
   'ai.emptyHint': 'የቡቺ ወኪሎች የሚያቀርቧቸው ዋጋዎች፣ ተመላሾች እና ሌሎች ተግባሮች እዚህ ይታያሉ።',
   'ai.decision': 'ውሳኔ {tool}',

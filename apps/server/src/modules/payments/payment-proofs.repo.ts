@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { customers, orders, paymentProofs } from '../../db/schema';
 
@@ -45,13 +45,13 @@ export class PaymentProofsRepo {
     return tx.select().from(paymentProofs).where(eq(paymentProofs.orderId, orderId));
   }
 
-  /** Screenshots that wait for the owner, oldest first: unclear ones, and reported rejections. */
+  /** Screenshots that wait for the owner, newest first: unclear ones, and reported rejections. */
   awaitingOwner(tx: Transaction): Promise<PaymentProofRow[]> {
     return tx
       .select()
       .from(paymentProofs)
       .where(stillWithOwner)
-      .orderBy(asc(paymentProofs.createdAt));
+      .orderBy(desc(paymentProofs.createdAt));
   }
 
   /** The newest proofs that no longer wait for the owner, with their order's customer. */

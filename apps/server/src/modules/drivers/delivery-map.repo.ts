@@ -1,5 +1,5 @@
 import type { MoneyString } from '@buchi/shared';
-import { asc, eq, inArray, sql } from 'drizzle-orm';
+import { asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Transaction } from '../../db/client';
 import { deliveryJobs, drivers, jobStops, orders } from '../../db/schema';
 
@@ -42,7 +42,7 @@ export class DeliveryMapRepo {
       .from(deliveryJobs)
       .leftJoin(drivers, eq(drivers.id, deliveryJobs.driverId))
       .where(inArray(deliveryJobs.status, [...openStatuses]))
-      .orderBy(asc(deliveryJobs.createdAt));
+      .orderBy(desc(deliveryJobs.createdAt));
     return rows.flatMap(({ status, driverName, driverUsername, ...row }) =>
       isOpen(status) ? [{ ...row, status, driverName: driverName ?? driverUsername }] : [],
     );

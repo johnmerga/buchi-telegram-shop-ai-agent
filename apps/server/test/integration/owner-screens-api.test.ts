@@ -406,6 +406,21 @@ describe('payment review', () => {
     const res = await post(`/shops/${otherShop}/payment-reviews/${proofId}/approve`, stranger);
     expect(res.status).toBe(404);
   });
+
+  it('lists the screenshots that wait for the owner newest first', async () => {
+    const older = await orderInReview(990111, 'Liya');
+    await withShop(db, shopId, (tx) =>
+      tx.execute(
+        sql`update payment_proofs set created_at = now() - interval '1 hour' where id = ${older}`,
+      ),
+    );
+    const newer = await orderInReview(990112, 'Yonas');
+    const res = await get(`/shops/${shopId}/payment-reviews`, owner);
+    const listed = z.array(paymentReviewItemSchema).parse(res.body);
+    const ids = listed.map((item) => item.proofId);
+    expect(ids[0]).toBe(newer);
+    expect(ids.at(-1)).toBe(older);
+  });
 });
 
 describe('conversations', () => {
@@ -442,6 +457,24 @@ describe('conversations', () => {
     const back = conversationItemSchema.parse((await post(`${base}/hand-back`, owner)).body);
     expect(back).toMatchObject({ mode: 'agent', handBackAt: null });
     expect((await post(`${base}/take-over`, stranger)).status).toBe(403);
+  });
+
+  it('lists chats newest first, an owner-run one included where its time puts it', async () => {
+    const base = `/shops/${shopId}/conversations/${conversationId}`;
+    await post(`${base}/take-over`, owner);
+    await withShop(db, shopId, (tx) =>
+      tx.execute(
+        sql`update conversations set updated_at = now() - interval '1 day' where id = ${conversationId}`,
+      ),
+    );
+    const newer = (await conversations.open(shopId, { telegramUserId: 990202, name: 'Abel' })).id;
+    const res = await get(`/shops/${shopId}/conversations`, owner);
+    const listed = z.array(conversationItemSchema).parse(res.body);
+    expect(listed.map((item) => [item.id, item.mode])).toEqual([
+      [newer, 'agent'],
+      [conversationId, 'human'],
+    ]);
+    await post(`${base}/hand-back`, owner);
   });
 
   it('answers 404 for a chat that does not exist', async () => {
@@ -494,9 +527,16 @@ describe('AI decisions', () => {
   });
 
   it('lists decisions with reasons and evidence, and marks which the dashboard can decide', async () => {
+    await withShop(db, shopId, (tx) =>
+      tx.execute(
+        sql`update agent_decisions set created_at = now() - interval '2 days' where id = ${bonusId}`,
+      ),
+    );
     const res = await get(`/shops/${shopId}/ai-decisions`, owner);
     const listed = z.array(aiDecisionSchema).parse(res.body);
-    expect(listed.slice(0, 2).every((item) => item.ownerStatus === 'pending')).toBe(true);
+    const times = listed.map((item) => Date.parse(item.createdAt));
+    expect(times).toEqual([...times].sort((a, b) => b - a));
+    expect(listed.at(-1)).toMatchObject({ id: bonusId, ownerStatus: 'pending' });
     expect(listed.find((item) => item.id === bonusId)?.ownerCanDecide).toBe(true);
     expect(listed.find((item) => item.id === farPriceId)).toMatchObject({
       ownerCanDecide: false,
@@ -565,6 +605,23 @@ describe('deliveries map', () => {
         stops: [{ orderId, position: 1, pin: customerPin, delivered: false }],
       }),
     ]);
+  });
+
+  it('lists the newest job first', async () => {
+    const orderId = await orderOf(990302, 'Sara');
+    await withShop(db, shopId, (tx) =>
+      new DeliveryJobsRepo().insertJob(tx, {
+        shopId,
+        special: true,
+        payout: '300.00',
+        separateTripsPayout: '300.00',
+        routeMeters: 21000,
+        estimatedMinutes: 50,
+        stops: [{ orderId, routingSeconds: 2800, expectedSeconds: 3000 }],
+      }),
+    );
+    const map = deliveryMapSchema.parse((await get(`/shops/${shopId}/deliveries`, owner)).body);
+    expect(map.jobs.map((job) => job.stops[0]?.orderId)).toEqual([orderId, expect.any(String)]);
   });
 });
 

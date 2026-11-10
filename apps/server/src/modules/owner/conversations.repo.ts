@@ -42,7 +42,7 @@ export class ConversationsRepo {
     return row;
   }
 
-  /** The latest chats, with owner-run ones first, because those wait for an owner reply. */
+  /** The latest chats, owner-run ones first, so the limit never drops a chat that waits for the owner. */
   recent(tx: Transaction, limit: number): Promise<Conversation[]> {
     return tx
       .select()

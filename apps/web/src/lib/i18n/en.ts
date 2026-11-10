@@ -159,6 +159,7 @@ export const en = {
   'chats.handBack': 'Hand back',
   'chats.takeOver': 'Take over',
   'ai.intro': 'Every action Buchi’s agents proposed, what the policy guard decided, and why.',
+  'ai.waiting': '{count} waiting for you',
   'ai.empty': 'No decisions yet',
   'ai.emptyHint': 'Prices, refunds, and other actions that Buchi’s agents propose appear here.',
   'ai.decision': 'Decision {tool}',

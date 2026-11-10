@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { Database, Transaction } from '../../db/client';
 import { deliveryJobs, drivers, jobStops } from '../../db/schema';
 import type { OpenStop } from './drivers.domain';
@@ -78,7 +78,7 @@ export class DriversRepo {
   }
 
   list(tx: Transaction): Promise<DriverRow[]> {
-    return tx.select().from(drivers).orderBy(drivers.createdAt);
+    return tx.select().from(drivers).orderBy(desc(drivers.createdAt));
   }
 
   /** Undelivered stops of accepted jobs, each driver's earliest job and next stop first. */

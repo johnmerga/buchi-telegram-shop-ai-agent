@@ -40,12 +40,24 @@ export default function AiDecisionsScreen() {
               {t('ai.emptyHint')}
             </EmptyState>
           ) : (
-            items.map((item) => <DecisionCard key={item.id} shopId={shopId} decision={item} />)
+            <>
+              <WaitingNote count={items.filter((item) => item.ownerStatus === 'pending').length} />
+              {items.map((item) => (
+                <DecisionCard key={item.id} shopId={shopId} decision={item} />
+              ))}
+            </>
           )
         }
       </QueryView>
     </div>
   );
+}
+
+/** The list runs newest first, so decisions that wait for the owner are counted up here. */
+function WaitingNote({ count }: { count: number }) {
+  const { t } = useT();
+  if (count === 0) return null;
+  return <Alert tone="info">{t('ai.waiting', { count })}</Alert>;
 }
 
 function DecisionCard({ shopId, decision }: { shopId: string; decision: AiDecision }) {

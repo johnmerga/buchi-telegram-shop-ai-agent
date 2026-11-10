@@ -312,14 +312,14 @@ describe('owner read API', () => {
     expect(deliverySettingsViewSchema.parse(after.body).settings).toEqual(settings);
   });
 
-  it('lists invited and linked drivers without their phone numbers', async () => {
+  it('lists invited and linked drivers newest first, without their phone numbers', async () => {
     await addDriver(driver, 'abebe_rides');
     await drivers.invite(shopId, 'kebede_rides');
     const res = await get(`/shops/${shopId}/drivers`, owner);
     const listed = z.array(driverListItemSchema).parse(res.body);
     expect(listed.map(({ username, linked }) => ({ username, linked }))).toEqual([
-      { username: 'abebe_rides', linked: true },
       { username: 'kebede_rides', linked: false },
+      { username: 'abebe_rides', linked: true },
     ]);
     expect(JSON.stringify(res.body)).not.toContain('+2519');
   });
